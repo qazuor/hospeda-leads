@@ -37,6 +37,8 @@ const list = (items: readonly string[]) => `<ul>${items.map(item => `<li>${item}
 const MATERIAL = ["Fotos (la principal y algunas más)", "Una descripción breve", "Horarios y datos de contacto", "Redes o sitio web, si hay"];
 const chatList = (items: readonly string[]) => items.map(item => `• ${item}`).join("<br>");
 const EMAIL_RESUME = (subject: string, body: string[]) => ({ label: subject, purpose: "resume" as const, managementType: null, subject, email: ["{{saludo}}", ...body, "{{despedida}}"], chat: body });
+const MAIN_INFO_BODY = ["¡Buenísimo, gracias! Acá va la presentación para mirarla con tiempo.", "{{cta_registro}} {{prueba_corta}}", `Los planes, para cuando termine la prueba: ${link("link_planes")}`, "{{ofrecer_ayuda}}"];
+const MAIN_INFO_CHAT = ["¡Buenísimo, gracias! Acá va la presentación para mirarla con tiempo.", "{{cta_registro}} {{prueba_corta}}", "Los planes, para cuando termine la prueba: {{link_planes}}", "{{ofrecer_ayuda}}"];
 
 const BASES: Base[] = [
   {
@@ -65,18 +67,17 @@ const BASES: Base[] = [
     chat: [CHAT_OPENING, "{{propuesta_editores}}", "Es voluntario y sin exclusividad.", "{{pregunta_presentacion}}"],
   },
   {
-    ...EMAIL_RESUME("Envío de la información · Alojamientos", ["¡Buenísimo, gracias! Acá va la presentación para mirarla con tiempo.", "{{cta_registro}} {{prueba_corta}}", `Los planes, para cuando termine la prueba: ${link("link_planes")}`, "{{ofrecer_ayuda}}"]),
-    material: "Presentacion Alojamientos", managementType: "main", vertical: "Alojamientos", subject: "La presentación de Hospeda para {{name}}",
-    chat: ["¡Buenísimo, gracias! Acá va la presentación para mirarla con tiempo.", "{{cta_registro}} {{prueba_corta}}", "Los planes, para cuando termine la prueba: {{link_planes}}", "{{ofrecer_ayuda}}"],
+    ...EMAIL_RESUME("Envío de la información · Alojamientos", MAIN_INFO_BODY),
+    material: "Presentación corta · Alojamientos", managementType: "main", vertical: "Alojamientos", subject: "La presentación de Hospeda para {{name}}", chat: MAIN_INFO_CHAT,
   },
+  { ...EMAIL_RESUME("Envío de la información · Comer y salir", MAIN_INFO_BODY), material: "Presentación corta · Comer y salir", managementType: "main", vertical: "Gastronomía", subject: "La presentación de Hospeda para {{name}}", chat: MAIN_INFO_CHAT },
+  { ...EMAIL_RESUME("Envío de la información · Experiencias", MAIN_INFO_BODY), material: "Presentación corta · Experiencias", managementType: "main", vertical: "Experiencias", subject: "La presentación de Hospeda para {{name}}", chat: MAIN_INFO_CHAT },
   {
-    ...EMAIL_RESUME("Envío de la información · Otros rubros", ["¡Buenísimo, gracias! Acá va la presentación para mirarla con tiempo.", "{{cta_registro}} {{prueba_corta}}", `Los planes, para cuando termine la prueba: ${link("link_planes")}`, "{{ofrecer_ayuda}}"]),
-    material: "Folleto", managementType: "main", vertical: null, subject: "La presentación de Hospeda para {{name}}",
-    chat: ["¡Buenísimo, gracias! Acá va la presentación para mirarla con tiempo.", "{{cta_registro}} {{prueba_corta}}", "Los planes, para cuando termine la prueba: {{link_planes}}", "{{ofrecer_ayuda}}"],
+    ...EMAIL_RESUME("Envío de la información · Otros rubros", MAIN_INFO_BODY), material: "Cómo funciona Hospeda", managementType: "main", vertical: null, subject: "La presentación de Hospeda para {{name}}", chat: MAIN_INFO_CHAT,
   },
   {
     ...EMAIL_RESUME("Envío de la información · Proveedores", ["¡Buenísimo, gracias! Acá va la presentación para mirarla con tiempo.", "{{cta_registro}}", `Así funciona el directorio: ${link("link_proveedores")}`, "{{ofrecer_ayuda}}"]),
-    material: "Presentacion a proveedores", managementType: "provider", subject: "La presentación de Hospeda para {{name}}",
+    managementType: "provider", subject: "La presentación de Hospeda para {{name}}",
     chat: ["¡Buenísimo, gracias! Acá va la presentación para mirarla con tiempo.", "{{cta_registro}}", "Así funciona el directorio: {{link_proveedores}}", "{{ofrecer_ayuda}}"],
   },
   {
