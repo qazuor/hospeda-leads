@@ -37,6 +37,12 @@
 - Validación: `messageCatalog.spec.ts` (13) y `messageVariables.spec.ts` (15) PASS; specs de render, política, materiales, contexto y formato de chat PASS; `npm run typecheck` PASS; `test-message-catalog-migration.mjs` (036) y el nuevo `test-message-catalog-v3-migration.mjs` (058, incluido en `test:communication`) PASS en Postgres 17 descartable. Sin build ni suites completas locales.
 - Próximo paso: PR a staging, CI verde, backup y promoción a main cuando el propietario lo pida; la migración se aplica en el deploy.
 
+## Catálogo de mensajes v4 — 05/11/2026
+
+- Migración 060: materiales por vertical en «Envío de la información»; requiere cinco títulos activos únicos cuando haya materiales activos. La migración falla con el título faltante o duplicado. Proveedores enlaza el directorio.
+- Validado en PostgreSQL descartable: `test-message-catalog-v4-migration.mjs` (sin materiales, completo con un señuelo «Presentacion Alojamientos» activo, título faltante y título duplicado), los tests de catálogo 036 y 058 siguen pasando, y todas las migraciones aplican en una base nueva (48 plantillas). También pasan `messageCatalog.spec.ts`, `messageVariables.spec.ts` y `typecheck`.
+- Orden de despliegue: primero se cargan en producción los cinco títulos exactos y después se despliega. Si falta alguno, la migración falla y el deploy no avanza.
+
 ## Guardia de cuentas del user script — 02/11/2026
 
 - Implementación local: el status del script añade `whatsappAccount` (solo el número fijo configurado, normalizado a dígitos). WhatsApp lee `last-wid-md`; si hay cuenta ajena o número desconocido, se apagan panel, contexto, insignias y registro automático. La cuenta desconocida permanece silenciosa 15 s y luego muestra el aviso. La cuenta sin configurar mantiene el comportamiento anterior. Instagram se apaga ante mismatch y mantiene solo su aviso; el estado desconocido se mantiene silencioso. No se cambió `USERSCRIPT_VERSION`.

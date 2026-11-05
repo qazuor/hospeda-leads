@@ -5,8 +5,8 @@
 - El negocio se registra y crea su propia ficha; la prueba de 30 días empieza al publicarla y la suscripción se elige al terminar. Ofrecer que Hospeda arme la ficha es un rescate: solo si el cliente dice que no entiende cómo hacerlo, luego de que se registre.
 - El primer contacto pide permiso con una pregunta sencilla y no adjunta material. La presentación se comparte en el mensaje posterior a un sí. La bienvenida no pide material.
 - Los mensajes llevan links reales del sitio (verificados el 02/11/2026): registro `/es/auth/signup/`, planes por rubro, presentación por rubro, preguntas frecuentes e Instagram. El primer mensaje por chat solo nombra el dominio `hospeda.com.ar`: un link largo desde un número desconocido parece spam.
-- El material de venta va dentro de «Envío de la información», resuelto por título al aplicar la migración 058: Alojamientos → «Presentacion Alojamientos», otros rubros → «Folleto», proveedores → «Presentacion a proveedores», aliados → «3 formas de estar en Hospeda». Si el material no existe o está archivado, el mensaje queda sin él.
-- La migración 036 ya está aplicada y no se reescribe: el generador ahora escribe `058_message_catalog_v3.sql`.
+- La migración 036 ya está aplicada y no se reescribe; 058 conserva el catálogo v3 y 060 reemplaza el catálogo con v4.
+- Catálogo v4: los materiales activos requeridos para «Envío de la información» son «Presentación corta · Alojamientos», «Presentación corta · Comer y salir», «Presentación corta · Experiencias», «Cómo funciona Hospeda» y «3 formas de estar en Hospeda». Proveedores enlaza el directorio. Si existen materiales activos, 060 falla si falta o está duplicado cualquiera de esos títulos; si no hay materiales activos, omite las referencias.
 
 ## Cuenta propia del user script — 01/11/2026
 

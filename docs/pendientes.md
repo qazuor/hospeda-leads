@@ -423,3 +423,7 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 
 - Implementación y cobertura focalizada en `fix/userscript-mismatch-flicker`; versión 1.8.3 y `USERSCRIPT_MIN_VERSION` sin cambio. Vitest de `userscript/src` (384) y typecheck PASS.
 - Pendiente: CI, merge a `staging` y promoción a `main` (requiere ok del propietario).
+### Catálogo de mensajes v4 · 05/11/2026
+
+- Implementado y probado en PostgreSQL descartable. Falta: PR a `staging`, que el propietario cargue los títulos en producción y recién después la promoción a `main`.
+- Antes de desplegar con materiales activos, cargar los títulos únicos documentados en `decisiones.md`.
