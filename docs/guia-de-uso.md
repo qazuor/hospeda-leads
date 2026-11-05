@@ -972,6 +972,8 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 ### Administrar modelos de comunicación y material de venta
 
+En cada material, «Descripción» se muestra al equipo y al cliente que abre el enlace. «Nota interna» solo la ven los administradores. La biblioteca permite cambiar entre «Tarjetas» y «Lista»; separa los entregables que se pueden enviar a clientes del material de uso interno.
+
 **Cuándo usarlo:** Cuando el equipo necesita materiales comunes para ofrecer.
 
 1. Solo los administradores crean, editan, duplican, publican, desactivan o reactivan modelos compartidos. Los modelos pueden ser para email, WhatsApp, redes sociales u otros canales; no para llamadas.

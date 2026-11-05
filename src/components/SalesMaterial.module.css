@@ -12,6 +12,7 @@
 .statusField{flex:0 1 auto;max-width:100%}
 .statusField>:last-child{max-width:100%;overflow-x:auto;min-height:var(--crm-control-height);align-items:center}
 .groups{display:grid;gap:20px;min-width:0}
+.kindSections{display:grid;gap:28px;min-width:0}.kindSection{display:grid;gap:14px;min-width:0;padding-top:18px;border-top:2px solid var(--surface-border)}.kindSection>header{display:grid;grid-template-columns:minmax(0,auto) auto;align-items:center;gap:6px 10px}.kindSection>header h2,.kindSection>header p{margin:0}.kindSection>header p{grid-column:1/-1;color:var(--muted-foreground);font-size:13px}.list{display:grid;gap:8px;min-width:0}.card[data-view="list"]{grid-template-columns:96px minmax(0,1fr);grid-template-rows:auto;border-radius:10px}.card[data-view="list"] .cover{aspect-ratio:1;border:0;border-right:1px solid var(--surface-border)}.card[data-view="list"] .body{padding:10px}.card[data-view="list"] .description{-webkit-line-clamp:2}.card[data-kind="internal"]{border-inline-start:4px solid color-mix(in srgb,var(--warning) 65%,transparent)}.internalNote{margin:0;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--warning) 12%,var(--card));font-size:13px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}.internalNote strong{color:var(--warning)}
 .group{display:grid;gap:12px;min-width:0}
 .groupTitle{margin:0;font-size:17px}
 .groupTitle button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:600;cursor:pointer;border-radius:8px}
@@ -60,6 +61,7 @@ button.cover:hover img{transform:scale(1.02)}
 .categoryList{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .categoryList li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:6px 0;border-bottom:1px solid var(--border)}
 @media(max-width:600px){.actions>:is(a,button){flex:1 1 auto}}
+@media(max-width:480px){.card[data-view="list"]{grid-template-columns:64px minmax(0,1fr)}.card[data-view="list"] .body{padding:8px}.card[data-view="list"] .cardActions{flex-wrap:wrap}}
 .preview{display:grid;gap:12px;min-width:0}
 .previewMedia{display:grid;place-items:center;min-width:0;overflow:hidden;border-radius:12px;background:var(--muted)}
 .previewMedia :is(img,video){display:block;width:100%;height:auto;max-height:60dvh;object-fit:contain}

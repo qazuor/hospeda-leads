@@ -55,6 +55,13 @@ describe('SalesMaterialPanel',()=>{
   api.list.mockResolvedValue(data([]));setup(false);expect(await screen.findByText(/Lo carga un administrador/)).toBeTruthy();cleanup();
   setup(true);expect(await screen.findByText(/Usá «Nuevo material» para subir el primero/)).toBeTruthy();
  });
+ it('switches to the compact list, keeps the shared actions and remembers the view',async()=>{
+  localStorage.clear();api.list.mockResolvedValue(data([material({internalNote:'Margen aprobado'})]));setup(true);
+  fireEvent.click(await screen.findByLabelText('Lista'));const card=screen.getByRole('article',{name:'Folleto de tarifas'});
+  expect(card.getAttribute('data-view')).toBe('list');expect(localStorage.getItem('crm-sales-material-view-v1')).toBe('list');
+  expect(within(card).getByRole('link',{name:'Abrir'})).toBeTruthy();expect(within(card).getByRole('button',{name:'Más acciones de «Folleto de tarifas»'})).toBeTruthy();expect(within(card).getByText(/Nota interna/)).toBeTruthy();
+  cleanup();setup(true);await screen.findByRole('article',{name:'Folleto de tarifas'});expect(screen.getByRole('article',{name:'Folleto de tarifas'}).getAttribute('data-view')).toBe('list');
+ });
  it('sends the filters to the API',async()=>{
   api.list.mockResolvedValue(data([]));setup(true);await screen.findByRole('button',{name:'Nuevo material'});
   fireEvent.click(screen.getByLabelText('Internos'));
@@ -90,7 +97,7 @@ describe('SalesMaterialPanel',()=>{
   api.list.mockResolvedValue(data([material({id:'m-a',title:'Sin cat',categories:[]}),material({id:'m-b',title:'Promo',categories:both}),material({id:'m-c',title:'Spot',categories:[both[1]]})]));
   setup(false,'m-b');
   const titles=(await screen.findAllByRole('heading',{level:2})).map(h=>h.textContent);
-  expect(titles).toEqual(['Folletos1','Videos2','Sin categoría1']);
+  expect(titles).toEqual(['Entregables · para mandar a clientes','Folletos1','Videos2','Sin categoría1']);
   expect(screen.getAllByRole('article',{name:'Promo'})).toHaveLength(2);expect(document.querySelectorAll('#material-m-b')).toHaveLength(1);
   const videos=screen.getByRole('button',{name:'Videos 2'});expect(videos.getAttribute('aria-expanded')).toBe('true');
   fireEvent.click(videos);expect(videos.getAttribute('aria-expanded')).toBe('false');expect(screen.queryByRole('article',{name:'Spot'})).toBeNull();
@@ -103,11 +110,11 @@ describe('SalesMaterialPanel',()=>{
   setup(true);await screen.findByRole('article',{name:'Spot'});
   expect(screen.queryByRole('button',{name:'Limpiar filtros'})).toBeNull();
   fireEvent.change(screen.getByLabelText('Formato'),{target:{value:'video'}});
-  expect(screen.queryByRole('article',{name:'Promo'})).toBeNull();expect(screen.getAllByRole('heading',{level:2}).map(h=>h.textContent)).toEqual(['Videos1']);
+  expect(screen.queryByRole('article',{name:'Promo'})).toBeNull();expect(screen.getAllByRole('heading',{level:2}).map(h=>h.textContent)).toEqual(['Entregables · para mandar a clientes','Videos1']);
   fireEvent.click(screen.getByRole('button',{name:'Limpiar filtros'}));
   await waitFor(()=>expect(screen.getAllByRole('article',{name:'Promo'})).toHaveLength(2));expect(screen.queryByRole('button',{name:'Limpiar filtros'})).toBeNull();
   fireEvent.click(screen.getByLabelText('Categorías',{selector:'input'}));fireEvent.click(await screen.findByRole('option',{name:'Videos',hidden:true}));
-  await waitFor(()=>expect(screen.getAllByRole('heading',{level:2}).map(h=>h.textContent)).toEqual(['Videos1']));
+  await waitFor(()=>expect(screen.getAllByRole('heading',{level:2}).map(h=>h.textContent)).toEqual(['Entregables · para mandar a clientes','Videos1']));
   fireEvent.click(screen.getByRole('button',{name:'Limpiar filtros'}));
   fireEvent.click(screen.getByLabelText('Archivados'));
   await screen.findByRole('article',{name:'Viejo'});expect(screen.queryByRole('article',{name:'Vigente'})).toBeNull();

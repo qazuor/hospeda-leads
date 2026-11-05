@@ -25,6 +25,7 @@ export function SalesMaterialPreview({material,onClose}:{material:SalesMaterial;
    {media&&<div className={styles.previewMedia} data-format={format}>{media}</div>}
    <div className={styles.badges}><Badge variant={material.kind==='deliverable'?'success':'warning'}>{material.kind==='deliverable'?'Entregable':'Interno'}</Badge>{material.categories.map(c=><Badge key={c.id} variant="outline">{c.name}</Badge>)}</div>
    {material.description&&<p className={styles.previewDescription}>{material.description}</p>}
+   {!!material.internalNote&&<p className={styles.internalNote}><strong>Nota interna</strong>{' · '}{material.internalNote}</p>}
    <p className={styles.meta}>{current.fileName??'Archivo'}{current.byteSize?' · '+formatBytes({bytes:current.byteSize}):''}</p>
    {material.kind==='internal'&&<p className={styles.meta}>Solo para vendedores: no se manda a clientes.</p>}
    <div className={styles.actions}>

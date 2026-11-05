@@ -47,7 +47,7 @@ export type SalesMaterialSavedNotice={coverMaterialId:string};
 export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,onClose,onSaved}:{mode:SalesMaterialFormMode;categories:SalesMaterialCategory[];/** Active catalog verticals, in order. */verticals?:readonly string[];limits:SalesMaterialLimits;onClose:()=>void;onSaved:(message:string,notice?:SalesMaterialSavedNotice)=>void}){
  const qc=useQueryClient();
  const material='material' in mode?mode.material:null;
- const [title,setTitle]=useState(material?.title??''),[description,setDescription]=useState(material?.description??'');
+ const [title,setTitle]=useState(material?.title??''),[description,setDescription]=useState(material?.description??''),[internalNote,setInternalNote]=useState(material?.internalNote??'');
  const [kind,setKind]=useState<'deliverable'|'internal'>(material?.kind??'deliverable'),[source,setSource]=useState<'file'|'url'>(material?.source??'file');
  const [categoryIds,setCategoryIds]=useState<string[]>(material?.categories.map(c=>c.id)??[]),[openDirect,setOpenDirect]=useState(material?.openDirect??false);
  const [extraCategories,setExtraCategories]=useState<SalesMaterialCategory[]>([]),[verticals,setVerticals]=useState<string[]>(material?.verticals??[]);
@@ -154,11 +154,11 @@ export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,o
     const id=createId.current;
     const version=source==='file'?{uploadId:await upload(file!,'file',id)}:{url:url.trim()};
     setPending('Guardando material…');
-    await postSalesMaterial({action:'create',id,title:title.trim(),description:description.trim(),kind,source,categoryIds,verticals,version,openDirect});saved='Material guardado.';
+    await postSalesMaterial({action:'create',id,title:title.trim(),description:description.trim(),internalNote:internalNote.trim(),kind,source,categoryIds,verticals,version,openDirect});saved='Material guardado.';
     if(cover){const uploadId=await upload(cover,'cover',id);setPending('Guardando portada…');await postSalesMaterial({action:'cover',id,revision:1,uploadId});}
     else saved+=source==='file'?await autoCover(file!,id,1):await linkCover(id,1);
    }else if(mode.type==='edit'){
-    const data={title:title.trim(),description:description.trim(),kind,categoryIds,verticals,openDirect},key=JSON.stringify(data);
+    const data={title:title.trim(),description:description.trim(),internalNote:internalNote.trim(),kind,categoryIds,verticals,openDirect},key=JSON.stringify(data);
     if(editUpdateDone.current!==key){setPending('Guardando cambios…');const result=await postSalesMaterial({action:'update',id:material!.id,revision:revision.current,...data});revision.current=result.revision??revision.current+1;editUpdateDone.current=key;}
     saved='Cambios guardados.';
     if(file||replaceUrl){saved=material!.source==='file'?'Cambios guardados. Archivo reemplazado; las versiones anteriores se conservan.':'Cambios guardados. Enlace reemplazado; las versiones anteriores se conservan.';saved+=await saveVersion(material!.id,revision.current,file,url);}
@@ -223,7 +223,8 @@ export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,o
    {needsUrl&&(mode.type==='edit'?<section aria-label="Contenido actual"><label>Enlace (https)<Input type="url" value={url} disabled={busy||material?.status==='archived'} placeholder="https://…" onChange={e=>setUrl(e.target.value)}/></label>{material?.status==='archived'?<span className={styles.hint}>Material archivado: el enlace no se puede reemplazar.</span>:<p className={styles.hint}>Al reemplazarlo se conservan las versiones anteriores y los enlaces ya enviados abren el contenido nuevo.</p>}</section>:<label>Enlace (https)<Input type="url" value={url} disabled={busy} placeholder="https://…" onChange={e=>setUrl(e.target.value)}/></label>)}
    {(mode.type==='create'||mode.type==='edit')&&<>
     <label>Título<Input value={title} maxLength={200} disabled={busy} onChange={e=>setTitle(e.target.value)} placeholder="Ej.: Folleto de tarifas 2027" aria-describedby="sales-material-title-hint"/></label><span id="sales-material-title-hint" className={styles.hint}>Lo ve el cliente: en el mensaje («Podés ver «…» en: …»), en la página del material y en la vista previa de WhatsApp.</span>
-    <label>Comentario<Textarea value={description} maxLength={4000} disabled={busy} onChange={e=>setDescription(e.target.value)} placeholder="Para qué sirve, a quién conviene mostrarlo"/></label>
+    <label>Descripción<Textarea value={description} maxLength={4000} disabled={busy} onChange={e=>setDescription(e.target.value)} placeholder="Para qué sirve, a quién conviene mostrarlo"/><span className={styles.hint}>La ven vendedores y clientes en el enlace compartido.</span></label>
+    <label>Nota interna<Textarea value={internalNote} maxLength={4000} disabled={busy} onChange={e=>setInternalNote(e.target.value)} placeholder="Información exclusiva para administradores"/><span className={styles.hint}>Solo la ven los administradores. No se muestra a vendedores ni a clientes.</span></label>
     <label>Tipo<NativeSelect value={kind} disabled={busy} onChange={e=>setKind(e.target.value as 'deliverable'|'internal')}><option value="deliverable">Entregable: se puede mandar a clientes</option><option value="internal">Interno: solo para vendedores</option></NativeSelect></label>
     <div><label className={styles.check}><Checkbox checked={openDirect} disabled={busy} disabledReason={BUSY} aria-describedby="sales-material-open-direct-hint" onChange={e=>setOpenDirect(e.currentTarget.checked)}/>Abrir directo</label><span id="sales-material-open-direct-hint" className={styles.hint}>{OPEN_DIRECT_HINTS[mode.type==='create'?source:material?.source??'file']}</span></div>
     {becomesInternal&&<p className={styles.warning} role="note">Al pasarlo a interno, los enlaces que ya se mandaron van a mostrar «Este material ya no está disponible».</p>}
