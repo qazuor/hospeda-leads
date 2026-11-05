@@ -1,5 +1,12 @@
 # Estado del CRM — corte al 2 de noviembre de 2026
 
+## Reemplazar archivo o enlace de material — 05/11/2026
+
+- `feat/material-edit-replace` (PR a `staging`): «Editar material» muestra el contenido vigente y permite crear una versión desde archivo o enlace. Se conserva el contenido histórico; los enlaces existentes resuelven la versión nueva. Archivados muestran el contenido en modo lectura. Si falla el reemplazo luego de guardar datos, el diálogo conserva el formulario y reintenta solo la versión.
+- El servicio devuelve `{ok:true,revision}` en `update`, que incrementa la revisión; la versión usa esa revisión. No requirió cambios de servidor ni esquema.
+- Validación final: `npx vitest run src/components/SalesMaterialForm.spec.tsx src/components/SalesMaterialCard.spec.tsx src/components/SalesMaterialPanel.spec.tsx` PASS (64, incluye reintento con datos editados tras un reemplazo fallido); `npm run typecheck` PASS. Navegador e integración quedan para CI.
+- Próximo paso: merge a staging con CI verde; el cambio de origen (archivo ↔ enlace) queda pendiente.
+
 ## Etiquetas de chats siguen el scroll — 04/11/2026
 
 - `fix/userscript-badges-follow-scroll` (PR a `staging`): las etiquetas de la lista de chats se reubican en cada frame durante el scroll (antes sólo al detenerse, por el escaneo con debounce) y se ocultan al salir del área de la lista. Userscript 1.8.4.

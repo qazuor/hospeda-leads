@@ -336,4 +336,43 @@ describe('«Portada» dialog: «Generar desde el archivo» (spec 102)',()=>{
   setup({type:'create'});pick('Archivo',new File(['png'],'foto.png',{type:'image/png'}));fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Foto chica'}});
   fireEvent.click(save('Guardar material'));await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado.'));expect(api.autoCover).not.toHaveBeenCalled();
  });
+ it('edit replaces a file with update then version and uses the returned revision',async()=>{
+  api.upload.mockResolvedValue('up-replace');api.post.mockResolvedValueOnce({ok:true,revision:6}).mockResolvedValueOnce({ok:true,revision:7});
+  setup({type:'edit',material:{...material,currentVersion:{id:'v1',version:5,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:5,actorEmail:'a@example.com',createdAt:new Date()}}});
+  pick('Reemplazar archivo',new File(['%PDF-'],'nuevo.pdf',{type:'application/pdf'}));fireEvent.click(save('Guardar cambios'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Cambios guardados. Archivo reemplazado; las versiones anteriores se conservan.'));
+  expect(api.post.mock.calls[0][0]).toMatchObject({action:'update',revision:5});expect(api.post.mock.calls[1][0]).toMatchObject({action:'version',revision:6,version:{uploadId:'up-replace'}});
+ });
+ it('edit replaces a changed URL after update',async()=>{
+  const link={...material,source:'url' as const,currentVersion:{id:'v1',version:5,url:'https://example.com/old',fileName:null,mimeType:null,byteSize:null,actorEmail:'a@example.com',createdAt:new Date()}};
+  api.post.mockResolvedValueOnce({ok:true,revision:6}).mockResolvedValueOnce({ok:true,revision:7});setup({type:'edit',material:link});
+  fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/new'}});fireEvent.click(save('Guardar cambios'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());expect(api.post.mock.calls[1][0]).toMatchObject({action:'version',revision:6,version:{url:'https://example.com/new'}});
+ });
+ it('edit with unchanged URL or no replacement file only updates data',async()=>{
+  const link={...material,source:'url' as const,currentVersion:{id:'v1',version:5,url:'https://example.com/old',fileName:null,mimeType:null,byteSize:null,actorEmail:'a@example.com',createdAt:new Date()}};
+  setup({type:'edit',material:link});fireEvent.click(save('Guardar cambios'));await waitFor(()=>expect(api.post).toHaveBeenCalledTimes(1));expect(api.post.mock.calls[0][0].action).toBe('update');
+  cleanup();vi.clearAllMocks();api.post.mockResolvedValue({ok:true});setup({type:'edit',material});fireEvent.click(save('Guardar cambios'));await waitFor(()=>expect(api.post).toHaveBeenCalledTimes(1));expect(api.post.mock.calls[0][0].action).toBe('update');
+ });
+ it('archived edit shows current content without replacement controls',()=>{
+  setup({type:'edit',material:{...material,status:'archived',currentVersion:{id:'v1',version:5,url:null,fileName:'archived.pdf',mimeType:'application/pdf',byteSize:5,actorEmail:'a@example.com',createdAt:new Date()}}});
+  expect(screen.getByText(/archived\.pdf/)).toBeTruthy();expect(screen.queryByLabelText('Reemplazar archivo')).toBeNull();
+ });
+ it('after edit data succeeds and version fails, retry sends only version',async()=>{
+  api.upload.mockResolvedValue('up-retry');api.post.mockResolvedValueOnce({ok:true,revision:6}).mockRejectedValueOnce(new Error('Falló la versión.')).mockResolvedValueOnce({ok:true,revision:7});
+  setup({type:'edit',material});pick('Reemplazar archivo',new File(['%PDF-'],'nuevo.pdf',{type:'application/pdf'}));fireEvent.click(save('Guardar cambios'));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent',expect.stringContaining('Los datos se guardaron, pero el archivo o enlace no se reemplazó'));
+  fireEvent.click(save('Guardar cambios'));await waitFor(()=>expect(onSaved).toHaveBeenCalled());expect(api.post.mock.calls.map(call=>call[0].action)).toEqual(['update','version','version']);expect(api.upload).toHaveBeenCalledTimes(1);
+ });
+ it('after a failed replacement, a retry with edited data resends update before version',async()=>{
+  api.upload.mockResolvedValue('up-retry');api.post.mockResolvedValueOnce({ok:true,revision:6}).mockRejectedValueOnce(new Error('Falló la versión.')).mockResolvedValueOnce({ok:true,revision:7}).mockResolvedValueOnce({ok:true,revision:8});
+  setup({type:'edit',material});pick('Reemplazar archivo',new File(['%PDF-'],'nuevo.pdf',{type:'application/pdf'}));fireEvent.click(save('Guardar cambios'));
+  await screen.findByRole('alert');fireEvent.change(screen.getByLabelText('Título'),{target:{value:'Título corregido'}});fireEvent.click(save('Guardar cambios'));
+  await waitFor(()=>expect(onSaved).toHaveBeenCalled());expect(api.post.mock.calls.map(call=>call[0].action)).toEqual(['update','version','update','version']);
+  expect(api.post.mock.calls[2][0]).toMatchObject({title:'Título corregido',revision:6});expect(api.post.mock.calls[3][0]).toMatchObject({revision:7});
+ });
+ it('invalid edit URL blocks saving',()=>{
+  const link={...material,source:'url' as const,currentVersion:{id:'v1',version:5,url:'https://example.com/old',fileName:null,mimeType:null,byteSize:null,actorEmail:'a@example.com',createdAt:new Date()}};
+  setup({type:'edit',material:link});fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'http://example.com/new'}});expect(save('Guardar cambios').disabled).toBe(true);expect(api.post).not.toHaveBeenCalled();
+ });
 });
