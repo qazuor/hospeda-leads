@@ -1,5 +1,13 @@
 # Estado del CRM — corte al 2 de noviembre de 2026
 
+
+## Portada automática de enlaces — 05/11/2026
+
+- `fix/link-preview-cover` (PR a `staging`). Causa, verificada con el log de producción (`Link preview <host>: no_image`) y con las páginas reales:
+  - hospeda.com.ar tiene `og:image` a ~96 KB, porque el `<head>` mide ~103 KB por el CSS y los scripts en línea. El escaneo cortaba en 64 KB y ahora llega a 512 KB. Sigue siendo lineal y frena en `</head>`.
+  - Google Drive y Docs no publican `og:image` para ningún cliente. Ahora se usa la miniatura pública (`drive.google.com/thumbnail?id=…`). Solo funciona con archivos compartidos con «Cualquier persona con el enlace»; si no, se explica eso.
+- Validación: `linkPreview.spec.ts` con 3 tests de regresión, que fallaban antes del cambio. También pasan `linkPreview.transport.spec.ts`, `salesMaterialService.spec.ts`, `salesMaterialAutoCover.spec.ts` (110) y `typecheck`. Prueba en vivo con el helper contra los enlaces de producción: hospeda.com.ar y dos archivos de Drive pasan de `no_image` a imagen.
+- Próximo paso: después del deploy, usar «Portada → Generar desde el enlace» en los materiales de enlace sin portada.
 ## Reemplazar archivo o enlace de material — 05/11/2026
 
 - `feat/material-edit-replace` (PR a `staging`): «Editar material» muestra el contenido vigente y permite crear una versión desde archivo o enlace. Se conserva el contenido histórico; los enlaces existentes resuelven la versión nueva. Archivados muestran el contenido en modo lectura. Si falla el reemplazo luego de guardar datos, el diálogo conserva el formulario y reintenta solo la versión.

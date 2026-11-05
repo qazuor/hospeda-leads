@@ -51,10 +51,14 @@ describe('extractPreviewImage',()=>{
    const started=performance.now();extractPreviewImage({html,baseUrl:base});expect(performance.now()-started,html.slice(0,20)).toBeLessThan(200);
   }
  });
- it('reads only the head, at most the first 64 KB',()=>{
+ it('reads only the head, at most the first 512 KB',()=>{
   expect(extractPreviewImage({html:'<head></head><meta property="og:image" content="https://a.example/late.jpg">',baseUrl:base})).toBeNull();
-  expect(extractPreviewImage({html:'<!--'+'x'.repeat(70000)+'--><meta property="og:image" content="https://a.example/far.jpg">',baseUrl:base})).toBeNull();
+  expect(extractPreviewImage({html:'<!--'+'x'.repeat(530000)+'--><meta property="og:image" content="https://a.example/far.jpg">',baseUrl:base})).toBeNull();
   expect(extractPreviewImage({html:'<meta name=description content=x><meta property=og:image content=https://a.example/u.jpg>',baseUrl:base})).toBe('https://a.example/u.jpg');
+ });
+ it('finds og:image after a large inline head (regression: hospeda.com.ar puts it at ~96 KB, past the old 64 KB cap)',()=>{
+  const head='<style>'+'.a{color:red}'.repeat(7400)+'</style><meta property="og:image" content="https://a.example/og.png">';
+  expect(head.length).toBeGreaterThan(96000);expect(extractPreviewImage({html:'<head>'+head+'</head>',baseUrl:base})).toBe('https://a.example/og.png');
  });
  it('survives malformed entities: out-of-range code points stay as text and only preview tags are decoded',()=>{
   expect(extractPreviewImage({html:'<meta name="description" content="&#99999999; &#x110000; &#xD800;"><meta property="og:image" content="https://a.example/x.jpg?a=1&amp;b=2">',baseUrl:base})).toBe('https://a.example/x.jpg?a=1&b=2');
@@ -108,6 +112,17 @@ describe('fetchLinkPreviewImage',()=>{
   expect(await code(fetchLinkPreviewImage({url:'https://site.example/',resolve:publicResolve,fetchPinned:ok.fetchPinned}))).toBe('ok');
   const tooMany=fakeFetch({'https://site.example/':{status:301,location:'/1'},'https://site.example/1':{status:302,location:'/2'},'https://site.example/2':{status:303,location:'/3'},'https://site.example/3':{status:302,location:'/4'}});
   expect(await code(fetchLinkPreviewImage({url:'https://site.example/',resolve:publicResolve,fetchPinned:tooMany.fetchPinned}))).toBe('failed');
+ });
+ it('uses the public thumbnail of a Google Drive file page, which has no og:image',async()=>{
+  const id='1rKybysR5PG2CnaLneeMKTo3L5PRI20z_',thumb=`https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
+  const f=fakeFetch({[`https://drive.google.com/file/d/${id}/view?usp=sharing`]:{body:html('<meta property="og:title" content="video.mp4">')},[thumb]:{status:302,location:`https://lh3.googleusercontent.com/d/${id}=w1200`},[`https://lh3.googleusercontent.com/d/${id}=w1200`]:{contentType:'image/png',body:png}});
+  expect(await code(fetchLinkPreviewImage({url:`https://drive.google.com/file/d/${id}/view?usp=sharing`,resolve:publicResolve,fetchPinned:f.fetchPinned}))).toBe('ok');
+  expect(f.calls.map(c=>c.url)).toContain(thumb);
+ });
+ it('explains a Drive file without a public thumbnail (not shared with anyone with the link)',async()=>{
+  const id='1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',thumb=`https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
+  const f=fakeFetch({[`https://drive.google.com/file/d/${id}/view`]:{body:html('<title>Drive</title>')},[thumb]:{status:500}});
+  await expect(fetchLinkPreviewImage({url:`https://drive.google.com/file/d/${id}/view`,resolve:publicResolve,fetchPinned:f.fetchPinned})).rejects.toMatchObject({code:'no_image',message:expect.stringContaining('Cualquier persona con el enlace')});
  });
  it('needs an HTML page with a preview image',async()=>{
   const json=fakeFetch({'https://site.example/':{contentType:'application/json',body:new TextEncoder().encode('{}')}});
