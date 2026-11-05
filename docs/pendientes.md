@@ -4,7 +4,7 @@
 
 - **Material de venta: cambiar el origen (archivo ↔ enlace).** «Editar» ya reemplaza el archivo o el enlace (`feat/material-edit-replace`), pero el origen sigue fijo desde la creación. Pedido del propietario para más adelante: requiere servidor, migración y portada/vista previa.
 
-- **Administración de usuarios / WhatsApp:** rama `feat/user-admin-whatsapp-line`, sin PR. El coordinador confirmó `test:auth`, `test:user-admin` y `scripts/test-userscript.ts` PASS en DB descartable; pass 4 corrió `npm run typecheck` y specs focalizadas. Falta `test:inbound` en DB descartable y PR a staging.
+- **Varias líneas de WhatsApp por usuario (`feat/user-whatsapp-lines`, script 1.8.5):** después del deploy, en una migración posterior, borrar `users.whatsapp_phone`, que 061 deja deprecada para no romper el contenedor viejo durante el deploy. Los scripts ≤1.8.4 de usuarios con 2 o más números ven el panel en cualquier número hasta que actualicen.
 
 - **Catálogo de mensajes v3:** migración 058 lista en `feat/message-catalog-v3`; falta PR a staging y promoción. Confirmar con el propietario para quién es «Presentacion Hospedin» (hoy no va en ningún mensaje).
 

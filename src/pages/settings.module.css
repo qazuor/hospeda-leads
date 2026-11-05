@@ -25,3 +25,4 @@
 /* The shell sidebar narrows the content: switch the users table by its own width, not the viewport. */
 .usersCard{container-type:inline-size}
 @container (max-width:960px){.userTableHeader{display:none}.userRow{grid-template-columns:1fr 1fr 120px}.userMain{grid-column:1/-1}.userActions{grid-column:3;grid-row:1}}
+.whatsappHint{font-size:12px;line-height:1.45;color:var(--muted-foreground)}.whatsappList{display:grid;gap:7px}.whatsappInput{display:flex;gap:7px}.whatsappInput input{flex:1;min-width:0}

@@ -8,6 +8,19 @@
   - Google Drive y Docs no publican `og:image` para ningún cliente. Ahora se usa la miniatura pública (`drive.google.com/thumbnail?id=…`). Solo funciona con archivos compartidos con «Cualquier persona con el enlace»; si no, se explica eso.
 - Validación: `linkPreview.spec.ts` con 3 tests de regresión, que fallaban antes del cambio. También pasan `linkPreview.transport.spec.ts`, `salesMaterialService.spec.ts`, `salesMaterialAutoCover.spec.ts` (110) y `typecheck`. Prueba en vivo con el helper contra los enlaces de producción: hospeda.com.ar y dos archivos de Drive pasan de `no_image` a imagen.
 - Próximo paso: después del deploy, usar «Portada → Generar desde el enlace» en los materiales de enlace sin portada.
+## Varias líneas de WhatsApp por usuario — 05/11/2026
+
+- `feat/user-whatsapp-lines` (PR a `staging`):
+  - La migración 061 agrega `users.whatsapp_phones text[]`, con hasta 5 números de 8 a 15 dígitos y sin repetidos (CHECK con una función IMMUTABLE), y copia ahí el valor de `whatsapp_phone`.
+  - `whatsapp_phone` queda deprecada y se borra en una migración posterior, para no romper el contenedor viejo durante el deploy.
+  - En Ajustes, el diálogo del usuario edita la lista de números.
+  - Script 1.8.5: el panel se activa con cualquiera de los números asignados.
+  - El status agrega `whatsappAccounts` y mantiene `whatsappAccount` para los scripts viejos: el número si hay uno solo, `null` si hay cero o varios. `USERSCRIPT_MIN_VERSION` no cambia.
+- Validación:
+  - `npm run typecheck` PASS y 4 specs (44 tests) PASS.
+  - En PostgreSQL 17 descartable: migraciones 001–061 aplicadas, `db:seed:test`, `scripts/test-user-admin.ts` PASS y `scripts/test-userscript.ts` PASS.
+  - Prueba manual de la base: el backfill copia el número; el CHECK rechaza repetidos, números cortos y 6 números, y acepta 5.
+
 ## Reemplazar archivo o enlace de material — 05/11/2026
 
 - `feat/material-edit-replace` (PR a `staging`): «Editar material» muestra el contenido vigente y permite crear una versión desde archivo o enlace. Se conserva el contenido histórico; los enlaces existentes resuelven la versión nueva. Archivados muestran el contenido en modo lectura. Si falla el reemplazo luego de guardar datos, el diálogo conserva el formulario y reintenta solo la versión.

@@ -10,7 +10,7 @@
 
 ## Cuenta propia del user script — 01/11/2026
 
-- WhatsApp compara la cuenta abierta en WhatsApp Web con el número asignado al usuario del CRM; si ese usuario no tiene línea configurada, usa `WHATSAPP_ACCOUNT_PHONE` como fallback global. Si ambos faltan, se conserva el comportamiento actual. Instagram sigue usando `INSTAGRAM_ACCOUNT_USERNAME`.
+- WhatsApp compara la cuenta abierta en WhatsApp Web con cualquiera de hasta cinco números asignados al usuario del CRM; si no hay números asignados, usa `WHATSAPP_ACCOUNT_PHONE` como fallback global. Si ambos faltan, se conserva el comportamiento actual. El status mantiene `whatsappAccount` para scripts viejos: entrega el número si hay uno y `null` si hay cero o varios. Instagram sigue usando `INSTAGRAM_ACCOUNT_USERNAME`.
 
 Estas decisiones provienen del propietario y del comportamiento revisado. Cambiarlas requiere tratar el cambio como funcional, no esconderlo en una corrección estética. El estado de implementación y los pendientes están en documentos separados.
 

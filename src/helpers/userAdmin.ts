@@ -1,16 +1,14 @@
-/** Normalize a human-entered WhatsApp line and validate the stored digits-only format. */
-export function normalizeWhatsappPhone(value:string|null|undefined):{phone:string|null;error:string|null}{
- const digits=(value??'').replace(/\D/g,'');
- if(!digits)return {phone:null,error:null};
- if(digits.length<8||digits.length>15)return {phone:null,error:'El número de WhatsApp debe tener entre 8 y 15 dígitos.'};
- return {phone:digits,error:null};
+/** Normalize and validate assigned WhatsApp lines. */
+export function normalizeWhatsappPhones(values:readonly string[]):{phones:string[];error:string|null}{
+ const phones:string[]=[];
+ for(const value of values){const digits=value.replace(/\D/g,'');if(!digits)continue;if(digits.length<8||digits.length>15)return {phones:[],error:'Cada número de WhatsApp debe tener entre 8 y 15 dígitos.'};if(!phones.includes(digits))phones.push(digits);}
+ if(phones.length>5)return {phones:[],error:'Podés asignar hasta 5 números de WhatsApp.'};
+ return {phones,error:null};
 }
-/** Resolve the WhatsApp line expected by the script user, falling back to the legacy environment value. */
-export function resolveWhatsappAccountPhone({userPhone,env}:{userPhone:string|null|undefined;env:Readonly<Record<string,string|undefined>>}):string|null{
- const user=(userPhone??'').replace(/\D/g,'');
- if(user.length>=8&&user.length<=15)return user;
- const fallback=(env.WHATSAPP_ACCOUNT_PHONE??'').replace(/\D/g,'');
- return fallback.length>=8&&fallback.length<=15?fallback:null;
+/** Resolve assigned numbers, falling back to the legacy environment value only when none are assigned. */
+export function resolveWhatsappAccountPhones({userPhones,env}:{userPhones:readonly string[]|null|undefined;env:Readonly<Record<string,string|undefined>>}):string[]{
+ const assigned=normalizeWhatsappPhones(userPhones??[]).phones;if(assigned.length)return assigned;
+ const fallback=normalizeWhatsappPhones([env.WHATSAPP_ACCOUNT_PHONE??'']).phones;return fallback;
 }
 /** Whether an administrator may change a role without removing their own access or the final active administrator. */
 export function canChangeUserRole({actorId,targetId,targetRole,nextRole,activeAdmins}:{actorId:number;targetId:number;targetRole:'admin'|'user';nextRole:'admin'|'user';activeAdmins:number}):boolean{

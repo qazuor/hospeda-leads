@@ -18,7 +18,7 @@ import {MessageVariablesSettings} from "../components/MessageVariablesSettings";
 import {InstagramIntegration} from '../components/InstagramIntegration';
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GitBranch, FileText, KeyRound, Mail, MailPlus, Pencil, Radio, RotateCw, Shield, SlidersHorizontal, Tags, UserCheck, Users, UserX, Variable } from "lucide-react";
+import { GitBranch, FileText, KeyRound, Mail, MailPlus, Minus, Pencil, Plus, Radio, RotateCw, Shield, SlidersHorizontal, Tags, UserCheck, Users, UserX, Variable } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
@@ -55,7 +55,7 @@ export default function SettingsPage(){
   const [editFullName,setEditFullName]=useState("");
   const [editDisplayName,setEditDisplayName]=useState("");
   const [editPhone,setEditPhone]=useState("");
-  const [editWhatsappPhone,setEditWhatsappPhone]=useState("");
+  const [editWhatsappPhones,setEditWhatsappPhones]=useState<string[]>([]);
   const [editSex,setEditSex]=useState("");
   const [editSenderEmail,setEditSenderEmail]=useState("");
   const [senderName,setSenderName]=useState("");
@@ -66,7 +66,7 @@ export default function SettingsPage(){
   useEffect(()=>{
     if(!editingUser)return;
     setEditEmail(editingUser.email);setEditFullName(editingUser.fullName??"");setEditDisplayName(editingUser.displayName);
-    setEditPhone(editingUser.phone??"");setEditWhatsappPhone(editingUser.whatsappPhone??"");setEditSex(editingUser.sex??"");setEditSenderEmail(editingUser.senderEmail??"");
+    setEditPhone(editingUser.phone??"");setEditWhatsappPhones(editingUser.whatsappPhones??[]);setEditSex(editingUser.sex??"");setEditSenderEmail(editingUser.senderEmail??"");
   },[editingUser]);
   useEffect(()=>{
     if(!data?.emailDelivery)return;
@@ -77,7 +77,7 @@ export default function SettingsPage(){
   const inviteUser=async()=>{return runOperation('settings',async()=>{if(!inviteEmail.trim())return;await save.mutateAsync({action:"inviteUser",email:inviteEmail.trim()});setInviteEmail("");setInviteOpen(false)});};
   const saveUser=async()=>{return runOperation('settings',async()=>{
     if(!editingUser||!editEmail.trim()||!editDisplayName.trim())return;
-    await save.mutateAsync({action:"updateUser",userId:editingUser.id,email:editEmail.trim(),fullName:editFullName.trim()||null,displayName:editDisplayName.trim(),phone:editPhone.trim()||null,whatsappPhone:editWhatsappPhone.trim()||null,sex:(editSex||null) as "masculino"|"femenino"|"otro"|"prefiero_no_decir"|null,senderEmail:editSenderEmail.trim()||null});
+    await save.mutateAsync({action:"updateUser",userId:editingUser.id,email:editEmail.trim(),fullName:editFullName.trim()||null,displayName:editDisplayName.trim(),phone:editPhone.trim()||null,whatsappPhones:editWhatsappPhones,sex:(editSex||null) as "masculino"|"femenino"|"otro"|"prefiero_no_decir"|null,senderEmail:editSenderEmail.trim()||null});
     setEditingUser(null);
   });};
   const resendInvite=async(userId:number)=>{return runOperation('settings',async()=>{await save.mutateAsync({action:"resendUserInvite",userId})});};
@@ -120,7 +120,7 @@ export default function SettingsPage(){
           <div className={styles.userTableHeader}><span>Usuario</span><span>Email real</span><span>Email Hospeda</span><span>Rol</span><span>Estado</span><span/></div>
           <div className={styles.usersList}>{[...(data?.users??[])].sort((a,b)=>Number(!!a.deactivatedAt)-Number(!!b.deactivatedAt)).map(user=><div className={styles.userRow} key={user.id} style={user.deactivatedAt?{opacity:.58}:undefined}>
             <div className={styles.userMain}><strong>{user.displayName}</strong><span>{user.fullName||"Nombre completo sin cargar"}</span></div>
-            <div className={styles.userCell}>{user.email}{user.whatsappPhone&&<small>WhatsApp: {user.whatsappPhone}</small>}</div><div className={styles.userCell}>{user.senderEmail||"—"}</div>
+            <div className={styles.userCell}>{user.email}{!!user.whatsappPhones?.length&&<small>WhatsApp: {user.whatsappPhones.join(", ")}</small>}</div><div className={styles.userCell}>{user.senderEmail||"—"}</div>
             <div><Badge variant="outline">{user.role==="admin"?"Administrador":"Usuario"}</Badge></div>
             <div><Badge variant={user.deactivatedAt?"warning":user.hasPassword?"success":"outline"}>{user.deactivatedAt?"Inactivo":user.hasPassword?"Activo":user.invitationPending?"Invitación enviada":"Pendiente"}</Badge></div>
             <div className={styles.userActions}>
@@ -177,7 +177,7 @@ export default function SettingsPage(){
         <label className={styles.dialogField}><span>Nombre completo</span><Input value={editFullName} onChange={e=>setEditFullName(e.target.value)}/></label>
         <label className={styles.dialogField}><span>Nombre visible</span><Input value={editDisplayName} onChange={e=>setEditDisplayName(e.target.value)}/></label>
         <label className={styles.dialogField}><span>Teléfono</span><Input type="tel" value={editPhone} onChange={e=>setEditPhone(e.target.value)}/></label>
-        <label className={styles.dialogField}><span>WhatsApp asignado</span><Input type="tel" value={editWhatsappPhone} onChange={e=>setEditWhatsappPhone(e.target.value)} placeholder="+54 9 3442 12-3456"/></label>
+        <div className={styles.dialogField+" "+styles.span2}><span>WhatsApp asignados</span><small className={styles.whatsappHint}>El panel del CRM solo se activa si WhatsApp Web está conectado a uno de estos números. Si queda vacío, no hay restricción.</small><div className={styles.whatsappList}>{editWhatsappPhones.map((phone,index)=><div className={styles.whatsappInput} key={index}><Input type="tel" value={phone} onChange={e=>setEditWhatsappPhones(current=>current.map((item,i)=>i===index?e.target.value:item))} placeholder="+54 9 3442 12-3456" aria-label={`WhatsApp asignado ${index+1}`}/><Button type="button" variant="outline" size="icon-sm" aria-label={`Quitar WhatsApp ${index+1}`} onClick={()=>setEditWhatsappPhones(current=>current.filter((_,i)=>i!==index))}><Minus size={15}/></Button></div>)}<Button type="button" variant="outline" onClick={()=>setEditWhatsappPhones(current=>current.length<5?[...current,""]:current)} disabled={editWhatsappPhones.length>=5||save.isPending}><Plus size={15}/>Agregar número</Button></div></div>
         <label className={styles.dialogField}><span>Sexo</span><NativeSelect value={editSex} onChange={e=>setEditSex(e.target.value)}><option value="">Sin completar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option><option value="otro">Otro</option><option value="prefiero_no_decir">Prefiere no decir</option></NativeSelect></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email real</span><Input type="email" value={editEmail} onChange={e=>setEditEmail(e.target.value)}/></label>
         <label className={styles.dialogField+" "+styles.span2}><span>Email Hospeda para enviar mails</span><Input type="email" value={editSenderEmail} onChange={e=>setEditSenderEmail(e.target.value)} placeholder="nombre@hospeda.com.ar"/></label>

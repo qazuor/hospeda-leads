@@ -12,7 +12,7 @@ import {errorResponse} from '../helpers/errorResponse';
 import {parseBody} from '../helpers/parseBody';
 import {validateTemplateMaterials} from '../helpers/templateMaterialService';
 import {findCityRow} from '../helpers/catalogCity';
-import {normalizeWhatsappPhone} from '../helpers/userAdmin';
+import {normalizeWhatsappPhones} from '../helpers/userAdmin';
 import {canChangeUserRole,canDeactivateUser} from '../helpers/userAdmin';
 import {generatePasswordHash} from '../helpers/generatePasswordHash';
 import {createAndSendRecoveryEmail} from './auth/passwordRecoveryEmail';
@@ -368,8 +368,8 @@ export async function handle(request:Request){
       const fullName=input.fullName?.trim()||null;
       const phone=input.phone?.trim()||null;
       const sex=input.sex||null;
-      const whatsapp=normalizeWhatsappPhone(input.whatsappPhone);
-      if(whatsapp.error)return new Response(superjson.stringify({error:whatsapp.error}),{status:400});
+      const whatsapp=normalizeWhatsappPhones(input.whatsappPhones??[]);
+      if(input.whatsappPhones!==undefined&&whatsapp.error)return new Response(superjson.stringify({error:whatsapp.error}),{status:400});
       const displayName=input.displayName.trim();
 
       const target=await db.selectFrom("users").select(["id","email","deactivatedAt"]).where("id","=",input.userId).executeTakeFirst();
@@ -393,7 +393,7 @@ export async function handle(request:Request){
         await trx.insertInto("authorizedEmails").values({email,displayName,active:!locked.deactivatedAt})
           .onConflict(oc=>oc.column("email").doUpdateSet({active:!locked.deactivatedAt,displayName})).execute();
         await trx.updateTable("users").set({
-          email,fullName,displayName,phone,...(input.whatsappPhone!==undefined?{whatsappPhone:whatsapp.phone}:{}),sex,senderEmail,updatedAt:new Date()
+          email,fullName,displayName,phone,...(input.whatsappPhones!==undefined?{whatsappPhones:whatsapp.phones}:{}),sex,senderEmail,updatedAt:new Date()
         }).where("id","=",target.id).execute();
       });
 

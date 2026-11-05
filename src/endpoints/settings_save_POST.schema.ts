@@ -26,7 +26,7 @@ export const schema=z.discriminatedUnion("action",[
     fullName:z.string().nullable().optional(),
     displayName:z.string().min(1),
     phone:z.string().nullable().optional(),
-    whatsappPhone:z.string().nullable().optional(),
+    whatsappPhones:z.array(z.string()).max(5).optional(),
     sex:z.union([sex,z.literal(""),z.null()]).optional(),
     senderEmail:nullableSender
   }),
