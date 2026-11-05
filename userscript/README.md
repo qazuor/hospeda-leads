@@ -1,5 +1,9 @@
 # Hospeda CRM para WhatsApp Web e Instagram
 
+## Novedades 1.8.3
+
+- En WhatsApp con una cuenta distinta a la asignada, el aviso permanece visible y el resto de la interfaz de Hospeda queda apagada.
+
 ## Novedades 1.8.2
 
 - El aviso de WhatsApp explica que debe coincidir con el número asignado a tu usuario del CRM. Se mantiene el fallback a `WHATSAPP_ACCOUNT_PHONE` cuando no tenés una línea individual configurada.
