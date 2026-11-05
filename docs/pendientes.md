@@ -418,3 +418,8 @@ Review findings addressed locally: account-gated WhatsApp and Instagram lifecycl
 ### Administración de usuarios · pase 3
 
 Pendiente completar la cobertura de guardas de responsable activo en todas las rutas de escritura de asignaciones y la historia/auditoría de tareas reasignadas. Ejecutar `scripts/test-user-admin.ts`, `scripts/test-password-recovery.ts` y `scripts/test-userscript.ts` en la base descartable; revisar limpieza de fixtures. Sin PR ni operaciones Git.
+
+### Userscript WhatsApp mismatch — 04/11/2026
+
+- Implementación y cobertura focalizada en `fix/userscript-mismatch-flicker`; versión 1.8.3 y `USERSCRIPT_MIN_VERSION` sin cambio. Vitest de `userscript/src` (384) y typecheck PASS.
+- Pendiente: CI, merge a `staging` y promoción a `main` (requiere ok del propietario).

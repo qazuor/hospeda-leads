@@ -1,5 +1,11 @@
 # Estado del CRM — corte al 2 de noviembre de 2026
 
+## Userscript WhatsApp mismatch — 04/11/2026
+
+- Corrección en `fix/userscript-mismatch-flicker` (PR a `staging`): el aviso de cuenta tiene un host propio; la UI del CRM se protege también desde `renderBanner`, y el aviso de actualización se quita mientras la cuenta está apagada. Versión 1.8.3; `USERSCRIPT_MIN_VERSION` permanece en 1.5.0.
+- Regresión de ciclo de vida agregada primero: reproduce desaparición del aviso tras churn de DOM y eventos/timers; tras el arreglo cubre más de 31 minutos, menú de token, y confirma que sólo se llama el status probe. `npx vitest run userscript/src` (384 pruebas) y `npm run typecheck` pasan.
+- Próximo paso: merge a `staging` con CI verde y promoción a `main` cuando el propietario lo pida.
+
 ## Administración de usuarios y línea de WhatsApp — 04/11/2026
 
 - Trabajo local en `feat/user-admin-whatsapp-line`; sin PR. Incluye línea WhatsApp por usuario con fallback de entorno, roles, desactivación/reactivación, reset administrativo y ocultamiento de usuarios inactivos en selectores de asignación.
