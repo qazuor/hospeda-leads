@@ -7,7 +7,7 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("./api", () => ({ ...api, ApiError: class ApiError extends Error { constructor(message: string, public status: number, public minVersion?: string) { super(message); } } }));
 
-const success = (whatsappAccount: string | null) => ({ minVersion: "1.0.0", user: { email: "seller@example.com", displayName: "Seller" }, whatsappAccount, matches: [] });
+const success = (whatsappAccount: string | null, whatsappAccounts?: string[]) => ({ minVersion: "1.0.0", user: { email: "seller@example.com", displayName: "Seller" }, whatsappAccount, ...(whatsappAccounts ? { whatsappAccounts } : {}), matches: [] });
 let storage: Storage;
 let boot: () => Promise<void>;
 let activeIntervals: Set<number>;
@@ -46,6 +46,11 @@ describe("WhatsApp account lifecycle boot", () => {
     await boot(); await vi.advanceTimersByTimeAsync(600); await flush();
     const panel = document.getElementById("hospeda-userscript-banner"); expect(panel).not.toBeNull();
     for (let second = 0; second < 30; second++) { await vi.advanceTimersByTimeAsync(1000); expect(panel!.isConnected).toBe(true); expect(document.getElementById("hospeda-userscript-banner")).toBe(panel); }
+  });
+
+  it("a second assigned account keeps the panel on", async () => {
+    api.fetchStatus.mockResolvedValue(success(null, ["5491111111111", "5493442123456"])); await boot(); await flush();
+    expect(visibleText()).toBe(""); expect(document.querySelector("hospeda-crm")).not.toBeNull();
   });
 
   it("boot mismatch shows only the account notice and leaves only the account monitor", async () => {

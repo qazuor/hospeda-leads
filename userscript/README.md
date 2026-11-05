@@ -1,5 +1,9 @@
 # Hospeda CRM para WhatsApp Web e Instagram
 
+## Novedades 1.8.5
+
+- El administrador puede asignar hasta cinco números de WhatsApp por usuario; el panel funciona con cualquiera de ellos.
+
 ## Novedades 1.8.4
 
 - Las etiquetas de la lista de chats acompañan el scroll en vez de quedarse quietas hasta que parás, y se ocultan al pasar por debajo del encabezado.

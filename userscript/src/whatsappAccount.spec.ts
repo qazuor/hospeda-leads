@@ -19,4 +19,13 @@ describe("WhatsApp account guard", () => {
   it("treats inaccessible localStorage as unknown", () => {
     expect(loggedInWhatsappPhone({ getItem: () => { throw new Error("denied"); } } as unknown as Storage)).toBeNull();
   });
+  it("matches any assigned account and rejects accounts outside the list", () => {
+    const expected = ["5493442123456", "5491111222233"];
+    expect(whatsappAccountState({ expected, loggedIn: "5491111222233" })).toBe("ok");
+    expect(whatsappAccountState({ expected, loggedIn: "5492222333344" })).toBe("mismatch");
+    expect(whatsappAccountState({ expected: [], loggedIn: null })).toBe("unconfigured");
+  });
+  it("supports legacy single-number status responses", () => {
+    expect(whatsappAccountState({ expected: "5493442123456", loggedIn: "3442123456" })).toBe("ok");
+  });
 });

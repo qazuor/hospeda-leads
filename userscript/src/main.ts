@@ -35,7 +35,7 @@ function token(): string { return GM_getValue<string>(TOKEN_KEY, ""); }
 function whatsappAccountGate(): boolean {
   if (!token()) return true;
   let loggedIn: string | null = null; try { loggedIn = loggedInWhatsappPhone(window.localStorage); } catch { /* storage may be unavailable in a restricted browser context */ }
-  const expected = status?.value.whatsappAccount ?? null, state = status ? whatsappAccountState({ expected, loggedIn }) : "unknown";
+  const expected = status?.value.whatsappAccounts ?? status?.value.whatsappAccount ?? null, state = status ? whatsappAccountState({ expected, loggedIn }) : "unknown";
   if (state === "unconfigured" || state === "ok") { whatsappUnknownAt = 0; window.clearTimeout(unknownNoticeTimer); document.getElementById("hospeda-userscript-account-notice")?.remove(); if(whatsappOff){whatsappOff=false;const root=getAppRoot();if(observer&&root)observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:["data-id","title","data-pre-plain-text"]});badgesRootObserver?.observe(document.body,{subtree:true,childList:true});const pane=document.querySelector<HTMLElement>("#pane-side");if(pane&&chatBadges)chatBadges.start(pane);schedule();if(updateCheck&&!updateInterval)updateInterval=window.setInterval(updateCheck,UPDATE_CHECK_MS);} return true; }
   autoController?.stop(); autoController = null; autoMessage=""; chatBadges?.stop(); badgesRootObserver?.disconnect(); cache.clear(); activeChat="";lastFingerprint="";previewOpen=false;document.getElementById("hospeda-userscript-banner")?.remove();document.getElementById(UPDATE_PROMPT_ID)?.remove();window.clearTimeout(unknownNoticeTimer);unknownNoticeTimer=0;
   whatsappOff = true;
