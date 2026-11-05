@@ -91,7 +91,6 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
  useEffect(()=>setCollapsed(new Set()),[filterKey]);
  const limits:SalesMaterialLimits|undefined=q.data?.limits;
  const filtered=hasSalesMaterialFilters(filters);
- const groups=q.data?groupSalesMaterials({materials,categories:q.data.categories,onlyCategoryIds:filters.categoryIds}):[];
  const anchored=new Set<string>();
  const toggle=(key:string)=>setCollapsed(prev=>{const next=new Set(prev);if(next.has(key))next.delete(key);else next.add(key);return next;});
  const actions=admin?<>

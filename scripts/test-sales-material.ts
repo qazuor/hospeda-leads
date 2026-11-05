@@ -342,7 +342,20 @@ try{
  const linkJournal=(await sql<{kind:string}>`SELECT jsonb_typeof(after_value->'categoryIds') AS kind FROM crm_resource_journal WHERE entity='crm_sales_material_category_links' AND entity_id=${id}`.execute(db)).rows;assert(linkJournal.length>0&&linkJournal.every(r=>r.kind==='array'),'Category journal stores JSON objects, not strings');assert(journal.every(j=>j.actorEmail===admin.user.email));
  // The migration only creates tables and a settings key: no DML on the old library.
  const migration=await readFile('migrations/046_sales_material.sql','utf8');assert(!/[\u0300-\u036f]/.test(migration),'Combining characters are written as escapes');
- const internalNoteMigration=await readFile('migrations/062_sales_material_internal_note.sql','utf8');assert.match(internalNoteMigration,/internal_note text NOT NULL DEFAULT '' CHECK\s*\(length\(internal_note\)<=4000\)/);assert.match(internalNoteMigration,/SET internal_note=description,description='' WHERE description<>''/);
+ // Migration 062 replayed on a rollback-only copy: the description moves into internal_note, empty descriptions stay empty.
+ const internalNoteMigration=await readFile('migrations/062_sales_material_internal_note.sql','utf8');
+ const replayed=await db.transaction().execute(async trx=>{
+  await sql`ALTER TABLE crm_sales_materials DROP COLUMN internal_note`.execute(trx);
+  const withText=randomUUID(),empty=randomUUID();
+  for(const [mid,text] of [[withText,'Comentario interno '+stamp],[empty,'']] as const)await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,verticals,open_direct,created_by_email) VALUES(${mid}::uuid,${'Migración '+mid.slice(0,8)},${text},'deliverable','url','{}'::text[],false,${admin.user.email})`.execute(trx);
+  await sql.raw(internalNoteMigration).execute(trx);
+  const rows=(await sql<{id:string;description:string;internalNote:string}>`SELECT id::text AS id,description,internal_note AS internal_note FROM crm_sales_materials WHERE id=ANY(${[withText,empty]}::uuid[])`.execute(trx)).rows;
+  const tooLong=await sql`UPDATE crm_sales_materials SET internal_note=repeat('x',4001) WHERE id=${empty}::uuid`.execute(trx).then(()=>false,()=>true);
+  throw Object.assign(new Error('rollback'),{rows,withText,empty,tooLong});
+ }).catch((error:Error&{rows?:{id:string;description:string;internalNote:string}[];withText?:string;empty?:string;tooLong?:boolean})=>{if(error.message!=='rollback')throw error;return error;});
+ assert.deepEqual(replayed.rows?.find(r=>r.id===replayed.withText),{id:replayed.withText,description:'',internalNote:'Comentario interno '+stamp},'062 moves the description into the internal note');
+ assert.deepEqual(replayed.rows?.find(r=>r.id===replayed.empty),{id:replayed.empty,description:'',internalNote:''},'062 keeps empty descriptions empty');
+ assert.equal(replayed.tooLong,true,'internal_note is capped at 4000 characters');
  assert.deepEqual((await sql<{t:string}>`SELECT tgname AS t FROM pg_trigger WHERE tgrelid='crm_sales_material_uploads'::regclass AND NOT tgisinternal ORDER BY 1`.execute(db)).rows.map(r=>r.t),['resource_audit'],'Upload bookkeeping does not bump the live domain');assert(!/(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+crm_document/i.test(migration));
  assert.equal(JSON.parse((await db.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow()).value).maxDocumentBytes,2097152);
  assert(requests.some(r=>r.startsWith('HEAD '))&&requests.some(r=>r.startsWith('DELETE ')));

@@ -33,6 +33,22 @@ describe('SalesMaterialPanel',()=>{
   expect(screen.queryByLabelText('Archivados')).toBeNull();
   expect(api.list).toHaveBeenCalledWith({search:'',categoryIds:undefined,kind:undefined,includeArchived:false});
  });
+ it('splits deliverable and internal material into sections, the kind filter keeps one, and sellers never see an internal note',async()=>{
+  api.list.mockResolvedValue(data([material({internalNote:'Precio negociable'}),material({id:'m-2',title:'Guía interna',kind:'internal'})]));
+  setup(false);
+  const deliverable=await screen.findByRole('heading',{name:'Entregables · para mandar a clientes'});const internal=screen.getByRole('heading',{name:'Uso interno · solo para el equipo'});
+  expect(deliverable.closest('section')?.contains(screen.getByRole('article',{name:'Folleto de tarifas'}))).toBe(true);
+  expect(internal.closest('section')?.contains(screen.getByRole('article',{name:'Guía interna'}))).toBe(true);
+  expect(screen.queryByText(/Precio negociable/)).toBeNull();
+  fireEvent.click(screen.getByLabelText('Internos'));
+  await waitFor(()=>expect(screen.queryByRole('heading',{name:'Entregables · para mandar a clientes'})).toBeNull());
+  expect(screen.getByRole('heading',{name:'Uso interno · solo para el equipo'})).toBeTruthy();
+ });
+ it('shows the internal note to admins',async()=>{
+  api.list.mockResolvedValue(data([material({internalNote:'Precio negociable'})]));
+  setup(true);
+  const card=await screen.findByRole('article',{name:'Folleto de tarifas'});expect(within(card).getByText(/Precio negociable/)).toBeTruthy();expect(within(card).getByText('Nota interna')).toBeTruthy();
+ });
  it('shows administration actions to admins and archives once with the current revision',async()=>{
   api.list.mockResolvedValue(data([material()]));let release!:()=>void;api.post.mockImplementation(()=>new Promise(resolve=>{release=()=>resolve({ok:true,revision:4})}));
   setup(true);
