@@ -14,7 +14,8 @@ let activeIntervals: Set<number>;
 const allApi = () => Object.values(api).filter(value => typeof value === "function" && value !== api.setCrmRequestGuard);
 async function flush(): Promise<void> { for (let i = 0; i < 20; i++) await Promise.resolve(); }
 async function start(): Promise<void> { await import("./main"); await flush(); }
-function visibleText(): string { return [...document.querySelectorAll("#hospeda-userscript-banner")].map(host => host.shadowRoot?.querySelector(".notice")?.textContent || "").join(" "); }
+function visibleText(): string { return [...document.querySelectorAll("#hospeda-userscript-account-notice")].map(host => host.shadowRoot?.querySelector(".notice")?.textContent || "").join(" "); }
+function hospedaUi(): Element[] { return [...document.querySelectorAll('hospeda-crm,[id^="hospeda-userscript"],[data-hospeda-badge-host]')].filter(node => !node.shadowRoot?.querySelector(".notice")); }
 
 describe("WhatsApp account lifecycle boot", () => {
   beforeEach(() => {
@@ -46,6 +47,25 @@ describe("WhatsApp account lifecycle boot", () => {
     expect(visibleText()).toBe("Este WhatsApp no es el número asignado a tu usuario: el script está apagado.");
     expect(allApi().filter(fn => fn !== api.fetchStatus).every(fn => !(fn as ReturnType<typeof vi.fn>).mock.calls.length)).toBe(true);
     expect(activeIntervals.size).toBe(1);
+  });
+
+  it("keeps a steady mismatch isolated through app churn, visibility, storage, menu and status expiry", async () => {
+    api.fetchStatus.mockResolvedValue(success("+5491111111111")); await boot();
+    const noticeText = "Este WhatsApp no es el número asignado a tu usuario: el script está apagado.";
+    const assertIsolated = () => {
+      expect(visibleText()).toBe(noticeText);
+      expect(hospedaUi()).toHaveLength(0);
+      expect(document.getElementById("hospeda-userscript-update")).toBeNull();
+      expect(allApi().filter(fn => fn !== api.fetchStatus).every(fn => !(fn as ReturnType<typeof vi.fn>).mock.calls.length)).toBe(true);
+    };
+    assertIsolated();
+    document.querySelector("#app")!.append(document.createElement("section")); document.querySelector("#pane-side")!.append(document.createElement("div"));
+    document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new StorageEvent("storage", { key: "last-wid-md" }));
+    (vi.mocked(GM_registerMenuCommand).mock.calls.find(([label]) => label === "Configurar token")?.[1] as (() => void) | undefined)?.();
+    await flush(); assertIsolated();
+    await vi.advanceTimersByTimeAsync(31 * 60_000); await flush(); assertIsolated();
+    expect(api.fetchStatus).toHaveBeenCalled();
+    expect(api.fetchContext.mock.calls.length + api.fetchAutoRegistrations.mock.calls.length + api.request.mock.calls.length).toBe(0);
   });
 
   it("unknown account stays quiet until 15 seconds, then shows its notice without other API calls", async () => {

@@ -12,6 +12,8 @@ import { attachPlan, attachToChat, captureAttachContext, downloadMaterialFile, p
 import { composerEquals, getWhatsAppComposer, pasteIntoComposer } from "./selectors";
 
 const ID = "hospeda-userscript-banner";
+let renderAllowed = () => true;
+export function setRenderGuard(guard: () => boolean): void { renderAllowed = guard; }
 const OPEN_KEY = "hospeda-userscript-open", AUTO_OPEN_KEY = "hospeda-userscript-auto-open", TOKEN_KEY = "hospeda-userscript-token", THEME_KEY = "hospeda-userscript-theme";
 // Messages are bound to the chat the panel was rendered for; a chat switch must never register them to the previous business.
 const CHAT_CHANGED = "El chat cambió. Volvé a abrir «Registrar mensajes» en este chat.";
@@ -76,6 +78,7 @@ export function isEditing(): boolean { const active = document.getElementById(ID
 
 /** Renders the always-visible launcher and, when open, the panel. Lives on `document.body`, outside WhatsApp's React tree. */
 export function renderBanner(options: UiOptions): HTMLElement {
+  if (!renderAllowed()) return document.createElement("hospeda-crm");
   let host = document.getElementById(ID) as HTMLElement | null;
   // An own tag, not a div: WhatsApp's element selectors and variables must not style the host.
   if (!host) { host = document.createElement("hospeda-crm"); host.id = ID; host.attachShadow({ mode: "open" }); }

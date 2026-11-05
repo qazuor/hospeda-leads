@@ -4,12 +4,12 @@ import { getAppRoot, getConversationPanel, readChat, redactedSnapshot, type Chat
 import { internalChat, pageHeader } from "./internals";
 import { messageFingerprint, RegisterController } from "./register";
 import { copyDiagnostic } from "./diagnostic";
-import { applyTheme, isAutoOpen, isDark, isEditing, openSettings, renderBanner, setPanelOpen, type UiOptions } from "./ui";
+import { applyTheme, isAutoOpen, isDark, isEditing, openSettings, renderBanner, setPanelOpen, setRenderGuard, type UiOptions } from "./ui";
 import { USERSCRIPT_VERSION } from "./version";
 import { announceInstalled } from "./announce";
 import { watchConnection } from "./connection";
 import { listenForToken } from "./tokenBridge";
-import { showUpdatePrompt, throttled } from "./updatePrompt";
+import { showUpdatePrompt, throttled, UPDATE_PROMPT_ID } from "./updatePrompt";
 import { AutoRegisterController, autoEligibility } from "./autoRegister";
 import {ChatBadges,badgePreference,toggleBadgePreference} from './badges';
 import { siteFor } from "./site";
@@ -30,14 +30,14 @@ let autoPreference=true;
 let autoCount:{accountId:string;value:number;expiresAt:number}|null=null;
 const cache = new Map<string, { expiresAt: number; value: ContextResponse }>();
 let status: { expiresAt: number; value: StatusResponse } | null = null;
-let whatsappUnknownAt = 0, accountNotice = false, unknownNoticeTimer = 0, whatsappOff = false, accountMonitor = 0;
+let whatsappUnknownAt = 0, unknownNoticeTimer = 0, whatsappOff = false, accountMonitor = 0;
 function token(): string { return GM_getValue<string>(TOKEN_KEY, ""); }
 function whatsappAccountGate(): boolean {
   if (!token()) return true;
   let loggedIn: string | null = null; try { loggedIn = loggedInWhatsappPhone(window.localStorage); } catch { /* storage may be unavailable in a restricted browser context */ }
   const expected = status?.value.whatsappAccount ?? null, state = status ? whatsappAccountState({ expected, loggedIn }) : "unknown";
-  if (state === "unconfigured" || state === "ok") { whatsappUnknownAt = 0; accountNotice = false; window.clearTimeout(unknownNoticeTimer); document.getElementById("hospeda-userscript-banner")?.remove(); if(whatsappOff){whatsappOff=false;const root=getAppRoot();if(observer&&root)observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:["data-id","title","data-pre-plain-text"]});badgesRootObserver?.observe(document.body,{subtree:true,childList:true});const pane=document.querySelector<HTMLElement>("#pane-side");if(pane&&chatBadges)chatBadges.start(pane);schedule();if(updateCheck&&!updateInterval)updateInterval=window.setInterval(updateCheck,UPDATE_CHECK_MS);} return true; }
-  autoController?.stop(); autoController = null; autoMessage=""; chatBadges?.stop(); badgesRootObserver?.disconnect(); cache.clear(); activeChat="";lastFingerprint="";previewOpen=false;document.getElementById("hospeda-userscript-banner")?.remove();window.clearTimeout(unknownNoticeTimer);unknownNoticeTimer=0;
+  if (state === "unconfigured" || state === "ok") { whatsappUnknownAt = 0; window.clearTimeout(unknownNoticeTimer); document.getElementById("hospeda-userscript-account-notice")?.remove(); document.getElementById("hospeda-userscript-banner")?.remove(); document.getElementById(UPDATE_PROMPT_ID)?.remove(); if(whatsappOff){whatsappOff=false;const root=getAppRoot();if(observer&&root)observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:["data-id","title","data-pre-plain-text"]});badgesRootObserver?.observe(document.body,{subtree:true,childList:true});const pane=document.querySelector<HTMLElement>("#pane-side");if(pane&&chatBadges)chatBadges.start(pane);schedule();if(updateCheck&&!updateInterval)updateInterval=window.setInterval(updateCheck,UPDATE_CHECK_MS);} return true; }
+  autoController?.stop(); autoController = null; autoMessage=""; chatBadges?.stop(); badgesRootObserver?.disconnect(); cache.clear(); activeChat="";lastFingerprint="";previewOpen=false;document.getElementById("hospeda-userscript-banner")?.remove();document.getElementById(UPDATE_PROMPT_ID)?.remove();window.clearTimeout(unknownNoticeTimer);unknownNoticeTimer=0;
   whatsappOff = true;
   window.clearInterval(updateInterval); updateInterval=0;
   window.clearTimeout(timer); observer?.disconnect(); document.getElementById("hospeda-userscript-banner")?.remove();
@@ -47,10 +47,10 @@ function whatsappAccountGate(): boolean {
   return false;
 }
 function showAccountNotice(text: string): void {
-  if (accountNotice) return;
-  accountNotice = true;
-  const host=document.createElement("div"),shadow=host.attachShadow({mode:"open"}),style=document.createElement("style"),message=document.createElement("div");
-  host.id="hospeda-userscript-banner";style.textContent=":host{position:fixed;left:16px;bottom:20px;z-index:2147483647;font:13px system-ui}.notice{background:#18212f;color:#fff;padding:8px 11px;border-radius:8px;box-shadow:0 4px 14px #0003}";message.className="notice";message.textContent=text;shadow.append(style,message);document.body.append(host);
+  let host=document.getElementById("hospeda-userscript-account-notice");
+  if (host) { const message=host.shadowRoot?.querySelector<HTMLElement>(".notice"); if(message)message.textContent=text; return; }
+  host=document.createElement("div"); const shadow=host.attachShadow({mode:"open"}),style=document.createElement("style"),message=document.createElement("div");
+  host.id="hospeda-userscript-account-notice";style.textContent=":host{position:fixed;left:16px;bottom:20px;z-index:2147483647;font:13px system-ui}.notice{background:#18212f;color:#fff;padding:8px 11px;border-radius:8px;box-shadow:0 4px 14px #0003}";message.className="notice";message.textContent=text;shadow.append(style,message);document.body.append(host);
 }
 function showDiagnostic(text: string): void {
   const host = document.createElement("div"), shadow = host.attachShadow({ mode: "open" }), style = document.createElement("style"), backdrop = document.createElement("div"), panel = document.createElement("div"), area = document.createElement("textarea"), hint = document.createElement("p"), close = document.createElement("button");
@@ -77,7 +77,7 @@ async function resolveStatus(): Promise<{ context: ContextResponse | null; requi
   catch (cause) { return { context: null, requiredVersion: cause instanceof ApiError && cause.status === 426 ? cause.minVersion || "última" : null }; }
 }
 const UPDATE_CHECK_MS = 30 * 60_000;
-function promptUpdate(latest: string | null | undefined, required: string | null): void { showUpdatePrompt({ installed: USERSCRIPT_VERSION, latest, required, crmBase: BASE, dark: isDark() }); }
+function promptUpdate(latest: string | null | undefined, required: string | null): void { if (!whatsappOff) showUpdatePrompt({ installed: USERSCRIPT_VERSION, latest, required, crmBase: BASE, dark: isDark() }); }
 /** Asks the CRM for its published version on load and every half hour, so a release reaches the seller without opening the panel. */
 async function checkForUpdate(): Promise<void> { if (token() && !whatsappAccountGate()) return; status = null; const known = await resolveStatus(); if (token() && !whatsappAccountGate()) return; if (known.context || known.requiredVersion) promptUpdate(known.context?.latestVersion, known.requiredVersion); }
 /** The open chat. Only when neither the saved name (`· H123`) nor the title gives a phone, WhatsApp's internal state is read for it. */
@@ -102,7 +102,7 @@ async function update(): Promise<void> {
     const state = !chat ? "none" : chat.reason;
     if (state === lastFingerprint && document.getElementById("hospeda-userscript-banner")) return;
     lastFingerprint = state; activeChat = ""; previewOpen = false;autoController?.stop();autoController=null;autoMessage="";
-    const known = await resolveStatus(); if (lastFingerprint !== state || isEditing()) return;
+    const known = await resolveStatus(); if (lastFingerprint !== state || isEditing() || (token() && !whatsappAccountGate())) return;
     renderBanner({ ...baseOptions(), ...known, unreadable: state === "unreadable", group: state === "unsupported-group" });
     return;
   }
@@ -151,6 +151,7 @@ function start(): void {
   // «Conectar este navegador». No WhatsApp logic.
   if (site === "crm") { announceInstalled(document); listenForInstagramHandoff(); const connection = watchConnection({ doc: document, readToken: token, fetchStatus: value => fetchStatus(BASE, value) }); listenForToken({ doc: document, verify: async value => { await fetchStatus(BASE, value); return true; }, save: value => GM_setValue(TOKEN_KEY, value), recheck: () => void connection.check() }); return; }
   setCrmRequestGuard(whatsappAccountGate);
+  setRenderGuard(() => !whatsappOff);
   autoPreference = GM_getValue<boolean>("hospeda-userscript-auto-register", true);
   registerMenu(); watchTheme();
   chatBadges=new ChatBadges(BASE,token, message=>{badgeError=message;lastFingerprint="";void update();},()=>{badgeError="Token inválido o revocado. Conectá uno nuevo desde Ajustes.";lastFingerprint="";void update();},()=>{badgeError="Esta versión del script ya no funciona con el CRM. Actualizá desde el aviso del script.";void checkForUpdate();lastFingerprint="";void update();},whatsappAccountGate);
