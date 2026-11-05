@@ -66,6 +66,16 @@ describe('chat badges',()=>{
   await vi.advanceTimersByTimeAsync(1);expect(host('5491122233344')).toBeNull();expect(host('5491122233355')?.dataset.chatKey).toBe('5491122233355');
   controller.stop();
  });
+ it('moves badges with their rows on every scroll frame and hides them past the list edges',async()=>{
+  const root=document.createElement('div'),item=row('5491122233344');root.id='pane-side';root.append(item);document.body.append(root);reply();let top=200;
+  vi.spyOn(root,'getBoundingClientRect').mockReturnValue({top:100,bottom:600,left:0,right:400,width:400,height:500,x:0,y:100,toJSON:()=>({})} as DOMRect);
+  vi.spyOn(item,'getBoundingClientRect').mockImplementation(()=>({top,bottom:top+72,left:0,right:400,width:400,height:72,x:0,y:top,toJSON:()=>({})} as DOMRect));
+  const controller=new ChatBadges('https://crm.test',()=> 'token');controller.start(root);await vi.advanceTimersByTimeAsync(600);expect(host('5491122233344')!.style.top).toBe('212px');
+  top=150;root.dispatchEvent(new Event('scroll'));await vi.advanceTimersByTimeAsync(20);expect(host('5491122233344')!.style.top).toBe('162px');
+  top=60;root.dispatchEvent(new Event('scroll'));await vi.advanceTimersByTimeAsync(20);expect(host('5491122233344')!.style.visibility).toBe('hidden');
+  top=300;root.dispatchEvent(new Event('scroll'));await vi.advanceTimersByTimeAsync(20);expect(host('5491122233344')!.style.top).toBe('312px');expect(host('5491122233344')!.style.visibility).toBe('');
+  controller.stop();
+ });
  it('Ajustes switch persists on/off, stops observation and removes badges',async()=>{
   const root=document.createElement('div'),item=row('5491122233344');root.append(item);document.body.append(root);const requestSpy=reply();
   const controller=new ChatBadges('https://crm.test',()=> 'token');controller.start(root);await vi.advanceTimersByTimeAsync(600);expect(host('5491122233344')).not.toBeNull();
