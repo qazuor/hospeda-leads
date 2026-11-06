@@ -437,7 +437,7 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 - Antes de desplegar con materiales activos, cargar los títulos únicos documentados en `decisiones.md`.
 ## Spec 107 — negocios vinculados con el mismo vendedor
 
-- PR A (migración 064, lecturas y redistribución por grupos) ya está en `staging`. PR B está implementado y validado localmente en `feat/spec-107-link-ui`; falta preparar el PR a `staging` mediante el flujo de ramas. Los bloques 5 (desactivar usuario, fusión, Papelera) y 6 (runbook de los 5 pares existentes, con aprobación del propietario) siguen pendientes y no se cargaron datos reales.
+- PR A/B y PR C (bloques 5 y 6: fusión, ciclo de vida, warning de desactivación, loader y documentación) quedan implementados y validados localmente en esta rama; no se cargaron datos reales. Único pendiente de spec 107: que el operador ejecute el runbook de §14 con aprobación explícita del propietario y respaldo de producción.
 - Si el MCP ya tiene el rol `crm_mcp_reader` creado, aplicar el `GRANT` manual del runbook de la spec.
 
 ### Spec 107 PR B · revisión de hallazgos · 06/11/2026

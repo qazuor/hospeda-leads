@@ -377,5 +377,5 @@ El propietario aceptó todas las recomendaciones (D1 a D10, opción A salvo dond
 
 - **064** crea la tabla y copia el par actual de cada negocio. No inventa clasificaciones ni carga las 14 pendientes. No edita migraciones aplicadas.
 - Una migración posterior (número a asignar cuando se haga el bloque 7) borra `crm_accounts.tipo/subtipo`.
-- Si la [spec 107](107-negocios-vinculados-mismo-vendedor.md) llega antes a `staging`, toma la 064 y esta pasa a la 065: el número final lo fija el PR que se mergea segundo.
+- La spec 107 usa 064 y su bloque final agrega la 065; esta spec usa la 066. Si cambia el orden de integración, el PR que se mergee segundo fija el número final sin reutilizar migraciones ya aplicadas.
 - Datos de producción: solo el runbook 13, con aprobación del propietario.
