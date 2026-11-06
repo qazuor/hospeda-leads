@@ -5,13 +5,14 @@ import {createHash,randomUUID} from 'node:crypto';
 import {sql,type Transaction,type Kysely} from 'kysely';
 import {z} from 'zod';
 import type {DB} from './schema';
-import {classificationErrors} from './accountClassification';
+import {classificationErrors,classificationListErrors,normalizeClassifications,setAccountClassifications,type AccountClassification} from './accountClassification';
 import {findNewDncBlocker,DNC_DUPLICATE_MESSAGE} from '../endpoints/business_duplicate_check';
 import {businessImportFields,legacyBusinessFields,accountExtraFields,businessFields,importFields,normalizeField,matchAccounts,dataFieldLabels} from './dataNormalization';
 import {qualityMutation,type QualityMutation,type ReviewRow,type ImportResult} from '../endpoints/dataQuality.schema';
 import {setWorkActor} from './workAudit';
 import type {User} from './User';
 import {loadSellerGroups,effectiveSellerEmail,isActiveSellerGroupMember} from './accountSellerGroups';
+import {parseClassificationImport} from './classificationImport';
 export class QualityForbidden extends Error{}
 export class QualityConflict extends Error{}
 export class QualityValidation extends Error{}
@@ -32,7 +33,9 @@ export async function reviewRows(database:Kysely<DB>,values:Record<string,string
   if(mode==='business'){
    const unsupported=Object.keys(row).filter(f=>row[f].trim()&&!(businessImportFields as readonly string[]).includes(f));
    if(unsupported.length)errors.push('Solo negocios: quitá los campos de gestión '+unsupported.join(', '));
-   errors.push(...await classificationErrors(database,row.tipo?.trim()||null,row.subtipo?.trim()||null));
+   if(row.tipo?.trim()&&row.verticales?.trim())errors.push('No combines tipo y verticales en la misma fila.');
+   const pairs=normalizeClassifications({pairs:parseClassificationImport(row.verticales,row.tipo,row.subtipo)});
+   if(pairs.length>8)errors.push('Un negocio puede tener como máximo 8 verticales.');else for(const pair of pairs)errors.push(...await classificationErrors(database,pair.tipo,pair.subtipo));
   }else if(accountExtraFields.some(f=>!['tipo','subtipo'].includes(f)&&row[f]?.trim()))errors.push('Los datos de relevamiento requieren el modo Solo negocios.');
   for(const [field,value] of Object.entries(row)){
    if(!value.trim())continue;
@@ -61,6 +64,7 @@ async function snapshot(database:Kysely<DB>,sourceId:string,destinationId:string
  const accounts=await database.selectFrom('crmAccounts').selectAll().where('id','in',[sourceId,destinationId]).orderBy('id').execute();
  const relations:Record<string,unknown[] >={};
  relations.sellerGroupMembers=(await sql`SELECT m.group_id,m.account_id,m.added_at,m.added_by FROM crm_account_seller_group_members m WHERE m.group_id IN (SELECT group_id FROM crm_account_seller_group_members WHERE account_id IN (${sourceId}::bigint,${destinationId}::bigint)) ORDER BY m.group_id,m.account_id`.execute(database)).rows;
+ relations.classifications=await database.selectFrom('crmAccountClassifications').selectAll().where('accountId','in',[sourceId,destinationId]).orderBy('accountId').orderBy('id').execute();
  for(const table of ['leads','crmContacts','crmTasks','crmActivities','crmDataEvidence','crmCommercialJournal','leadJournal','crmWorkJournal'] as const)relations[table]=await database.selectFrom(table).selectAll().where('accountId','in',[sourceId,destinationId]).orderBy('id').execute();
  // These tables are intentionally queried using SQL: generated schema predates phase 3.
  for(const table of ['crm_pipeline_events','crm_objections','crm_messages','crm_contact_restrictions','crm_communication_responses','crm_communication_response_corrections','crm_communication_interaction_corrections','crm_communication_journal','crm_documents','crm_document_links','crm_auto_registrations','crm_sales_material_shares'])relations[table]=(await sql`SELECT * FROM ${sql.table(table)} WHERE account_id IN (${sourceId}::bigint,${destinationId}::bigint) ORDER BY id`.execute(database)).rows;
@@ -80,7 +84,8 @@ export async function mergePreview(database:Kysely<DB>,sourceId:string,destinati
  if(sourceGroup&&!destinationGroup){const active=sourceGroup.members.filter(isActiveSellerGroupMember),sellers=[...new Set(active.map(effectiveSellerEmail))];if(sellers.length>1||(sellers.length===1&&effectiveSellerEmail({...destination,referredToLeandro:destination.referredToLeandro,referredOriginalOwnerEmail:destination.referredOriginalOwnerEmail,assignedUserEmail:destination.assignedUserEmail})!==sellers[0]))throw new QualityConflict('Estos negocios están vinculados con otros. Igualá el vendedor o desvinculalos antes de fusionar.');}
  const resultingSellerGroup=sourceGroup?{groupId:sourceGroup.groupId,members:sourceGroup.members.filter(m=>!destinationGroup||m.id!==sourceId).map(m=>!destinationGroup&&m.id===sourceId?{...m,id:destinationId,nombre:destination.nombre}:m),destinationTakesSourcePlace:!destinationGroup}:null;
  const dates=[source.clientSince,destination.clientSince].filter((d):d is Date=>!!d).sort((a,b)=>a.getTime()-b.getTime());
- return {source,destination,token:digest(data),counts:Object.fromEntries(Object.entries(data.relations).map(([k,v])=>[k,v.length])),policy:{doNotContact:source.doNotContact||destination.doNotContact,commercialStatus:source.commercialStatus==='client'||destination.commercialStatus==='client'?'client':'prospect',clientSince:dates[0]?.toISOString()??null},sellerGroup:resultingSellerGroup,snapshot:data};
+ const classifications=data.relations.classifications as Array<{accountId:string;tipo:string;subtipo:string|null}>;const classified={source:classifications.filter(r=>r.accountId===sourceId).map(({tipo,subtipo})=>({tipo,subtipo})),destination:classifications.filter(r=>r.accountId===destinationId).map(({tipo,subtipo})=>({tipo,subtipo}))};const union=normalizeClassifications({pairs:[...classified.destination,...classified.source]});if(union.length>8)throw new QualityValidation('El negocio fusionado tendría más de 8 verticales. Quitá alguna antes de fusionar.');
+ return {source,destination,classificationPairs:union,token:digest(data),counts:Object.fromEntries(Object.entries(data.relations).map(([k,v])=>[k,v.length])),policy:{doNotContact:source.doNotContact||destination.doNotContact,commercialStatus:source.commercialStatus==='client'||destination.commercialStatus==='client'?'client':'prospect',clientSince:dates[0]?.toISOString()??null},sellerGroup:resultingSellerGroup,snapshot:data};
 }
 export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user:User,policy?:{businessCreateOnly:true}){
  const input=qualityMutation.parse(raw);
@@ -97,7 +102,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    if(input.obtainedAt&&new Date(input.obtainedAt)>new Date())throw new QualityValidation('Fecha de obtención futura.');
    const config=await qualityConfig(trx);if(input.rows.length>config.maxRows||Buffer.byteLength(JSON.stringify(input.rows))>config.maxFileBytes)throw new QualityValidation('El lote supera los límites configurados.');
    if(user.role!=='admin'&&input.rows.some(r=>r.asignadoA?.trim()))throw new QualityForbidden('Solo admin importa responsables.');
-   const values=input.rows.map(r=>Object.fromEntries(importFields.filter(f=>f in r).map(f=>[f,r[f]!])));
+   const values=input.rows.map(r=>({...r}));
    const canonical=values.map(r=>Object.fromEntries(Object.entries(r).filter(([,v])=>v.trim())));
    const fingerprint=digest(input.mode==='business'?{mode:input.mode,rows:canonical}:canonical);const batchId=randomUUID();
    await trx.insertInto('crmImportBatches').values({id:batchId,fingerprint,ownerEmail:user.email,mode:input.mode,source:input.source,sourceUrl:input.sourceUrl??null,obtainedAt:input.obtainedAt??null,rows:json(values)}).onConflict(oc=>oc.column('fingerprint').doNothing()).execute();
@@ -131,9 +136,11 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      if(await findNewDncBlocker(trx,{after:fields}))throw new QualityConflict(`Fila ${row.index+1}: ${DNC_DUPLICATE_MESSAGE}`);
      const assigned=fields.asignadoA?await trx.selectFrom('users').select('email').where(eb=>eb.or([eb('email','=',fields.asignadoA.trim()),eb('displayName','=',fields.asignadoA.trim())])).executeTakeFirstOrThrow():null;
      const data=Object.fromEntries(Object.entries(fields).filter(([f])=>(businessFields as readonly string[]).includes(f)));
+     const importedPairs:AccountClassification[]=parseClassificationImport(fields.verticales,fields.tipo,fields.subtipo);
      await assertActiveAssignee(trx,{next:assigned?.email,previous:null});
      const account=await trx.insertInto('crmAccounts').values({...data,nombre:fields.nombre,assignedUserEmail:assigned?.email??null}).returningAll().executeTakeFirstOrThrow();
-     await evidence(trx,String(account.id),data,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
+     try{await setAccountClassifications({trx,accountId:String(account.id),pairs:importedPairs,actor:user,reason:'import'});}catch(error){throw new QualityValidation(error instanceof Error?error.message:'Clasificación inválida.');}
+     await evidence(trx,String(account.id),Object.fromEntries(Object.entries(data).filter(([field])=>field!=='verticales')),user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
      await trx.insertInto('crmCommercialJournal').values({accountId:String(account.id),action:'account_created',actorEmail:user.email,actorName:user.displayName,metadata:json({after:account,batchId:batch.id,source:batch.source})}).execute();
      result.imported++;result.details.push({index:row.index,action:'create',id:String(account.id),accountId:String(account.id),entity:'business'});
     }else{
@@ -144,12 +151,15 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
      if(account.updatedAt.toISOString()!==d.revision)throw new QualityConflict(`Fila ${row.index+1}: el destino cambió. Generá el preview nuevamente.`);
      if(user.role!=='admin'&&account.assignedUserEmail!==user.email)throw new QualityForbidden('Solo podés actualizar tus negocios asignados.');
      if(await findNewDncBlocker(trx,{after:{...account,...fields},before:account,excludeId:d.targetId}))throw new QualityConflict(`Fila ${row.index+1}: ${DNC_DUPLICATE_MESSAGE}`);
-     const unsupported=Object.keys(fields).filter(f=>!(businessFields as readonly string[]).includes(f));
+     const unsupported=Object.keys(fields).filter(f=>!(businessFields as readonly string[]).includes(f)&&f!=='verticales');
      if(unsupported.length)throw new QualityValidation(`Fila ${row.index+1}: actualizar negocio solo acepta datos generales; quitá ${unsupported.map(f=>dataFieldLabels[f]||f).join(', ')} del mapeo o creá/omití la fila.`);
-     const classification=await classificationErrors(trx,fields.tipo??account.tipo,fields.subtipo??account.subtipo,account);
-     if(classification.length)throw new QualityValidation(classification.join(' '));
-     const after=await trx.updateTable('crmAccounts').set({...fields,updatedAt:new Date()}).where('id','=',d.targetId).returningAll().executeTakeFirstOrThrow();
-     await evidence(trx,d.targetId,fields,user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
+     const incoming:AccountClassification[]=parseClassificationImport(fields.verticales,fields.tipo,fields.subtipo);
+     const existingPairs=await trx.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',d.targetId).execute();
+     const pairErrors=await classificationListErrors({db:trx,pairs:[...existingPairs,...incoming],previous:existingPairs});if(pairErrors.length)throw new QualityValidation(pairErrors.join(' '));
+     const cleanFields=Object.fromEntries(Object.entries(fields).filter(([f])=>!['tipo','subtipo','verticales'].includes(f)));
+     const after=await trx.updateTable('crmAccounts').set({...cleanFields,updatedAt:new Date()}).where('id','=',d.targetId).returningAll().executeTakeFirstOrThrow();
+     try{await setAccountClassifications({trx,accountId:d.targetId,pairs:[...existingPairs,...incoming],actor:user,reason:'import'});}catch(error){throw new QualityValidation(error instanceof Error?error.message:'Clasificación inválida.');}
+     await evidence(trx,d.targetId,Object.fromEntries(Object.entries(fields).filter(([field])=>field!=='verticales')),user,{source:batch.source,sourceUrl:batch.sourceUrl,obtainedAt:batch.obtainedAt?.toISOString()},batch.id);
      await trx.insertInto('crmCommercialJournal').values({accountId:d.targetId,action:'import_updated',actorEmail:user.email,actorName:user.displayName,metadata:json({before:account,after,batchId:batch.id})}).execute();
      result.updated++;result.details.push({index:row.index,action:'update',id:d.targetId});
     }
@@ -168,8 +178,8 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    if(latestIds.rows.some(r=>!lockedIds.includes(r.id)))throw new QualityConflict('Cambió el negocio o sus relaciones. Revisá un nuevo preview antes de fusionar.');
    const p=await mergePreview(trx,input.sourceId,input.destinationId);
    if(p.token!==input.token)throw new QualityConflict('Cambió el negocio o sus relaciones. Revisá un nuevo preview antes de fusionar.');
-   if(businessFields.some(f=>!input.selections[f]))throw new QualityValidation('Elegí el valor de cada campo.');
-   const fields=Object.fromEntries(businessFields.map(f=>[f,p[input.selections[f]!][f]]));
+   if(businessFields.some(f=>!['tipo','subtipo'].includes(f)&&!input.selections[f]))throw new QualityValidation('Elegí el valor de cada campo.');
+   const fields=Object.fromEntries(businessFields.filter(f=>!['tipo','subtipo'].includes(f)).map(f=>[f,p[input.selections[f]!][f]]));
    const group=p.sellerGroup as {groupId:string;members:Array<{id:string}>;destinationTakesSourcePlace:boolean}|null;
    if(group){
     const memberIds=group.members.map(m=>m.id);
@@ -188,6 +198,7 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    for(const table of ['crmTasks','crmActivities','crmDataEvidence'] as const)await trx.updateTable(table).set({accountId:input.destinationId}).where('accountId','=',input.sourceId).execute();
    for(const table of ['crm_objections','crm_pipeline_events','crm_messages','crm_contact_restrictions','crm_communication_responses','crm_communication_response_corrections','crm_communication_interaction_corrections','crm_communication_journal','crm_documents','crm_document_links','crm_auto_registrations','crm_sales_material_shares'])await sql`UPDATE ${sql.table(table)} SET account_id=${input.destinationId}::bigint WHERE account_id=${input.sourceId}::bigint`.execute(trx);
    if(p.policy.doNotContact)await cancelRecontactTaskFor(trx,{accountId:input.destinationId,cause:'dnc'});
+   try{await setAccountClassifications({trx,accountId:input.destinationId,pairs:p.classificationPairs as AccountClassification[],trustedPairs:(p.snapshot.relations.classifications as Array<{accountId:string;tipo:string;subtipo:string|null}>).filter(r=>r.accountId===input.sourceId).map(({tipo,subtipo})=>({tipo,subtipo})),actor:user,reason:'merge'});}catch(error){throw new QualityValidation(error instanceof Error?error.message:'Clasificación inválida.');}
    const after=await trx.updateTable('crmAccounts').set({...fields,doNotContact:p.policy.doNotContact,commercialStatus:p.policy.commercialStatus as 'client'|'prospect',clientSince:p.policy.clientSince,updatedAt:new Date()}).where('id','=',input.destinationId).returningAll().executeTakeFirstOrThrow();
    await trx.insertInto('crmAccountMerges').values({sourceId:input.sourceId,destinationId:input.destinationId,actorEmail:user.email,reason:input.reason,snapshot:json(p.snapshot),selections:json(input.selections)}).execute();
    await trx.insertInto('crmCommercialJournal').values({accountId:input.destinationId,action:'account_merged',actorEmail:user.email,actorName:user.displayName,metadata:json({sourceId:input.sourceId,reason:input.reason,before:p.destination,after})}).execute();

@@ -3,13 +3,13 @@ export type Normalized={original:string|null; normalized:string|null; validity:V
 export const legacyBusinessFields=['nombre','ciudad','telefono','email','sitioWeb','urlGmap','perfilInstagram','perfilFacebook','perfilAirbnb','perfilBooking','perfilTurismoEntreRios'] as const;
 export const accountExtraFields=['tipo','subtipo','provincia','direccion','whatsapp','businessNotes','discoverySource','verificationUrls','verifiedOn'] as const;
 export const businessFields=[...legacyBusinessFields,...accountExtraFields] as const;
-export const businessImportFields=[...businessFields,'asignadoA'] as const;
+export const businessImportFields=[...businessFields,'verticales','asignadoA'] as const;
 export const importFields=[...businessFields,'estado','suscripcion','origen','fuenteReferencia','prioridad','notas','archivoAdjunto','fechaCreacion','fechaUltimoContacto','fechaProximaAccion','medioContactoPreferido','resultadoUltimoContacto','clientePotencialRecurrente','quienCargo','creadoPor','asignadoA'] as const;
 export const dataFieldLabels:Record<string,string>={
  provincia:'Provincia',direccion:'Dirección',whatsapp:'WhatsApp comercial',businessNotes:'Notas del negocio',discoverySource:'Fuente de descubrimiento',verificationUrls:'URLs de verificación',verifiedOn:'Fecha de verificación',
  nombre:'Nombre del negocio',ciudad:'Localidad',telefono:'Teléfono genérico',email:'Email',sitioWeb:'Sitio web',urlGmap:'Google Maps',
  perfilInstagram:'Instagram',perfilFacebook:'Facebook',perfilAirbnb:'Airbnb',perfilBooking:'Booking',perfilTurismoEntreRios:'Turismo Entre Ríos',
- tipo:'Vertical',subtipo:'Subtipo',estado:'Etapa',suscripcion:'Suscripción',origen:'Origen histórico',fuenteReferencia:'Fuente de referencia histórica',
+ tipo:'Vertical',subtipo:'Subtipo',verticales:'Verticales',estado:'Etapa',suscripcion:'Suscripción',origen:'Origen histórico',fuenteReferencia:'Fuente de referencia histórica',
  prioridad:'Prioridad',notas:'Notas de gestión',archivoAdjunto:'Documento adjunto',fechaCreacion:'Fecha de creación',fechaUltimoContacto:'Último contacto',
  fechaProximaAccion:'Próxima acción',medioContactoPreferido:'Canal preferido',resultadoUltimoContacto:'Resultado del último contacto',
  clientePotencialRecurrente:'Potencial recurrente',quienCargo:'Quién cargó (histórico)',creadoPor:'Creado por (histórico)',asignadoA:'Responsable (nombre o email)',
