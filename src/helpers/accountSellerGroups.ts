@@ -23,7 +23,7 @@ export async function loadSellerGroups({trx,accountIds}:{trx:Executor;accountIds
  if(!accountIds.length)return [];
  const rows=(await sql<{groupId:string;id:string;nombre:string;ciudad:string|null;status:string|null;assignedUserEmail:string|null;referredToLeandro:boolean;referredOriginalOwnerEmail:string|null;deletedAt:Date|null;archivedAt:Date|null;mergedIntoId:string|null}>`SELECT member.group_id::text AS "groupId",account.id::text AS id,account.nombre,account.ciudad,account.status,account.assigned_user_email AS "assignedUserEmail",account.referred_to_leandro AS "referredToLeandro",account.referred_original_owner_email AS "referredOriginalOwnerEmail",account.deleted_at AS "deletedAt",account.archived_at AS "archivedAt",account.merged_into_id::text AS "mergedIntoId" FROM crm_account_seller_group_members member JOIN crm_account_seller_group_members related ON related.group_id=member.group_id JOIN crm_accounts account ON account.id=related.account_id WHERE member.account_id IN (${sql.join(accountIds.map(id=>sql`${id}::bigint`))}) ORDER BY member.group_id,account.id`.execute(trx)).rows;
  const groups=new Map<string,SellerGroup>();
- for(const row of rows){const groupId=String(row.groupId),group=groups.get(groupId)??{groupId,members:[]};group.members.push({...row,id:String(row.id),mergedIntoId:row.mergedIntoId===null?null:String(row.mergedIntoId)});groups.set(groupId,group);}
+ for(const row of rows){const groupId=String(row.groupId),group=groups.get(groupId)??{groupId,members:[]};if(!group.members.some(member=>member.id===String(row.id)))group.members.push({...row,id:String(row.id),mergedIntoId:row.mergedIntoId===null?null:String(row.mergedIntoId)});groups.set(groupId,group);}
  return [...groups.values()];
 }
 
