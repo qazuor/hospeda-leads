@@ -178,12 +178,12 @@ const temporada = [
 ];
 
 const BASE = "https://hospeda.com.ar/es/presentacion";
-/** Plans or publishing page per rubro, verified on the public site (02/11/2026). */
+/** Plans page per rubro, verified on the public site (06/11/2026). */
 const linkPlanes = [
   ...pool("planes-general", {}, ["https://hospeda.com.ar/es/suscriptores/planes/"]),
   ...pool("planes-alojamientos", { verticals: ALOJAMIENTOS }, ["https://hospeda.com.ar/es/planes/anfitriones/"]),
-  ...pool("planes-gastronomia", { verticals: GASTRONOMIA }, ["https://hospeda.com.ar/es/publicar/comer-y-salir/"]),
-  ...pool("planes-experiencias", { verticals: EXPERIENCIAS }, ["https://hospeda.com.ar/es/publicar/experiencias/"]),
+  ...pool("planes-gastronomia", { verticals: GASTRONOMIA }, ["https://hospeda.com.ar/es/planes/comer-y-salir/"]),
+  ...pool("planes-experiencias", { verticals: EXPERIENCIAS }, ["https://hospeda.com.ar/es/planes/experiencias/"]),
 ];
 const linkPresentacion = [
   ...pool("link-general", {}, ["https://hospeda.com.ar"]),

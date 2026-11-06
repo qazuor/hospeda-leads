@@ -53,6 +53,12 @@ describe("message variables", () => {
     expect(values.telefono_hospeda).toBe("3442 470650");
   });
 
+  it("points link_planes at the plans page of every main vertical, not the publish page", () => {
+    const linkFor = (type: string) => resolveMessageVariables({ __seed: "catalog", channel: "whatsapp", type }, defaultMessageVariableSettings(), new Date("2026-10-19T11:00:00.000Z")).link_planes;
+    expect(linkFor("Gastronomía")).toBe("https://hospeda.com.ar/es/planes/comer-y-salir/");
+    expect(linkFor("Experiencias")).toBe("https://hospeda.com.ar/es/planes/experiencias/");
+  });
+
   it("does not re-add defaults to a previously saved catalog", () => {
     const saved = defaultMessageVariableSettings().filter(variable => variable.key !== "despedida").map(variable => variable.key === "saludo" ? { ...variable, active: false } : variable);
     const merged = withDefaultMessageVariables(saved);
