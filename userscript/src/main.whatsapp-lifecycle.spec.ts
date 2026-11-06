@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const api = vi.hoisted(() => ({
   fetchStatus: vi.fn(), fetchContext: vi.fn(), fetchAutoRegistrations: vi.fn(), saveAutoRegisterPreference: vi.fn(),
   request: vi.fn(), registerBatch: vi.fn(), fetchTemplates: vi.fn(), prepareTemplate: vi.fn(), dispatchTemplate: vi.fn(),
-  fetchMaterials: vi.fn(), addMaterial: vi.fn(), removeMaterial: vi.fn(), fetchMaterialFile: vi.fn(), setCrmRequestGuard: vi.fn()
+  fetchMaterials: vi.fn(), addMaterial: vi.fn(), removeMaterial: vi.fn(), fetchMaterialFile: vi.fn(), setCrmRequestGuard: vi.fn(),
+  sendUserscriptPresence: vi.fn(async () => ({ ok: true }))
 }));
 vi.mock("./api", () => ({ ...api, ApiError: class ApiError extends Error { constructor(message: string, public status: number, public minVersion?: string) { super(message); } } }));
 
@@ -57,7 +58,8 @@ describe("WhatsApp account lifecycle boot", () => {
     api.fetchStatus.mockResolvedValue(success("+5491111111111")); await boot();
     expect(visibleText()).toBe("Este WhatsApp no es el número asignado a tu usuario: el script está apagado.");
     expect(allApi().filter(fn => fn !== api.fetchStatus).every(fn => !(fn as ReturnType<typeof vi.fn>).mock.calls.length)).toBe(true);
-    expect(activeIntervals.size).toBe(1);
+    // The account monitor plus the presence heartbeat, which stays silent while the number does not match (no API call above).
+    expect(activeIntervals.size).toBe(2);
   });
 
   it("keeps a steady mismatch isolated through app churn, visibility, storage, menu and status expiry", async () => {

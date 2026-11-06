@@ -1,0 +1,11 @@
+import {afterEach,describe,expect,it,vi} from 'vitest';
+import {ApiError} from './api';
+import {startUserscriptPresence} from './presence';
+
+afterEach(()=>{vi.useRealTimers();vi.restoreAllMocks();document.body.replaceChildren();});
+describe('userscript presence heartbeat',()=>{
+ it('beats at start, every minute, and when visible after the throttle',()=>{vi.useFakeTimers();let token='configured';const send=vi.fn().mockResolvedValue({ok:true});const stop=startUserscriptPresence({source:'whatsapp',base:'https://crm.test',origin:'https://web.whatsapp.com',readToken:()=>token,send});expect(send).toHaveBeenCalledTimes(1);vi.advanceTimersByTime(60_000);expect(send).toHaveBeenCalledTimes(2);Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));vi.advanceTimersByTime(60_000);expect(send).toHaveBeenCalledTimes(2);Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'));expect(send).toHaveBeenCalledTimes(3);stop();});
+ it('does not beat on the CRM origin',()=>{const send=vi.fn();const stop=startUserscriptPresence({source:'instagram',base:'https://crm.test',origin:'https://crm.test',readToken:()=> 'configured',send});expect(send).not.toHaveBeenCalled();stop();});
+ it('skips beats while the active gate is false',()=>{vi.useFakeTimers();let direct=false;const send=vi.fn().mockResolvedValue({ok:true});const stop=startUserscriptPresence({source:'instagram',base:'https://crm.test',origin:'https://www.instagram.com',readToken:()=>'t',send,active:()=>direct});expect(send).not.toHaveBeenCalled();direct=true;vi.advanceTimersByTime(60_000);expect(send).toHaveBeenCalledTimes(1);stop();vi.useRealTimers();});
+ it('stops after 401 until the token changes',async()=>{vi.useFakeTimers();let token='old';const send=vi.fn().mockRejectedValue(new ApiError('Unauthorized',401));const stop=startUserscriptPresence({source:'instagram',base:'https://crm.test',origin:'https://instagram.com',readToken:()=>token,send});await vi.waitFor(()=>expect(send).toHaveBeenCalledTimes(1));vi.advanceTimersByTime(60_000);expect(send).toHaveBeenCalledTimes(1);token='new';vi.advanceTimersByTime(60_000);expect(send).toHaveBeenCalledTimes(2);stop();});
+});

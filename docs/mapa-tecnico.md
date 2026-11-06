@@ -11,6 +11,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | Páginas y estilos de página | `src/pages/` |
 | Componentes compartidos | `src/components/`, `src/components/ui/` |
 | Contratos cliente/servidor | `src/endpoints/` (schemas Zod, tipos y serializers SuperJSON) |
+| Presencia de usuarios | `src/endpoints/presence.ts`, `presence.schema.ts`, `src/helpers/usePresenceHeartbeat.ts`, `src/components/OnlineUsersIndicator.tsx`, `userscript/src/presence.ts`; rutas en `src/server/app.ts`; tabla `user_presence` desde la migración 063 |
 | Negocios/personas/gestiones | `src/endpoints/commercial.ts`, `commercial.schema.ts` |
 | Listado/proyección heredada compatible | `src/endpoints/leads_GET.ts`, `src/helpers/businessTable.ts` |
 | Columnas agrupadas de Negocios (definiciones, líneas visibles, popover de tabla y editor) | `src/helpers/businessColumnGroups.ts`, `src/endpoints/business_column_groups.ts`, `src/components/BusinessColumnGroupsEditor.tsx`, `src/components/BusinessColumnGroupCell.tsx`; renderizado de tabla/grilla en `src/pages/business-list.tsx`; preferencias en `businessListPreferences.ts` |

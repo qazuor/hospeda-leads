@@ -8,6 +8,8 @@ import { AppLayout, usePageCrumb } from './AppLayout';
 import { PageHeader } from './PageHeader';
 
 vi.mock('../helpers/useAuth', () => ({ useAuth: () => ({ authState: { type: 'authenticated', user: { id: 1, email: 'admin@example.com', displayName: 'Admin Test', role: 'admin' } }, logout: vi.fn() }) }));
+vi.mock('../helpers/usePresenceHeartbeat',()=>({usePresenceHeartbeat:vi.fn()}));
+vi.mock('./OnlineUsersIndicator',()=>({OnlineUsersIndicator:({role}:{role:string|null})=>role==='admin'?'1 en línea':null}));
 vi.mock('../helpers/themeMode', () => ({ useThemeMode: () => ({ mode: 'light', switchToLightMode: vi.fn(), switchToDarkMode: vi.fn(), switchToAutoMode: vi.fn() }) }));
 vi.mock('./LiveModeSwitch', () => ({ LiveModeSwitch: () => null }));
 vi.mock('./ProfileDialog', () => ({ ProfileDialog: () => null }));
@@ -42,6 +44,7 @@ describe('AppLayout breadcrumbs', () => {
     fireEvent.click(triggers[0]);
     expect(await screen.findByRole('menuitem',{name:'User script de WhatsApp'})).toBeTruthy();
   });
+  it('shows the online users indicator for admins',()=>{render(<MantineProvider><MemoryRouter initialEntries={['/accounts/1']}><Routes><Route element={<AppLayout/>}><Route path="/accounts/:accountId" element={<CachedBusiness/>}/></Route></Routes></MemoryRouter></MantineProvider>);expect(screen.getAllByText('1 en línea').length).toBeGreaterThan(0);});
   it('keeps help in the page header without a duplicate topbar button', () => {
     render(<MantineProvider><MemoryRouter initialEntries={['/accounts/1']}><Routes><Route element={<AppLayout/>}><Route path="/accounts/:accountId" element={<CachedBusiness/>}/></Route></Routes></MemoryRouter></MantineProvider>);
     expect(screen.getAllByRole('link', { name: 'Cómo funciona' })).toHaveLength(1);

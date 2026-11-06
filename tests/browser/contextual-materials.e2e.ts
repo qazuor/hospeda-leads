@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import superjson from 'superjson';
+import {isPresenceRequest} from './support/presence';
 
 // Spec 89 retired the library: a business keeps showing the documents linked before, nobody can link new ones, and /library lands on «Material de venta».
 for (const width of [1280, 390]) test(`retired library keeps legacy links readable and sends sellers to sales material at ${width}px`, async ({ page }) => {
@@ -14,7 +15,7 @@ for (const width of [1280, 390]) test(`retired library keeps legacy links readab
   const material = { id: '0b4fd1c8-0a5e-4f2b-9d1e-7d4b8c6a1f20', title: 'Video institucional', description: 'Para la primera reunión', kind: 'deliverable', source: 'url', status: 'active', archivedAt: null, archivedByEmail: null, revision: 1, createdByEmail: 'admin@example.com', createdAt: new Date(), updatedAt: new Date(), hasCover: false, categories: [{ id: '1', name: 'Videos', active: true }], currentVersion: { id: '5c0c1f86-2b1b-4b55-8d55-2a8f7f6b9e11', version: 1, url: 'https://example.com/video', fileName: null, mimeType: null, byteSize: null, actorEmail: 'admin@example.com', createdAt: new Date() } };
   await page.route('**/_api/**', async route => {
     const url = new URL(route.request().url()); let data: unknown = {};
-    if (route.request().method() === 'POST') writes.push(route.request().postData());
+    if (route.request().method() === 'POST' && !isPresenceRequest(route.request().url())) writes.push(route.request().postData());
     if (url.pathname.endsWith('/auth/session')) data = { user: { id: 3, email: 'owner@example.com', displayName: 'Owner', role: 'user' } };
     else if (url.pathname.endsWith('/commercial')) data = url.searchParams.has('historyPage') ? { events: [], total: 0, page: 1, pending: [], totalPending: 0 } : { account, opportunities, contacts: [], journal: [], leadJournal: [], stages: [], users: [] };
     else if (url.pathname.endsWith('/pipeline')) data = { stages: [], insights: [], events: [], objections: [], lossReasons: [], objectionTypes: [], rules: [], users: [], verticals: [] };

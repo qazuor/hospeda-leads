@@ -6,6 +6,8 @@ La implementación está en `feat/sales-material-internal-note`; falta que el pr
 
 # Pendientes y próximo trabajo
 
+- **Presencia de usuarios (`feat/online-users`, sin PR):** typecheck y 81 pruebas focalizadas pasan; ejecutar `npm run test:presence` en PostgreSQL descartable después de migrar y sembrar, luego CI antes del PR. El userscript 1.8.6 aporta actividad visible de WhatsApp e Instagram.
+
 - **Material de venta: cambiar el origen (archivo ↔ enlace).** «Editar» ya reemplaza el archivo o el enlace (`feat/material-edit-replace`), pero el origen sigue fijo desde la creación. Pedido del propietario para más adelante: requiere servidor, migración y portada/vista previa.
 
 - **Varias líneas de WhatsApp por usuario (`feat/user-whatsapp-lines`, script 1.8.5):** después del deploy, en una migración posterior, borrar `users.whatsapp_phone`, que 061 deja deprecada para no romper el contenedor viejo durante el deploy. Los scripts ≤1.8.4 de usuarios con 2 o más números ven el panel en cualquier número hasta que actualicen.

@@ -16,9 +16,10 @@ import { siteFor } from "./site";
 import { listenForInstagramHandoff } from "./instagramBridge";
 import { startInstagramApp } from "./instagramApp/start";
 import { gmInstagramStore } from "./instagramApp/storage";
-import { instagramApi } from "./instagramApp/client";
+import { instagramApi, instagramPresence } from "./instagramApp/client";
 import { listenForVisibility } from "./visibility";
 import { loggedInWhatsappPhone, whatsappAccountState } from "./whatsappAccount";
+import { startUserscriptPresence } from './presence';
 
 const BASE = (import.meta as ImportMeta & { env: { USERSCRIPT_CRM_BASE_URL?: string } }).env.USERSCRIPT_CRM_BASE_URL || "https://crm.hospeda.com.ar";
 const TOKEN_KEY = "hospeda-userscript-token", choicesKey = (phone: string | null) => `hospeda-userscript-choice:${phone || "unknown"}`;
@@ -32,6 +33,13 @@ const cache = new Map<string, { expiresAt: number; value: ContextResponse }>();
 let status: { expiresAt: number; value: StatusResponse } | null = null;
 let whatsappUnknownAt = 0, unknownNoticeTimer = 0, whatsappOff = false, accountMonitor = 0;
 function token(): string { return GM_getValue<string>(TOKEN_KEY, ""); }
+/** Side-effect-free twin of `whatsappAccountGate` for the presence heartbeat. */
+function whatsappAccountActive(): boolean {
+  if (!status) return false;
+  let loggedIn: string | null = null; try { loggedIn = loggedInWhatsappPhone(window.localStorage); } catch { /* storage may be unavailable */ }
+  const state = whatsappAccountState({ expected: status.value.whatsappAccounts ?? status.value.whatsappAccount ?? null, loggedIn });
+  return state === "ok" || state === "unconfigured";
+}
 function whatsappAccountGate(): boolean {
   if (!token()) return true;
   let loggedIn: string | null = null; try { loggedIn = loggedInWhatsappPhone(window.localStorage); } catch { /* storage may be unavailable in a restricted browser context */ }
@@ -143,9 +151,13 @@ function schedule(): void { window.clearTimeout(timer); timer = window.setTimeou
 function watchTheme(): void { new MutationObserver(applyTheme).observe(document.body, { attributes: true, attributeFilter: ["class"] }); matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); }
 function start(): void {
   const site = siteFor(location);
+  // Presence beats only once the status is known and this WhatsApp is an assigned line (or none is configured): a mismatched number stays quiet.
+  if (site === "whatsapp") startUserscriptPresence({ source: "whatsapp", base: BASE, readToken: token, active: whatsappAccountActive });
   // Instagram (spec 97 §5.3–5.4): the handoff and the chat page's panel. GM only through the Instagram store (token read-only, handoff,
   // panel state) and the CRM only through the allowlisted calls; no WhatsApp module, no page events, no clipboard read.
-  if (site === "instagram") { const store = gmInstagramStore(); startInstagramApp({ store, api: instagramApi({ base: BASE, token: store.token }), base: BASE, version: USERSCRIPT_VERSION }); return; }
+  if (site === "instagram") { const store = gmInstagramStore(), api = instagramApi({ base: BASE, token: store.token }); startInstagramApp({ store, api, base: BASE, version: USERSCRIPT_VERSION });
+    // After the app: its account guard (setCrmRequestGuard) must exist before the first beat, so a wrong Instagram account sends nothing.
+    startUserscriptPresence({ source: "instagram", base: BASE, readToken: store.token, send: instagramPresence({ base: BASE, token: store.token }), active: () => location.pathname.startsWith("/direct/") }); return; }
   // On the CRM's own page the script says it is here, accepts the Instagram handoff from the page and publishes whether its token works
   // (spec 96 §3.1: one status request, only the state and the token owner's email reach the page), and since 1.5.1 takes a new token from
   // «Conectar este navegador». No WhatsApp logic.

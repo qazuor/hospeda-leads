@@ -35,6 +35,9 @@ import {contentDisposition} from '../helpers/salesMaterialTypes';
 import {assertAccountContactAllowed} from '../helpers/communicationService';
 import {beginMaterialDownload} from '../helpers/userscriptMaterialRate';
 import {resolveWhatsappAccountPhones} from '../helpers/userAdmin';
+import {parseJsonOrSuperJson} from '../helpers/parseBody';
+export const userscriptPresenceSchema=z.object({source:z.enum(['whatsapp','instagram'])}).strict();
+export async function presence(request:Request){try{const auth=await scriptAuth(request);if(auth.response)return auth.response;const input=userscriptPresenceSchema.parse(await parseJsonOrSuperJson(request));await sql`INSERT INTO user_presence(user_id,source,last_seen_at) VALUES (${auth.user.id},${input.source},now()) ON CONFLICT (user_id,source) DO UPDATE SET last_seen_at=now() WHERE user_presence.last_seen_at < now() - interval '20 seconds'`.execute(db);return plain({ok:true});}catch(e){return failure(e,400);}}
 const plain=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 const failure=(e:unknown,status=400)=>e instanceof Error&&e.name==='NotAuthenticatedError'?plain({error:'Tu sesión venció. Volvé a ingresar.'},401):isTransientDbError(e)?plain({error:'Servicio ocupado, reintentá en unos segundos.'},503):plain({error:status<500&&e instanceof Error?e.message:'No se pudo completar la operación.'},status);
 const registerSchema=z.object({accountId:z.string().regex(/^[1-9]\d*$/),chat:z.object({title:z.string().max(300),phone:z.string().max(40).nullish()}),messages:z.array(z.object({externalId:z.string().min(1).max(300),direction:z.enum(['in','out']),text:z.string().max(10000),sentAt:z.string().datetime().nullable(),author:z.string().max(200).nullable(),media:z.enum(['document','image','video','audio']).nullable().optional()})).min(1).max(50),automatic:z.boolean().optional()});

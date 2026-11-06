@@ -1,5 +1,10 @@
 # Decisiones estables del CRM
 
+## Presencia de usuarios en el CRM — 05/11/2026
+
+- «En línea» significa que el usuario tiene el CRM abierto en una pestaña visible y el servidor recibió su heartbeat en los últimos 120 segundos. El cliente envía cada 60 segundos solo visible, al cargar si ya está visible y al volver a primer plano, con un límite de un envío cada 20 segundos.
+- La presencia se guarda por usuario y fuente (`crm`, `whatsapp`, `instagram`) en `user_presence`; un heartbeat por fuente actualiza como máximo cada 20 segundos. El CRM informa solo pestañas visibles; WhatsApp Web e Instagram informan actividad del userscript visible. La lista admin agrega fuentes vistas en los últimos 120 segundos, excluye usuarios desactivados y no prolonga ni modifica sesiones.
+
 ## Recorrido comercial y catálogo de mensajes v3 — 02/11/2026
 
 - El negocio se registra y crea su propia ficha; la prueba de 30 días empieza al publicarla y la suscripción se elige al terminar. Ofrecer que Hospeda arme la ficha es un rescate: solo si el cliente dice que no entiende cómo hacerlo, luego de que se registre.

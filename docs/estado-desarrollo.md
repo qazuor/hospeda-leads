@@ -4,6 +4,12 @@ En `feat/sales-material-internal-note`, la migración 062 traslada `description`
 
 # Estado del CRM — corte al 2 de noviembre de 2026
 
+## Presencia de usuarios en el header — 05/11/2026
+
+- Implementación local en `feat/online-users`: presencia separada por fuente CRM, WhatsApp e Instagram; clientes visibles envían heartbeat, el listado reciente es solo para admins y el popover muestra fuentes y hora. El corte es 120 segundos; el heartbeat no renueva la sesión. La migración nueva es `063_user_presence.sql` (062 está reservado por otra rama). Userscript actualizado a 1.8.6. Typecheck y 81 pruebas focalizadas pasan; queda ejecutar la integración `npm run test:presence` en PostgreSQL descartable.
+- Se agregó `scripts/test-presence.ts` y el comando/etapa CI `test:presence`. La integración no se ejecutó localmente; requiere base descartable migrada y sembrada. WhatsApp userscript no informa actividad y queda como posible trabajo futuro.
+- Próximo paso: ejecutar `npm run db:migrate`, `npm run db:seed:test` y `npm run test:presence` con `DATABASE_URL` apuntando a una base local descartable; luego correr CI. Validación local limitada a typecheck y specs focalizadas, pendiente al cierre de esta entrada.
+
 
 ## Portada automática de enlaces — 05/11/2026
 
