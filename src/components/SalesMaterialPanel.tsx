@@ -100,9 +100,10 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
    {backfilling&&<Button variant="outline" onClick={()=>backfill.current?.abort()}><Square size={15} aria-hidden="true"/>Detener</Button>}
   </>:null;
  return <>{header?header(actions):actions&&<div className={styles.toolbar}>{actions}</div>}<section className={layout.panel+' '+styles.stack} aria-busy={q.isFetching||!!pending}>
-  <SalesMaterialFiltersBar admin={admin} categories={q.data?.categories??[]} verticals={q.data?.verticals??[]} value={filters} onChange={setFilters}/>
+  {/* Owner request: search, filters and the view toggle stay pinned under the app header while the list scrolls. */}
+  <div className={styles.stickyBar} data-testid="material-sticky-bar"><SalesMaterialFiltersBar admin={admin} categories={q.data?.categories??[]} verticals={q.data?.verticals??[]} value={filters} onChange={setFilters}/>
+  <SegmentedControl className={styles.viewToggle} aria-label="Vista del material de venta" value={view} onChange={v=>setView(v as 'grid'|'list')} data={[{value:'grid',label:'Tarjetas'},{value:'list',label:'Lista'}]}/></div>
   {limits&&!limits.storageConfigured&&<p className={styles.warning} role="note">Almacenamiento no configurado. Los archivos no se pueden subir ni abrir hasta que un administrador cargue las variables R2 en el servidor. Los enlaces externos siguen funcionando.</p>}
-  <SegmentedControl aria-label="Vista del material de venta" value={view} onChange={v=>setView(v as 'grid'|'list')} data={[{value:'grid',label:'Tarjetas'},{value:'list',label:'Lista'}]}/>
   {pending&&<p role="status" className={styles.status}><Loader size="xs" aria-hidden="true"/>{pending}</p>}{error&&<p role="alert" className={styles.error}>{error}</p>}
   {q.isPending?<QueryLoadingNotice>Cargando material de venta…</QueryLoadingNotice>:!q.data?<QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>:<>
    {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>}

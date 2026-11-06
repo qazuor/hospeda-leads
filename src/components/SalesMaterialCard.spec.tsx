@@ -2,7 +2,7 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {within,cleanup,fireEvent,render,screen} from '@testing-library/react';
 import {MantineProvider} from '@mantine/core';
 import type {SalesMaterial} from '../endpoints/salesMaterials.schema';
-import {SalesMaterialCard,categoryInitials} from './SalesMaterialCard';
+import {SalesMaterialCard} from './SalesMaterialCard';
 
 const version={id:'v-2',version:2,url:null,fileName:'folleto.pdf',mimeType:'application/pdf',byteSize:2048,actorEmail:'admin@example.com',createdAt:new Date('2026-10-20T12:00:00Z')};
 const material=(over:Partial<SalesMaterial>={}):SalesMaterial=>({id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:3,createdByEmail:'admin@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,coverSource:null,categories:[{id:'7',name:'Precios 2027',active:true}],currentVersion:version,...over});
@@ -53,11 +53,10 @@ describe('SalesMaterialCard',()=>{
   menu=await openMenu();const download=menu.find(i=>i.textContent?.startsWith('Descargar')) as HTMLButtonElement;
   expect(download.disabled).toBe(true);expect(download.textContent).toContain('Almacenamiento no configurado: el archivo no se puede abrir por ahora.');
  });
- it('shows the stored cover, or a drawn placeholder with format and category initials',()=>{
+ it('shows the stored cover, or a drawn placeholder with the format on the category color',()=>{
   const {container}=setup(material({hasCover:true,coverSource:'auto'}));expect(container.querySelector('img')?.getAttribute('src')).toBe('/_api/sales_materials/cover?materialId=m-1&r=3');cleanup();
   setup(material());const placeholder=screen.getByTestId('cover-placeholder');
-  expect(placeholder.textContent).toBe('PDFP2');expect(placeholder.getAttribute('data-category')).toBe('true');expect(placeholder.style.getPropertyValue('--cover-hue')).toMatch(/^\d+$/);cleanup();
+  expect(placeholder.textContent).toBe('PDF');expect(placeholder.getAttribute('data-category')).toBe('true');expect(placeholder.style.getPropertyValue('--cover-hue')).toMatch(/^\d+$/);cleanup();
   setup(material({hasCover:true,categories:[]}),{storageConfigured:false});expect(screen.getByTestId('cover-placeholder').getAttribute('data-category')).toBeNull();
  });
- it('takes up to two initials from the category name',()=>{expect(categoryInitials('Folletos')).toBe('F');expect(categoryInitials('precios  de 2027')).toBe('PD');});
 });
