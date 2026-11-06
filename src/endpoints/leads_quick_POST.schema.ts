@@ -5,6 +5,7 @@ export const schema = z.object({
   accountId:z.string().optional(),
   scope:z.enum(["business","management"]).optional(),
   expectedClassification:z.object({tipo:z.string().nullable(),subtipo:z.string().nullable()}).optional(),
+  classifications:z.array(z.object({tipo:z.string().trim().min(1),subtipo:z.string().trim().nullable()}).strict()).max(8).optional(),expectedClassifications:z.array(z.object({tipo:z.string(),subtipo:z.string().nullable()}).strict()).max(8).optional(),
   id: z.union([z.string(), z.number()]),
   field: z.enum([
     "origen","creadoPor","tipo","subtipo","commercialProfile","ciudad","estado","prioridad","quienCargo","assignedUserEmail","medioContactoPreferido",
