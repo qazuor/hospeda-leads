@@ -26,7 +26,8 @@ export async function business(c:Config,id:string){return read(c,async tx=>{
  if(!rows.length)return {found:false};
  const contacts=await tx`SELECT id::text,name,position,phone,email,preferred_channel,is_primary FROM public.crm_contacts WHERE account_id=${id} AND deleted_at IS NULL ORDER BY id`;
  const managements=await tx`SELECT id::text,opportunity_name,tipo,estado,assigned_user_email,deleted_at FROM public.leads WHERE account_id=${id} ORDER BY id`;
- return {found:true,business:rows[0],contacts,managements};
+ const linked=await tx`SELECT a.id::text AS id,a.nombre AS nombre FROM public.crm_account_seller_group_members m JOIN public.crm_account_seller_group_members related ON related.group_id=m.group_id JOIN public.crm_accounts a ON a.id=related.account_id WHERE m.account_id=${id} AND a.id<>${id} AND a.deleted_at IS NULL AND a.merged_into_id IS NULL ORDER BY a.id`;
+ return {found:true,business:rows[0],contacts,managements,negocios_vinculados:linked};
 });}
 export async function matches(c:Config,id:string){return read(c,async tx=>{
  const source=await tx`SELECT nombre,ciudad,telefono,whatsapp,email,sitio_web,perfil_instagram,url_gmap FROM public.crm_accounts WHERE id=${id} AND deleted_at IS NULL`;
