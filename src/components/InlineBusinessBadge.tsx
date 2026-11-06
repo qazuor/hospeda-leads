@@ -41,7 +41,9 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
  const options=field==='assignedUserEmail'?settings.data?.users.filter(item=>!item.deactivatedAt).map(item=>({value:item.email,label:item.displayName||item.email}))??[]:Array.from(new Set([...plainOptions,...(['quienCargo','creadoPor'].includes(field)?settings.data?.users.map(item=>item.displayName)??[]:[])])).map(value=>({value,label:value}));
  const missingManagement=scope==='management'&&!management;
  const hasEditableManagement=gestions.some(item=>canModifyManagement(user,item,account));
- const compact=field!=='tipo'&&field!=='subtipo'&&field!=='assignedUserEmail'&&!(scope==='management'&&gestions.length>1);
+ const compact=field!=='tipo'&&field!=='subtipo'&&!(scope==='management'&&gestions.length>1);
+ // Spec 107 §7.1: one click, so the linked-group notice is shown before choosing instead of after.
+ const groupNotice=field==='assignedUserEmail'&&detail.data?.sellerGroup&&!account?.archivedAt&&!account?.deletedAt&&!account?.mergedIntoId?sellerGroupNotice(detail.data.sellerGroup.members,accountId):'';
  async function submit(nextDraft=draft){if(lock.current||!nextDraft||!allowed)return;lock.current=true;setProcessing(true);try{
   await save.mutateAsync({id:management?String(management.id):accountId,accountId,field,value:nextDraft.value||null,expectedValue:nextDraft.expected,scope,...(['tipo','subtipo'].includes(field)?{scope:'business',expectedClassification:nextDraft.classification}:{})});
   await Promise.all([qc.invalidateQueries({queryKey:['leads']}),qc.invalidateQueries({queryKey:['commercial-detail',accountId]})]);setOpen(false);toast.success(title+' actualizado',{duration:TOAST_MS.success});
@@ -52,6 +54,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
   <PopoverContent data-inline-editor-dropdown={inlineEditorId} aria-label={compact?'Opciones de '+title.toLowerCase():'Editar '+title.toLowerCase()} className={compact?styles.compactPopover:styles.popover} align="start" onEscapeKeyDown={event=>{if(lock.current)event.preventDefault();}} onInteractOutside={event=>{if(lock.current)event.preventDefault();}}>
    {compact?<>
     {loading?<p className={styles.compactStatus} role="status"><Loader size={13} aria-hidden="true"/> Cargando…</p>:detail.error||settings.error||filterOptions.error?<div className={styles.compactError} role="alert"><span>{detail.error?.message||settings.error?.message||filterOptions.error?.message}</span><Button variant="outline" size="sm" onClick={()=>{void detail.refetch();void settings.refetch();void filterOptions.refetch();}}>Reintentar</Button></div>:missingManagement?<div className={styles.compactError} role="alert">Sin gestiones iniciadas. <Link to={'/accounts/'+accountId}>Abrir negocio</Link></div>:!allowed?<p className={styles.compactError} role="alert">No tenés permiso para modificar este dato.</p>:<>
+     {groupNotice?<p className={styles.compactStatus} role="note">Si cambiás el responsable, también cambia el de: {groupNotice}.</p>:null}
      <div className={styles.optionList} role="group" aria-label={'Opciones de '+title.toLowerCase()}>
       {[{value:'',label:empty},...((current&&!options.some(item=>item.value===current))?[{value:current,label:current}]:[]),...options].map(item=>{
        const isCurrent=(item.value||null)===current;
