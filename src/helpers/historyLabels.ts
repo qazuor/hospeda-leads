@@ -23,7 +23,7 @@ const communicationTitles:Readonly<Record<string,string>>={
 };
 /** Plain-words titles for business data changes. */
 const changeTitles:Readonly<Record<string,string>>={
- account_created:'Negocio creado',account_updated:'Datos del negocio editados',account_contact_data_updated:'Datos de contacto corregidos',account_deleted:'Negocio enviado a Papelera',account_restored:'Negocio restaurado',account_archived:'Negocio archivado',account_unarchived:'Negocio recuperado',account_merged:'Negocios fusionados',
+ account_created:'Negocio creado',account_updated:'Datos del negocio editados',account_contact_data_updated:'Datos de contacto corregidos',account_deleted:'Negocio enviado a Papelera',account_restored:'Negocio restaurado',account_archived:'Negocio archivado',account_unarchived:'Negocio recuperado',account_merged:'Negocios fusionados',account_seller_group_linked:'Negocios vinculados',account_seller_group_unlinked:'Negocios desvinculados',
  contact_policy:'Preferencias de contacto actualizadas',leandro_referral_changed:'Derivación a Leandro actualizada',import_updated:'Actualizado desde un lote',business_assignment_rebalanced:'Responsable actualizado por redistribución',converted_to_client:'Pasó a ser cliente',
  business_status_changed:'Estado del negocio actualizado',business_state_changed:'Estado del negocio actualizado',client_marked:'Marcado como cliente',client_unmarked:'Se quitó la marca de cliente',
  contact_created:'Persona agregada',contact_updated:'Persona editada',contact_deleted:'Persona quitada',contact_primary_changed:'Persona principal reemplazada'

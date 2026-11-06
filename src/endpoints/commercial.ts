@@ -6,8 +6,9 @@ import {CrmForbidden,assertAccountViewable,assertAccountWritable,assertContactDa
 import {canonicalInstagramProfile,INSTAGRAM_PROFILE_INVALID} from '../helpers/instagramChat';
 import {findNewDncBlocker,findDncPhoneBusinessesForPeople,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
+import {updateBusinessResponsibleForLockedAccounts} from '../helpers/updateBusinessFields';
 import {classificationErrors} from '../helpers/accountClassification';
-import {loadSellerGroups,groupSellerState} from '../helpers/accountSellerGroups';
+import {loadSellerGroups,groupSellerState,linkAccounts,unlinkAccount,expandToSellerGroups} from '../helpers/accountSellerGroups';
 import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
@@ -55,7 +56,7 @@ export async function get(request:Request){
       if(input.historyPage)return response(await businessHistory(family,input.historyPage,input.historyKind));
       const [sellerGroup]=await loadSellerGroups({trx:db,accountIds:[accountId]});
       const groupState=sellerGroup?groupSellerState({members:sellerGroup.members}):null;
-      const visibleSellerGroup=sellerGroup?{id:sellerGroup.groupId,state:groupState!.state,members:sellerGroup.members.map(member=>{let readable=true;try{assertAccountViewable(user,member);}catch{readable=false;}return readable?{id:member.id,name:member.nombre,city:member.ciudad??null,status:member.status,assignedUserEmail:member.assignedUserEmail}:{id:member.id,name:'negocio de otro vendedor' as const,city:null,status:null,assignedUserEmail:null};})}:null;
+      const visibleSellerGroup=sellerGroup?{id:sellerGroup.groupId,state:groupState!.state,members:sellerGroup.members.map(member=>{let readable=true;try{assertAccountViewable(user,member);}catch{readable=false;}const state={archived:!!member.archivedAt,deleted:!!member.deletedAt,merged:!!member.mergedIntoId};return readable?{id:member.id,name:member.nombre,city:member.ciudad??null,status:member.status,assignedUserEmail:member.assignedUserEmail,effectiveSellerEmail:member.referredToLeandro?member.referredOriginalOwnerEmail:member.assignedUserEmail,...state}:{id:member.id,name:'negocio de otro vendedor' as const,city:null,status:null,assignedUserEmail:null,effectiveSellerEmail:null,archived:false,deleted:false,merged:false};})}:null;
       const [account,contacts,opportunities,journal,leadJournal,managementJournal,stages]=await Promise.all([
         db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow(),
         db.selectFrom("crmContacts").selectAll().where("deletedAt","is",null).where("accountId","=",accountId).orderBy("isPrimary","desc").orderBy("name").execute(),
@@ -98,6 +99,16 @@ export async function post(request:Request){
       const checkResponsible=(next:string|null|undefined,previous:string|null)=>{
         if(next!==undefined&&nullable(next)!==previous&&user.role!=="admin")throw new Forbidden("Solo un administrador puede modificar el responsable.");
       };
+      if(input.action==='account_link'){
+        if(user.role!=='admin')throw new Forbidden('Solo un administrador puede vincular negocios.');
+        if(input.sellerEmail)await assertActiveAssignee(trx,{next:input.sellerEmail,previous:null});
+        const linked=await linkAccounts({trx,accountIds:input.accountIds,sellerEmail:input.sellerEmail??null,actor:{email:user.email,displayName:user.displayName},note:input.note});
+        return linked.accountIds[0]!;
+      }
+      if(input.action==='account_unlink'){
+        if(user.role!=='admin')throw new Forbidden('Solo un administrador puede desvincular negocios.');
+        await unlinkAccount({trx,accountId:input.accountId,actor:{email:user.email,displayName:user.displayName},reason:input.reason});return input.accountId;
+      }
       if(input.action==="account_trash"){
         const ids=[...new Set(input.accountIds)];
         const accounts=await trx.selectFrom("crmAccounts").selectAll().where("id","in",ids).orderBy("id").forUpdate().execute();
@@ -113,7 +124,15 @@ export async function post(request:Request){
         return ids[0];
       }
       if(input.action==="account_save"){
-        const existing=input.id?await trx.selectFrom("crmAccounts").selectAll().where("id","=",input.id).forUpdate().executeTakeFirstOrThrow():null;
+        const seed=input.id?await trx.selectFrom('crmAccounts').selectAll().where('id','=',input.id).executeTakeFirst():null;
+        const requestedSeller=input.assignedUserEmail===undefined?undefined:nullable(input.assignedUserEmail);
+        const effective=seed?.referredToLeandro?seed.referredOriginalOwnerEmail:seed?.assignedUserEmail;
+        const changedResponsible=requestedSeller!==undefined&&requestedSeller!==effective&&!(seed?.referredToLeandro&&requestedSeller===seed.assignedUserEmail);
+        const shouldExpand=!!input.id&&user.role==='admin'&&changedResponsible&&!seed?.deletedAt&&!seed?.archivedAt&&!seed?.mergedIntoId;
+        const expandedIds=shouldExpand?await expandToSellerGroups({trx,accountIds:[input.id!]}):input.id?[input.id]:[];
+        const lockedAccounts=expandedIds.length?await trx.selectFrom("crmAccounts").selectAll().where("id","in",expandedIds).orderBy("id").forUpdate().execute():[];
+        if(shouldExpand){const fresh=[...new Set([input.id!,...await expandToSellerGroups({trx,accountIds:[input.id!]})])].sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0);const original=[...expandedIds].sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0);if(fresh.length!==original.length||fresh.some((memberId,index)=>memberId!==original[index]))throw new Conflict('Los datos cambiaron. Recargá la ficha e intentá de nuevo.');}
+        const existing=input.id?lockedAccounts.find(row=>String(row.id)===input.id)??(()=>{throw new Error("El negocio ya no existe.")})():null;
         const access=existing?await assertContactDataWritable(trx,user,existing):null;
         const contactOnly=access?.scope==='open_management';
         if(existing&&contactOnly){// Decision 8A: every field outside the whitelist must equal the stored value (omitted means unchanged).
@@ -123,8 +142,9 @@ export async function post(request:Request){
         }
         if(existing&&input.primaryContact)throw new Error("Las personas de un negocio existente se agregan desde su ficha.");
         checkEmail(input.primaryContact?.email);
-        checkResponsible(input.assignedUserEmail,existing?.assignedUserEmail??null);
-        await assertActiveAssignee(trx,{next:input.assignedUserEmail===undefined?(existing?.assignedUserEmail??user.email):nullable(input.assignedUserEmail),previous:existing?.assignedUserEmail});
+        checkResponsible(input.assignedUserEmail,existing?.referredToLeandro?existing.referredOriginalOwnerEmail??null:existing?.assignedUserEmail??null);
+        const effectiveRequested=input.assignedUserEmail===undefined?existing?.referredToLeandro?existing.referredOriginalOwnerEmail:existing?.assignedUserEmail:existing?.referredToLeandro&&nullable(input.assignedUserEmail)===existing.assignedUserEmail?existing.referredOriginalOwnerEmail:nullable(input.assignedUserEmail);
+        await assertActiveAssignee(trx,{next:effectiveRequested===undefined?user.email:effectiveRequested,previous:existing?.referredToLeandro?existing.referredOriginalOwnerEmail:existing?.assignedUserEmail});
         checkEmail(input.email,existing?.email);
         const extra=Object.fromEntries(accountExtraFields.filter(f=>input[f]!==undefined).map(f=>[f,nullable(input[f])]));
         const tipo=input.tipo===undefined?existing?.tipo??null:nullable(input.tipo);
@@ -132,7 +152,7 @@ export async function post(request:Request){
         const classification=contactOnly?[]:await classificationErrors(trx,tipo,subtipo,existing??undefined);
         if(classification.length)throw new Error(classification.join(' '));
         if(!contactOnly&&input.verifiedOn&&input.verifiedOn>new Date().toISOString().slice(0,10))throw new Error('Fecha de verificación futura.');
-        const fullFields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),updatedAt:new Date()};
+        const fullFields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:existing?.referredToLeandro?existing.assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),...(existing?.referredToLeandro&&changedResponsible?{referredOriginalOwnerEmail:requestedSeller??null}:{}),updatedAt:new Date()};
         // Spec 98 §17: a new business stores its Instagram as the canonical profile URL; anything that is not a profile is refused (edits keep their rules).
         if(!existing&&fullFields.perfilInstagram){const profile=canonicalInstagramProfile(fullFields.perfilInstagram);if(!profile)throw new Error(INSTAGRAM_PROFILE_INVALID);fullFields.perfilInstagram=profile;}
         const fields=contactOnly?{telefono:input.telefono===undefined?existing!.telefono:nullable(input.telefono),email:input.email===undefined?existing!.email:nullable(input.email),...(input.whatsapp===undefined?{}:{whatsapp:nullable(input.whatsapp)}),updatedAt:new Date()}:fullFields;
@@ -143,7 +163,10 @@ export async function post(request:Request){
         }
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fullFields).returningAll().executeTakeFirstOrThrow();
         await audit(String(row.id),contactOnly?"account_contact_data_updated":existing?"account_updated":"account_created",existing,row,null,contactOnly?{scope:access!.scope,leadIds:access!.leadIds}:{});
-        if(existing&&!contactOnly)await reassignRecontactTask(trx,{accountId:row.id,fromEmail:existing.assignedUserEmail,toEmail:row.assignedUserEmail});// Decision 7A: the untouched "Volver a contactar" task follows the new responsible.
+        if(existing&&!contactOnly&&changedResponsible)await reassignRecontactTask(trx,{accountId:row.id,fromEmail:effective??null,toEmail:requestedSeller??null});// Decision 7A: the untouched "Volver a contactar" task follows the new responsible.
+        if(existing&&!contactOnly&&changedResponsible&&user.role==='admin'){
+          await updateBusinessResponsibleForLockedAccounts(trx,lockedAccounts.filter(member=>String(member.id)!==String(row.id)&&!member.deletedAt&&!member.archivedAt&&!member.mergedIntoId),requestedSeller??null,{email:user.email,displayName:user.displayName,role:'admin'});
+        }
         if(input.primaryContact){// One-step creation: the person becomes Principal in the same transaction (a new business has no previous Principal).
           const contact=await trx.insertInto("crmContacts").values({accountId:String(row.id),name:input.primaryContact.name,phone:nullable(input.primaryContact.phone),email:nullable(input.primaryContact.email),isPrimary:true,updatedAt:new Date()}).returningAll().executeTakeFirstOrThrow();
           await audit(String(row.id),"contact_created",null,input.personPhoneDncAcknowledged?{...contact,personPhoneDncAcknowledged:true}:contact,String(contact.id));
@@ -264,5 +287,5 @@ export async function post(request:Request){
       return String(row.id);
     });
     return response(recontactTask?{id,recontactTask}:{id});
-  }catch(e){return response({error:crmError(e)},e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:fallbackStatus(e))}
+  }catch(e){const message=e instanceof Error?e.message:'';const groupStatus=message==='GROUP_LIMIT'?400:['SELLER_REQUIRED','NEGOCIO_FUSIONADO','GROUP_CHANGED'].includes(message)?409:null;const groupMessage=message==='SELLER_REQUIRED'?'Elegí con qué vendedor quedan.':message==='NEGOCIO_FUSIONADO'?'No se puede vincular un negocio fusionado.':message==='GROUP_LIMIT'?'El grupo no puede superar los 10 negocios.':message==='GROUP_CHANGED'?'Los datos cambiaron. Recargá la ficha e intentá de nuevo.':null;const duplicateGroup=e&&typeof e==='object'&&'constraint'in e&&(e as {constraint?:string}).constraint==='crm_account_seller_group_members_one_group';return response({error:groupMessage??(duplicateGroup?'Los negocios ya están vinculados. Recargá la ficha e intentá de nuevo.':crmError(e))},groupStatus??(duplicateGroup?409:e instanceof Forbidden||e instanceof CrmForbidden?403:e instanceof NotAuthenticatedError?401:e instanceof Conflict?409:fallbackStatus(e)))}
 }
