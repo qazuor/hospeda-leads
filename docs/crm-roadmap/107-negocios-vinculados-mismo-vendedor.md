@@ -137,7 +137,7 @@ RO-RO, todas con la transacción:
 
 ### 6.2 Vendedores distintos al vincular (D3)
 
-Recomendado: si los miembros activos tienen vendedores distintos, el diálogo muestra «Estos negocios tienen distinto vendedor. ¿Con quién quedan?» con cada vendedor actual (y cuántos negocios tiene en el grupo), preseleccionado el del negocio desde el que se abrió. Al confirmar, en una transacción: crea o une el grupo y reasigna con el mismo camino de 7.1 (journal, tarea «Volver a contactar»). Sin elegir, no se vincula.
+Recomendado: si los miembros activos tienen vendedores distintos, el diálogo muestra «Estos negocios tienen distinto vendedor. ¿Con quién quedan?» con cada vendedor actual (y cuántos negocios tiene en el grupo), preseleccionado el del negocio desde el que se abrió. Un miembro activo sin responsable no cuenta como vendedor distinto y toma el vendedor del grupo al vincularse, con journal y actualización de su tarea «Volver a contactar». Si todos los miembros activos carecen de responsable, el diálogo ofrece todos los vendedores activos y exige elegir uno. Al confirmar, en una transacción: crea o une el grupo y reasigna con el mismo camino de 7.1 (journal, tarea «Volver a contactar»). Sin elección cuando hace falta, no se vincula.
 
 ### 6.3 Contrato
 
@@ -195,7 +195,7 @@ Antes de tocar el greedy: `src/helpers/businessReassignment.spec.ts` (nuevo) fij
 ## 9. Desactivar usuario, derivación, fusión, Papelera y archivo (bloque 5)
 
 - **Desactivar usuario** (`settings_save_POST.ts:307-338`): sin cambio de lógica; un grupo consistente queda junto. El diálogo avisa si el usuario tiene miembros de un grupo inconsistente o miembros archivados de un grupo («H184 está archivado y queda con {usuario}»). Test de integración nuevo en `test:user-admin`.
-- **Derivar a Leandro** (D6): no se propaga al grupo; el vendedor efectivo del negocio derivado sigue siendo `referred_original_owner_email`, así que el grupo no queda inconsistente. Al volver (`pipeline.ts:238-240`) se restaura al responsable original como hoy.
+- **Derivar a Leandro** (D6): no se propaga al grupo; el vendedor efectivo del negocio derivado sigue siendo `referred_original_owner_email`, así que el grupo no queda inconsistente. Al volver (`pipeline.ts`, acción `unrefer`), restaurar al responsable original no cambia el resto del grupo. Si se elige otro responsable, D4 propaga ese responsable a todos los miembros activos del grupo antes de cerrar la derivación, con journal y tarea «Volver a contactar» para cada negocio afectado.
 - **Fusión** (`merge_confirm`):
   - Origen en un grupo y destino sin grupo: el destino **ocupa el lugar** del origen en el grupo.
   - Ambos en el mismo grupo: el origen sale del grupo; si queda uno solo, el grupo se borra.

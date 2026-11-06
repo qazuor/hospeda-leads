@@ -1,3 +1,15 @@
+## Spec 107, PR B — vinculación y reasignación manual — 06/11/2026
+
+PR B completado localmente en `feat/spec-107-link-ui`: vincular/desvincular con permisos admin y locks por id; fusión de grupos, tope de 10, grupos unitarios; reasignación del grupo en `account_save`, inline y bulk; tareas «Volver a contactar» y journal por negocio; picker compartido con Bandeja, elección de vendedor con cantidades y aviso previo; miembros privados redactedos y archivados/en Papelera/fusionados atenuados. La vista previa bulk lista los agregados como vinculados.
+
+Segunda revisión: la ficha conserva el vendedor original al guardar una derivación a Leandro sin cambios; un cambio explícito actualiza al dueño efectivo y al grupo. El quick edit expande y bloquea por id antes de su lock de fila; los cambios de membresía vuelven como 409; desvincular usa el grupo leído tras el lock. Los avisos y selectores usan vendedor efectivo y no anuncian negocios inactivos ni cambios sin miembros activos.
+
+Tercera revisión: `linkAccounts` compara la membresía completa antes y después del lock, y calcula los vendedores desde filas bloqueadas. Los miembros activos sin responsable adoptan el vendedor existente; si todos carecen de uno, el diálogo exige elegir entre vendedores activos. El aviso del editor respeta el estado activo del negocio actual. Desactivar la derivación con un dueño nuevo propaga D4 al grupo activo con journal y recontacto; restaurar al dueño original no modifica al grupo. El helper de recontacto usa el vendedor efectivo también para negocios derivados.
+
+Validación tercera ronda en la PostgreSQL descartable indicada por el prompt: con `npm run db:seed:test` antes de cada suite, `test:commercial`, `test:permissions` (613 checks), `test:pipeline`, `test:business-reassignment`, `test:user-admin` y `test:work` PASS. También pasan `npm run typecheck` y Vitest dirigido a `accountSellerGroups.spec.ts`, `sellerChoice.spec.ts`, `CommercialEditor.forms.spec.tsx` y `BusinessSellerGroupSection.spec.tsx` (21 tests). `test:pipeline` requirió corregir el fixture (negocio revisado y único usuario Leandro); la repetición con semilla fresca pasó. No se ejecutaron build, browser ni suite completa de Vitest. No se usó Git ni se creó commit o PR.
+
+Fuera del alcance de PR B: bloques 5 y 6 de la spec (desactivación/fusión/Papelera como rutas integradas, runbook de los cinco pares y carga operativa) conservan su estado previo; no se cargaron datos reales.
+
 ## Spec 107, PR A — grupos de vendedor en la redistribución — 06/11/2026
 
 Implementación local en `feat/spec-107-linked-businesses`: migración 064, helper y lecturas de grupos en ficha/MCP; planner de redistribución por unidades con bloqueo, fingerprint y journal; preview, integración y tests focalizados. Los vínculos se crean directamente solo en el fixture de integración; no se cargaron datos reales.
@@ -998,3 +1010,9 @@ WhatsApp and Instagram now wait for account status before showing account-specif
 ## Administración de usuarios · pase 3 · 04/11/2026
 
 Se añadieron conteos de negocios no archivados, gestiones abiertas y tareas pendientes al listado de usuarios. La desactivación bloquea el usuario objetivo y, en una transacción, reasigna esos registros al responsable activo elegido en el diálogo, registra historial para negocios y gestiones y aplica revocaciones. Los usuarios desactivados siguen disponibles para resolver nombres en historial; las opciones operativas se filtran en cliente. Validación puntual: `npm run typecheck` y Vitest dirigido (2 archivos / 11 pruebas). No se ejecutaron integraciones DB; el script de integración requiere confirmar sus fixtures y limpieza antes de CI.
+
+## Spec 107 PR B · revisión de hallazgos · 06/11/2026
+
+La segunda pasada corrigió referral a Leandro en guardado de ficha, edición rápida, selector de vínculo/igualación y avisos inline; el quick edit adquiere primero todos los locks del grupo en orden; `unlinkAccount` usa la membresía post-lock; los conflictos por cambios de grupo son 409. Las expansiones bulk conservan los IDs seleccionados, incluso archivados, y comparan la membresía completa después del lock.
+
+Regresiones añadidas en `scripts/test-commercial.ts`, `src/components/CommercialEditor.forms.spec.tsx`, `src/components/BusinessSellerGroupSection.spec.tsx` y `src/helpers/sellerGroupNotice.spec.ts`. El fixture comercial crea un usuario llamado Leandro y simula el guardado de referral de `pipeline.ts`, con dueño original distinto. Tras sembrar antes de cada suite, las seis integraciones del orden solicitado (`test:commercial`, `test:permissions`, `test:business-reassignment`, `test:user-admin`, `test:work`, `test:pipeline`), `npm run typecheck` y Vitest dirigido (3 archivos / 16 pruebas) pasan. Sin PR ni comandos Git. Próximo paso: revisar y preparar PR a `staging`.

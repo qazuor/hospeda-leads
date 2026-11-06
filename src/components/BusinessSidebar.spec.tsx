@@ -7,6 +7,7 @@ import type {CommercialDetail} from '../endpoints/commercial.schema';
 
 vi.mock('./ContactPolicy',()=>({ContactPolicy:()=>null}));
 vi.mock('./TechnicalRestrictions',()=>({TechnicalRestrictions:()=>null}));
+vi.mock('./BusinessSellerGroupSection',()=>({BusinessSellerGroupSection:()=>null}));
 import {BusinessLastContactLine,BusinessSidebar,type BusinessSidebarProps} from './BusinessSidebar';
 
 afterEach(cleanup);

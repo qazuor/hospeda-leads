@@ -24,6 +24,7 @@ import {CityInput} from './CityInput';
 import {catalogCityNotice,cityToSave} from '../helpers/catalogCity';
 import {canModifyBusiness} from '../helpers/crmPermissions';
 import {managementTypes,managementTypeLabels,managementTypeHints,managementStageCatalog,type ManagementType} from '../helpers/businessManagement';
+import {sellerGroupNotice} from '../helpers/sellerGroupNotice';
 
 export type EditorTarget={kind:"account";item?:Account}|{kind:"contact";item?:Contact}|{kind:"opportunity";item?:Opportunity}|{kind:"convert"}|{kind:"unmark_client"}|{kind:"archive"}|{kind:"delete_account"}|{kind:"delete_contact";item:Contact};
 const accountFields=[['nombre','Negocio'],['ciudad','Ciudad'],['telefono','Teléfono genérico'],['email','Email genérico'],['sitioWeb','Sitio web'],['urlGmap','Google Maps'],['perfilInstagram','Instagram'],['perfilFacebook','Facebook'],['perfilAirbnb','Airbnb'],['perfilBooking','Booking'],['perfilTurismoEntreRios','Turismo Entre Ríos']];
@@ -53,6 +54,7 @@ function CommercialEditorForm({target,detail,onClose,onSaved}:EditorProps){
     const item="item" in target?target.item:undefined;
     const entries=item?Object.entries(item).map(([k,v])=>[k,v==null?"":String(v)]):[];
     const initial=Object.fromEntries(entries);
+    if(target.kind==='account'&&target.item?.referredToLeandro)initial.assignedUserEmail=target.item.referredOriginalOwnerEmail||'';
     if(target.kind==="opportunity"){
       initial.opportunityName=target.item?.opportunityName||"Presentación de Hospeda";
       initial.estimatedCloseDate=dateOnlyInput(target.item?.estimatedCloseDate);
@@ -67,6 +69,8 @@ function CommercialEditorForm({target,detail,onClose,onSaved}:EditorProps){
   const [primary,setPrimary]=useState(target.kind==="contact"?(target.item?.isPrimary??(!contactOnly&&!detail?.contacts.some(c=>c.isPrimary&&!c.deletedAt))):false);
   const replacesPrimary=target.kind==="contact"&&!!detail?.contacts.some(c=>c.isPrimary&&!c.deletedAt&&String(c.id)!==String(target.item?.id??""));
   const [error,setError]=useState("");
+  const effectiveSeller=target.kind==='account'&&target.item?.referredToLeandro?target.item.referredOriginalOwnerEmail:target.kind==='account'?target.item?.assignedUserEmail:null;
+  const linkedResponsibleNotice=target.kind==='account'&&target.item&&!target.item.archivedAt&&!target.item.deletedAt&&!target.item.mergedIntoId&&detail?.sellerGroup&&(draft.assignedUserEmail||null)!==(effectiveSeller??null)?sellerGroupNotice(detail.sellerGroup.members,String(target.item.id)):'';
   // Decision 13B: the person's phone matching a No contactar business only warns; the seller confirms she read it.
   const wantedPhoneQuery=target.kind==="contact"&&(draft.phone||"")!==(target.item?.phone??"")?JSON.stringify(duplicateQuery({personPhone:draft.phone})):"null";
   const phoneQuery=useDebounce(wantedPhoneQuery,400);
@@ -127,6 +131,7 @@ function CommercialEditorForm({target,detail,onClose,onSaved}:EditorProps){
       {target.kind==="opportunity"&&<p className={styles.muted}>{target.item?'El tipo y la etapa se consultan o cambian desde la gestión.':'La nueva gestión empieza en Por contactar.'} Contacto y cierre estimado son opcionales.</p>}
       {contactOnly&&<p className={styles.muted}>Queda registrado en el historial.</p>}
       {target.kind==="account"&&!contactOnly&&<p className={styles.muted}>El responsable del negocio coordina esa relación; el de la gestión gestiona esa gestión. Pueden ser distintos. Solo un administrador puede cambiarlos.</p>}
+      {linkedResponsibleNotice&&<p role="note">También cambia el responsable de: {linkedResponsibleNotice}.</p>}
       {admin&&(target.kind==="account"||(target.kind==="opportunity"&&!!target.item))&&select("assignedUserEmail","Responsable",(settings.data?.users??[]).filter(u=>!u.deactivatedAt).map(u=>({value:u.email,label:u.displayName})))}
       {target.kind==="delete_account"&&field("reason","Motivo para enviar a Papelera (al menos 3 caracteres)")}{target.kind==="convert"&&field("reason","¿Qué relación comercial previa tuvo?")}{target.kind==="unmark_client"&&field("reason","Motivo para quitar la marca")}{target.kind==="archive"&&<>{field("reason",detail?.account.archivedAt?"Motivo para desarchivar (al menos 3 caracteres)":"Motivo para archivar (al menos 3 caracteres)")}<p>{detail?.account.archivedAt?"El negocio volverá a la lista activa.":"Se conserva el negocio y sus tareas; no se envía a Papelera."}</p></>}
       {target.kind==="delete_contact"&&<p>{target.item.name}</p>}

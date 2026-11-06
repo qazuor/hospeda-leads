@@ -1,15 +1,8 @@
 import {describe,expect,it} from 'vitest';
-import {expandSellerGroupIds,groupSellerState,type SellerGroupMember} from './accountSellerGroups';
-const member=(values:Partial<SellerGroupMember>={}):SellerGroupMember=>({id:'1',nombre:'Fixture',ciudad:null,status:'new',deletedAt:null,archivedAt:null,mergedIntoId:null,referredToLeandro:false,referredOriginalOwnerEmail:null,assignedUserEmail:'ana@example.com',...values});
-describe('groupSellerState',()=>{
- it('returns empty when there are no active members',()=>expect(groupSellerState({members:[member({archivedAt:new Date()})]})).toEqual({state:'empty'}));
- it('returns a consistent effective seller',()=>expect(groupSellerState({members:[member(),member()]})).toEqual({state:'consistent',sellerEmail:'ana@example.com'}));
- it('uses the original seller for referred members',()=>expect(groupSellerState({members:[member(),member({assignedUserEmail:'leandro@example.com',referredToLeandro:true,referredOriginalOwnerEmail:'ana@example.com'})]})).toEqual({state:'consistent',sellerEmail:'ana@example.com'}));
- it('returns inconsistent seller choices',()=>expect(groupSellerState({members:[member(),member({assignedUserEmail:'bruno@example.com'})]})).toEqual({state:'inconsistent',sellerEmails:['ana@example.com','bruno@example.com']}));
-});
-describe('expandSellerGroupIds',()=>{
- it('adds only active members once and sorts ids numerically',()=>{
-  const groups=[{groupId:'1',members:[member({id:'10'}),member({id:'2'}),member({id:'3',archivedAt:new Date()})]}];
-  expect(expandSellerGroupIds(['10','1'],groups)).toEqual(['1','2','10']);
- });
+import {sellerGroupMembershipChanged,type SellerGroup} from './accountSellerGroups';
+const group=(ids:string[]):SellerGroup=>({groupId:'7',members:ids.map(id=>({id,nombre:id,ciudad:null,status:'new',assignedUserEmail:null,referredToLeandro:false,referredOriginalOwnerEmail:null,deletedAt:null,archivedAt:null,mergedIntoId:null}))});
+describe('sellerGroupMembershipChanged',()=>{
+ it('detects membership removed after the pre-lock read',()=>expect(sellerGroupMembershipChanged([group(['1','2','4'])],[group(['2','4'])])).toBe(true));
+ it('detects a group deleted after the pre-lock read',()=>expect(sellerGroupMembershipChanged([group(['1','2'])],[])).toBe(true));
+ it('ignores member ordering',()=>expect(sellerGroupMembershipChanged([group(['1','2'])],[group(['2','1'])])).toBe(false));
 });

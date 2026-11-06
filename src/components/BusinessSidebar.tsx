@@ -13,6 +13,7 @@ import { ContactPolicy } from './ContactPolicy';
 import { Disclosure, DisclosureSummary } from './Disclosure';
 import { QueryErrorNotice } from './QueryErrorNotice';
 import { TechnicalRestrictions } from './TechnicalRestrictions';
+import { BusinessSellerGroupSection } from './BusinessSellerGroupSection';
 import styles from './Commercial.module.css';
 
 /** Accessible name of the business record aside; the next step uses it to reach the people section. */
@@ -108,6 +109,7 @@ export function BusinessSidebar({detail:d,mainContact,contactCount,contactSectio
       <Button variant="outline" disabled={!work.ready} disabledReason={work.blockedReason} onClick={()=>onWork({kind:'activity',accountId:d.account.id})}><NotebookPen size={16} aria-hidden="true"/>{VOCAB.logWhatHappened}</Button>
     </div>}
     <BusinessRestrictionsPolicy detail={d} readOnly={readOnly}/>
+    <BusinessSellerGroupSection detail={d}/>
     <section className={styles.section}>
       <h3>Contacto</h3>
       <strong>{mainContact?.name||'Sin persona de contacto'}</strong>

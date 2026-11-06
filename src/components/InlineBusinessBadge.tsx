@@ -20,6 +20,7 @@ import {toast} from 'sonner';
 import {TOAST_MS} from '../helpers/crmFeedback';
 import styles from './InlineBusinessBadge.module.css';
 import {DisabledTooltip} from './Tooltip';
+import {hasSellerChangeDraft,sellerGroupNotice} from '../helpers/sellerGroupNotice';
 
 type Draft={value:string;expected:string|null;classification:{tipo:string|null;subtipo:string|null}};
 export function InlineBusinessBadge({accountId,name,field,value,label}:{accountId:string;name:string;field:InlineBadgeField;value:string|null;label:string}){
@@ -32,7 +33,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
  const config=inlineBadgeFields[field],{title,empty,scope,category}=config;
  const account=detail.data?.account,gestions=detail.data?.opportunities??[];
  const management=scope==='management'?(managementId?gestions.find(item=>String(item.id)===managementId):gestions.length===1?gestions[0]:undefined):undefined;
- const current=(scope==='business'?account?.[field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo']:management?.[field as 'commercialProfile'|'medioContactoPreferido'|'origen'|'quienCargo'|'creadoPor'])??null;
+ const current=(scope==='business'&&field==='assignedUserEmail'&&account?.referredToLeandro?account.referredOriginalOwnerEmail:scope==='business'?account?.[field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo']:management?.[field as 'commercialProfile'|'medioContactoPreferido'|'origen'|'quienCargo'|'creadoPor'])??null;
  const user=authState.type==='authenticated'?authState.user:undefined;
  const allowed=scope==='business'?canModifyBusiness(user,account)&&(field!=='assignedUserEmail'||user?.role==='admin'):canModifyManagement(user,management,account);
  const loading=detail.isFetching&&!processing||settings.isPending||filterOptions.isPending&&['origen','quienCargo','creadoPor'].includes(field);
@@ -41,6 +42,8 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
  const missingManagement=scope==='management'&&!management;
  const hasEditableManagement=gestions.some(item=>canModifyManagement(user,item,account));
  const compact=field!=='tipo'&&field!=='subtipo'&&!(scope==='management'&&gestions.length>1);
+ // Spec 107 §7.1: one click, so the linked-group notice is shown before choosing instead of after.
+ const groupNotice=field==='assignedUserEmail'&&detail.data?.sellerGroup&&!account?.archivedAt&&!account?.deletedAt&&!account?.mergedIntoId?sellerGroupNotice(detail.data.sellerGroup.members,accountId):'';
  async function submit(nextDraft=draft){if(lock.current||!nextDraft||!allowed)return;lock.current=true;setProcessing(true);try{
   await save.mutateAsync({id:management?String(management.id):accountId,accountId,field,value:nextDraft.value||null,expectedValue:nextDraft.expected,scope,...(['tipo','subtipo'].includes(field)?{scope:'business',expectedClassification:nextDraft.classification}:{})});
   await Promise.all([qc.invalidateQueries({queryKey:['leads']}),qc.invalidateQueries({queryKey:['commercial-detail',accountId]})]);setOpen(false);toast.success(title+' actualizado',{duration:TOAST_MS.success});
@@ -51,6 +54,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
   <PopoverContent data-inline-editor-dropdown={inlineEditorId} aria-label={compact?'Opciones de '+title.toLowerCase():'Editar '+title.toLowerCase()} className={compact?styles.compactPopover:styles.popover} align="start" onEscapeKeyDown={event=>{if(lock.current)event.preventDefault();}} onInteractOutside={event=>{if(lock.current)event.preventDefault();}}>
    {compact?<>
     {loading?<p className={styles.compactStatus} role="status"><Loader size={13} aria-hidden="true"/> Cargando…</p>:detail.error||settings.error||filterOptions.error?<div className={styles.compactError} role="alert"><span>{detail.error?.message||settings.error?.message||filterOptions.error?.message}</span><Button variant="outline" size="sm" onClick={()=>{void detail.refetch();void settings.refetch();void filterOptions.refetch();}}>Reintentar</Button></div>:missingManagement?<div className={styles.compactError} role="alert">Sin gestiones iniciadas. <Link to={'/accounts/'+accountId}>Abrir negocio</Link></div>:!allowed?<p className={styles.compactError} role="alert">No tenés permiso para modificar este dato.</p>:<>
+     {groupNotice?<p className={styles.compactStatus} role="note">Si cambiás el responsable, también cambia el de: {groupNotice}.</p>:null}
      <div className={styles.optionList} role="group" aria-label={'Opciones de '+title.toLowerCase()}>
       {[{value:'',label:empty},...((current&&!options.some(item=>item.value===current))?[{value:current,label:current}]:[]),...options].map(item=>{
        const isCurrent=(item.value||null)===current;
@@ -71,6 +75,7 @@ export function InlineBusinessBadge({accountId,name,field,value,label}:{accountI
      <label>{title}<CrmNativeSelect autoFocus aria-label={'Nuevo valor de '+title.toLowerCase()} disabled={processing||field==='subtipo'&&!account?.tipo} value={draft?.value??current??''} onChange={event=>setDraft({value:event.target.value,expected:draft?draft.expected:current,classification:draft?.classification??{tipo:account?.tipo??null,subtipo:account?.subtipo??null}})}><option value="">{empty}</option>{current&&!options.some(item=>item.value===current)&&<option value={current}>{current} (valor actual)</option>}{options.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</CrmNativeSelect></label>
      {field==='subtipo'&&!account?.tipo&&<p className={styles.help}>Primero elegí la Vertical del negocio para ver sus subtipos.</p>}
      {field==='tipo'&&draft&&(draft.value||null)!==current&&account?.subtipo&&<p className={styles.warning}>Al guardar esta vertical se quitará el subtipo “{account.subtipo}”. Después podés elegir uno compatible.</p>}
+     {field==='assignedUserEmail'&&hasSellerChangeDraft(draft?.value,current)&&detail.data?.sellerGroup&&!account?.archivedAt&&!account?.deletedAt&&!account?.mergedIntoId&&sellerGroupNotice(detail.data.sellerGroup.members,accountId)&&<p role="note">También cambia el responsable de: {sellerGroupNotice(detail.data.sellerGroup.members,accountId)}.</p>}
      <p className={styles.help}>{scope==='business'?'Se modifica este dato del negocio. Sus gestiones y compromisos se conservan.':'Se modifica únicamente esta gestión. Los demás datos, gestiones y compromisos se conservan.'} Con filtros activos, el negocio podría dejar de aparecer.</p>
      {['quienCargo','creadoPor','origen'].includes(field)&&<p className={styles.help}>Es un dato histórico importado. La autoría real de las acciones permanece en el historial.</p>}
      {save.error&&<div className={styles.error} role="alert"><p>{save.error.message}</p><Button type="button" size="sm" variant="outline" disabled={processing} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={reload}>Recargar datos</Button></div>}
