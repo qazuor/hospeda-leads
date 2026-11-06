@@ -261,7 +261,7 @@ Fuente: `~/backups/hospeda-crm/dedup2-secondary-verticals-20261106.json` en el V
 
 1. Confirmar que la 066 está aplicada en producción (`schema_migrations`) y que la versión desplegada incluye los bloques 1 a 4.
 2. Respaldo: `pg_dump` completo a `~/backups/hospeda-crm/` con fecha.
-3. Ensayo sobre una copia restaurada del respaldo: `node scripts/load-account-classifications.mjs --file <json>` (en seco por defecto). Para cada negocio muestra los pares actuales, los que se agregarían, los rechazados (vertical o subtipo inactivo o inexistente, negocio fusionado/en Papelera/inexistente, tope de 8) y no escribe nada.
+3. Ensayo sobre una copia restaurada del respaldo: `npm run load:account-classifications -- --file <json>` (en seco por defecto). Para cada negocio muestra los pares actuales, los que se agregarían, los rechazados (vertical o subtipo inactivo o inexistente, negocio fusionado/en Papelera/inexistente, tope de 8) y no escribe nada.
 4. El propietario revisa la salida del ensayo (en especial #1172, #2314 y #3393) y aprueba.
 5. Aplicar en producción con `--apply`: una transacción por negocio con `setAccountClassifications` (`reason:'dedup2_secondary_verticals'`, actor = el operador), solo **agrega** pares (nunca quita) y deja el journal del negocio. Un rechazo no frena a los demás y queda en el informe.
 6. Verificación (solo lectura): los 14 negocios tienen los pares esperados; y la consulta de diferencias `crm_accounts.tipo/subtipo` contra el par de visualización de la tabla devuelve 0 filas (detecta escrituras del contenedor viejo durante el deploy).

@@ -10,6 +10,8 @@ Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono r
 
 # Pendientes y próximo trabajo
 
+- **Spec 106 completa en código (bloques 0–6):** pendiente revisión/PR a `staging` y CI. Después, promoción/deploy solo cuando lo pida el propietario; el runbook §13 (carga de las 14 verticales) queda a cargo del operador y requiere aprobación explícita del propietario. Validaciones del bloque 6 y limitaciones: ver `/tmp/claude-1000/-home-qazuor-projects-WEBS-hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s106f-report.md`.
+
 - **Spec 106 PR A · bloques 0 y 1:** implementación local en `feat/spec-106-multi-vertical` (regresión/fix de renombre, migración 066, helper y pruebas). Typecheck, Vitest focalizado e integraciones de migración, comunicación-bloqueos, comercial, calidad, work, MCP y permisos pasaron con seed descartable. Próximo paso: revisión y PR; después seguir con bloques 2 y 3.
 
 - **Presencia de usuarios (`feat/online-users`, sin PR):** typecheck y 81 pruebas focalizadas pasan; ejecutar `npm run test:presence` en PostgreSQL descartable después de migrar y sembrar, luego CI antes del PR. El userscript 1.8.6 aporta actividad visible de WhatsApp e Instagram.
@@ -462,13 +464,13 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 ### Spec 106 PR B
 
 - Integrados ficha, compatibilidad legacy de insignia, importación y merge con `setAccountClassifications`.
-- La ruta de insignia acepta la lista y `expectedClassifications`; la UI actual sigue usando el modo scalar compatible. Pendiente: agregar pruebas de regresión específicas de lista/diff/merge/importación (las suites existentes pasan, pero no cubren todos los casos nuevos); resolver el writer del renombre de subtipo en Configuración dentro del bloque 0 si no quedó atendido por el PR previo.
+- La ruta de insignia acepta la lista y `expectedClassifications`; la UI también edita varias verticales. Se cubrieron las regresiones de escritores en los bloques siguientes.
 - Validación ejecutada: typecheck; `accountClassification.spec.ts`; `test-commercial.ts`, `test-data-quality.ts`, `test-business-import.ts`, `test-business-import-api.ts` sobre la DB desechable indicada, reseed antes de cada suite.
 
 ### Spec 106 PR C · lectores y filtros
 
 - La lista de Negocios, detalle comercial y MCP leen las clasificaciones completas; los escalares siguen siendo el par de visualización. Los filtros simples/avanzados y las opciones de catálogo aplican D7; las vistas guardadas conservan sus claves existentes y no requieren migración.
 - Ronda 2 de revisión resuelta localmente: listas deduplicadas, MCP overview con bucket null y total distinto, reglas de categoría validadas y cobertura ampliada. Typecheck, Vitest endpoints (162) y suites clasificación/comercial/MCP/permisos/búsqueda pasan con seed fresco. Ver detalle en `docs/estado-desarrollo.md` y `/tmp/.../s106c2-report.md`.
-- Bloques 4 (UI) y 5 (mensajes/material/email/historial) implementados en sus ramas de PR; revisar y coordinar los PR a `staging`.
+- Bloques 4 (UI) y 5 (mensajes/material/email/historial) implementados localmente; ver el registro actualizado de bloque 6 al inicio de este documento.
 
-- **Spec 106, bloque 5:** implementado localmente en `feat/spec-106-messages`, con compatibilidad de plantillas y variables D9 (ronda 2), relevancia de material por todas las verticales, `contextVerticals` en CRM y userscript, etiqueta email D10 e historial de pares bajo «Verticales» (ronda 3). Validación detallada y estado del PR: ver `estado-desarrollo.md`; falta revisión/PR a `staging` y CI.
+- **Spec 106, bloque 5:** implementado: compatibilidad de plantillas y variables D9, relevancia de material por todas las verticales, `contextVerticals` en CRM y userscript, etiqueta email D10 e historial de pares bajo «Verticales». El próximo paso común de spec 106 está registrado al inicio de este documento.
