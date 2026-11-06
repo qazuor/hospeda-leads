@@ -63,6 +63,25 @@ describe('while the catalog is still loading (spec 104, 25; review LOW)',()=>{
  });
 });
 
+describe('referral to Leandro (spec 107, review HIGH)',()=>{
+ it('starts with the effective seller, shows no false group notice, and keeps that owner on a name-only save',async()=>{
+  const referred={...account,assignedUserEmail:'leandro@example.com',referredToLeandro:true,referredOriginalOwnerEmail:'owner@example.com'} as unknown as Account;
+  const referredDetail={...detail,account:referred,sellerGroup:{id:'12',state:'consistent',members:[{id:'7',name:'Hotel Sol',city:'San Jose',status:'new',assignedUserEmail:'leandro@example.com',effectiveSellerEmail:'owner@example.com',archived:false,deleted:false,merged:false},{id:'8',name:'Hotel Norte',city:'Colón',status:'new',assignedUserEmail:'owner@example.com',effectiveSellerEmail:'owner@example.com',archived:false,deleted:false,merged:false}]}} as unknown as CommercialDetail;
+  wrap(<CommercialEditor target={{kind:'account',item:referred}} detail={referredDetail} onClose={()=>{}}/>);
+  const responsible=await screen.findByRole('combobox',{name:'Responsable'}) as HTMLSelectElement;
+  expect(responsible.value).toBe('owner@example.com');expect(screen.queryByRole('note')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Guardar cambios'}));
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalled());
+  expect(mocks.save.mock.calls[0][0]).toMatchObject({action:'account_save',id:'7',assignedUserEmail:'owner@example.com'});
+ });
+ it('does not announce a group change when the current business is archived',async()=>{
+  const current={...account,archivedAt:new Date()};const archivedDetail={...detail,account:current,sellerGroup:{id:'12',state:'consistent',members:[{id:'7',name:'Hotel Sol',city:null,status:'new',assignedUserEmail:'admin@example.com',effectiveSellerEmail:'admin@example.com',archived:false,deleted:false,merged:false},{id:'8',name:'Hotel Norte',city:null,status:'new',assignedUserEmail:'owner@example.com',effectiveSellerEmail:'owner@example.com',archived:false,deleted:false,merged:false}]}} as unknown as CommercialDetail;
+  wrap(<CommercialEditor target={{kind:'account',item:current}} detail={archivedDetail} onClose={()=>{}}/>);
+  const responsible=await screen.findByRole('combobox',{name:'Responsable'});fireEvent.change(responsible,{target:{value:'owner@example.com'}});
+  expect(screen.queryByText(/También cambia el responsable/)).toBeNull();
+ });
+});
+
 describe('city from the catalog (spec 104, 37)',()=>{
  it('editing a business saves «San Jose» as the catalog «San José» and says so',async()=>{
   // Without a stored vertical, «Alojamiento» only appears once the catalog (and its cities) has loaded.
