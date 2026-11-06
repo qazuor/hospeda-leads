@@ -1,8 +1,13 @@
 import {describe,it,expect} from 'vitest';
-import {classifySmtpOutcome,newMessageId,quotedHistory,replySubject,threadHeaders} from './emailReplyPure';
+import {classifySmtpOutcome,newMessageId,quotedHistory,replySubject,replyVerticalLabel,threadHeaders} from './emailReplyPure';
 import {communicationMutation} from '../endpoints/communication.schema';
 
 describe('email reply helpers',()=>{
+ it('uses the shared email vertical label rule for a reply',()=>{
+  expect(replyVerticalLabel({managementVertical:null,businessVerticals:['Alojamiento','Gastronomía']})).toBeNull();
+  expect(replyVerticalLabel({managementVertical:null,businessVerticals:['Alojamiento']})).toBe('Alojamiento');
+  expect(replyVerticalLabel({managementVertical:'Alojamiento',businessVerticals:['Alojamiento','Gastronomía']})).toBe('Alojamiento');
+ });
  it('normalizes Re prefixes and empty subjects',()=>{expect(replySubject('Oferta')).toBe('Re: Oferta');expect(replySubject('RE: Oferta')).toBe('Re: Oferta');expect(replySubject('Re : RE: Oferta')).toBe('Re: Oferta');expect(replySubject('  ')).toBe('Re: (sin asunto)');});
  it('builds deduplicated thread headers with the inbound id last',()=>{expect(threadHeaders({inboundMessageId:'<in@hospeda.com.ar>',inboundReferences:'<a@x> <in@hospeda.com.ar> <b@x>'})).toEqual({inReplyTo:'<in@hospeda.com.ar>',references:'<a@x> <b@x> <in@hospeda.com.ar>'});});
  it('creates Hospeda message ids',()=>{expect(newMessageId()).toMatch(/^<[0-9a-f-]{36}@hospeda\.com\.ar>$/);});

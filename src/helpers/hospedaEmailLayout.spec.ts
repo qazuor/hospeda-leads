@@ -33,5 +33,8 @@ describe("Hospeda email layout", () => {
     expect(buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Hola",vertical:"  "})).toMatch(/">HOSPEDA<\/div>/);
     expect(buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Hola",vertical:"<b>Bar</b>"})).toContain(">HOSPEDA · &lt;B&gt;BAR&lt;/B&gt;</div>");
   });
+  it("uses D10's plain «HOSPEDA» label for multiple business verticals",()=>{
+    expect(buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Hola",vertical:"Alojamiento",verticalCount:2})).toMatch(/">HOSPEDA<\/div>/);
+    expect(buildHospedaEmailHtml({bodyHtml:"<p>Hola</p>",senderName:"Leandro",subject:"Hola",vertical:"Alojamiento",verticalCount:1})).toContain("HOSPEDA · ALOJAMIENTO");
+  });
 });
-
