@@ -5,11 +5,12 @@ import {createHash} from "node:crypto";
 import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
-import { updateBusinessFields } from "../helpers/updateBusinessFields";
+import { BusinessFieldsConflict, updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
 import { schema, type OutputType } from "./leads_bulk_POST.schema";
 import {errorResponse} from '../helpers/errorResponse';
 import {parseBody} from '../helpers/parseBody';
+import {expandToSellerGroups,loadSellerGroups} from '../helpers/accountSellerGroups';
 
 const comparable=(value:unknown)=>{
   if(value===null||value===undefined)return null;
@@ -29,22 +30,28 @@ export async function handle(request:Request){
     const updated=await db.transaction().execute(async trx=>{
       await setWorkActor(trx,user);
       const matched=await trx.selectFrom("leads").select("accountId").where(input.entity==="business"?"accountId":"id","in",ids).where("deletedAt","is",null).execute();
-      const accountIds=input.entity==="business"?ids:[...new Set(matched.map(l=>String(l.accountId)))];
+      let accountIds=input.entity==="business"?ids:[...new Set(matched.map(l=>String(l.accountId)))];
+      let activeBusinessSeeds:string[]=[];
+      if(input.entity==='business'&&input.changes.assignedUserEmail!==undefined){const active=await trx.selectFrom('crmAccounts').select('id').where('id','in',accountIds).where('deletedAt','is',null).where('archivedAt','is',null).where('mergedIntoId','is',null).execute();activeBusinessSeeds=active.map(a=>String(a.id));accountIds=[...new Set([...accountIds,...await expandToSellerGroups({trx,accountIds:activeBusinessSeeds})])].sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0);}
       const businesses=accountIds.length?await trx.selectFrom("crmAccounts").selectAll().where("id","in",accountIds).orderBy("id").forUpdate().execute():[];
       const leads=await trx.selectFrom("leads").selectAll().where(input.entity==="business"?"accountId":"id","in",ids).where("deletedAt","is",null).orderBy("id").forUpdate().execute();
       if(input.entity==="business"){for(const id of ids)await assertBusinessAccess(trx,id,user,true);}
       else {for(const id of ids)await assertLeadAccess(trx,id,user,true);}
       if(input.entity!=="business"&&"ciudad" in input.changes){for(const id of accountIds)await assertBusinessAccess(trx,id,user,true);}
       if(Object.keys(input.changes).some(key=>input.entity!=="business"||!["ciudad","assignedUserEmail"].includes(key))){for(const lead of leads)await assertLeadAccess(trx,String(lead.id),user,true);}
+      if(input.entity==='business'&&input.changes.assignedUserEmail!==undefined){const fresh=[...new Set([...ids,...await expandToSellerGroups({trx,accountIds:activeBusinessSeeds})])].sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0);const original=[...accountIds].sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0);if(fresh.length!==original.length||fresh.some((id,index)=>id!==original[index]))throw new BusinessFieldsConflict('Los datos cambiaron desde la revisión. Volvé a revisar antes de aplicar.');}
       const fingerprint=createHash('sha256').update(superjson.stringify({entity:input.entity,ids:[...ids].sort(),changes:input.changes,leads,businesses})).digest('hex');
       if(input.expectedFingerprint&&input.expectedFingerprint!==fingerprint)throw new Error('Los datos cambiaron desde la revisión. Volvé a revisar antes de aplicar.');
-      if(input.preview)return {fingerprint,rows:leads.map(l=>({id:String(l.id),accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,estado:l.estado,assignedUserEmail:l.assignedUserEmail})),businesses:businesses.map(a=>({id:String(a.id),nombre:a.nombre,ciudad:a.ciudad,assignedUserEmail:a.assignedUserEmail}))};
+      const selected=new Set(ids);
+      if(input.preview){const groups=await loadSellerGroups({trx,accountIds:ids});const linkedTo=new Map<string,string>();for(const group of groups){const chosen=ids.find(id=>group.members.some(member=>member.id===id));if(chosen)for(const member of group.members)if(!selected.has(member.id))linkedTo.set(member.id,chosen);}return {fingerprint,rows:leads.map(l=>({id:String(l.id),accountId:l.accountId,nombre:l.nombre,opportunityName:l.opportunityName,estado:l.estado,assignedUserEmail:l.assignedUserEmail})),businesses:businesses.map(a=>({id:String(a.id),nombre:a.nombre,ciudad:a.ciudad,assignedUserEmail:a.assignedUserEmail,linked:!selected.has(String(a.id)),linkedTo:linkedTo.get(String(a.id))??null}))};}
       const changesInput={...input.changes};
       if(input.entity==="business"){
         const shared:{ciudad?:string|null;assignedUserEmail?:string|null}={};
         if("ciudad" in changesInput){shared.ciudad=changesInput.ciudad??null;delete changesInput.ciudad}
         if("assignedUserEmail" in changesInput){shared.assignedUserEmail=changesInput.assignedUserEmail??null;delete changesInput.assignedUserEmail}
-        await updateBusinessFields(trx,ids,shared,user);
+        const selectedBusinessIds=input.entity==='business'?ids:accountIds;
+        if(shared.ciudad!==undefined)await updateBusinessFields(trx,selectedBusinessIds,{ciudad:shared.ciudad},user);
+        if(shared.assignedUserEmail!==undefined)await updateBusinessFields(trx,selectedBusinessIds,{assignedUserEmail:shared.assignedUserEmail},user);
       }
       for(const lead of leads){
         if(input.entity!=='business'&&changesInput.assignedUserEmail!==undefined)await assertActiveAssignee(trx,{next:changesInput.assignedUserEmail,previous:lead.assignedUserEmail});
@@ -80,10 +87,10 @@ export async function handle(request:Request){
           actor:{id:user.id,email:user.email,displayName:user.displayName},action:"bulk_updated",changes
         });
       }
-      return input.entity==="business"?ids.length:leads.length;
+      return input.entity==="business"?accountIds.length:leads.length;
     });
     return new Response(superjson.stringify({ok:true,updated:typeof updated==="number"?updated:0,...(typeof updated!=="number"?{preview:updated}:{})} satisfies OutputType),{headers:{"Content-Type":"application/json"}});
   }catch(error){
-    return errorResponse(error,error instanceof CrmForbidden?403:400);
+    return errorResponse(error,error instanceof CrmForbidden?403:error instanceof BusinessFieldsConflict?409:400);
   }
 }

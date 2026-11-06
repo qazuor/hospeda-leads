@@ -16,7 +16,7 @@ export const schema=z.object({
   }).refine(value=>Object.keys(value).length>0,"Elegí al menos un cambio")
 });
 export type InputType=z.input<typeof schema>;
-export type BulkPreview={fingerprint:string;rows:{id:string;accountId:string|null;nombre:string;opportunityName:string|null;estado:string|null;assignedUserEmail:string|null}[];businesses:{id:string;nombre:string;ciudad:string|null;assignedUserEmail:string|null}[]};
+export type BulkPreview={fingerprint:string;rows:{id:string;accountId:string|null;nombre:string;opportunityName:string|null;estado:string|null;assignedUserEmail:string|null}[];businesses:{id:string;nombre:string;ciudad:string|null;assignedUserEmail:string|null;linked?:boolean;linkedTo?:string|null}[]};
 export type OutputType={ok:true;updated:number;preview?:BulkPreview};
 export const postLeadsBulk=async(body:InputType):Promise<OutputType>=>{
   return postJson<OutputType>("/_api/leads_bulk",schema.parse(body),{timeoutMs:LONG_TIMEOUT_MS});
