@@ -43,8 +43,11 @@ export async function setAccountClassifications({trx,accountId,pairs,actor,reaso
  const errors=await classificationListErrors({db:trx,pairs:normalized,previous});if(errors.length)throw new Error(errors.join(' '));
  const verticalOrder=(await trx.selectFrom('crmVerticals').select('name').orderBy('sortOrder').orderBy('name').execute()).map(row=>row.name);
  const display=displayClassification({pairs:normalized,verticalOrder});
- await trx.deleteFrom('crmAccountClassifications').where('accountId','=',accountId).execute();
- if(normalized.length)await trx.insertInto('crmAccountClassifications').values(normalized.map(pair=>({accountId,tipo:pair.tipo,subtipo:pair.subtipo,createdBy:actor.email}))).execute();
+ // Only the difference is written: unchanged pairs keep their id, author and date (spec §5.2).
+ const key=(pair:AccountClassification)=>JSON.stringify([pair.tipo,pair.subtipo]),wanted=new Set(normalized.map(key)),kept=new Set(currentRows.map(key));
+ const removed=currentRows.filter(row=>!wanted.has(key(row))).map(row=>String(row.id)),added=normalized.filter(pair=>!kept.has(key(pair)));
+ if(removed.length)await trx.deleteFrom('crmAccountClassifications').where('id','in',removed).execute();
+ if(added.length)await trx.insertInto('crmAccountClassifications').values(added.map(pair=>({accountId,tipo:pair.tipo,subtipo:pair.subtipo,createdBy:actor.email}))).execute();
  await trx.updateTable('crmAccounts').set({tipo:display?.tipo??null,subtipo:display?.subtipo??null,updatedAt:new Date()}).where('id','=',accountId).execute();
  await trx.insertInto('crmCommercialJournal').values({accountId,contactId:null,action:'account_classifications_changed',actorEmail:actor.email,actorName:actor.displayName,metadata:sql`${JSON.stringify({before:previous,after:normalized,reason})}::text::jsonb`}).execute();
 }
