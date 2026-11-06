@@ -7,7 +7,7 @@ import {canonicalInstagramProfile,INSTAGRAM_PROFILE_INVALID} from '../helpers/in
 import {findNewDncBlocker,findDncPhoneBusinessesForPeople,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {updateBusinessResponsibleForLockedAccounts} from '../helpers/updateBusinessFields';
-import {classificationErrors} from '../helpers/accountClassification';
+import {normalizeClassifications,setAccountClassifications,type AccountClassification} from '../helpers/accountClassification';
 import {loadSellerGroups,groupSellerState,linkAccounts,unlinkAccount,expandToSellerGroups} from '../helpers/accountSellerGroups';
 import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
@@ -38,6 +38,7 @@ const senderProfilesFor=async(db:typeof dbClient,emails:(string|null|undefined)[
 const CONTACT_DATA_FIELDS=['telefono','email','whatsapp'] as const;
 const CONTACT_DATA_DENIED='Podés corregir teléfono, email y WhatsApp. Para cambiar otros datos pedíselo al responsable del negocio.';
 const sameText=(a:unknown,b:unknown)=>(a instanceof Date?a.toISOString().slice(0,10):nullable(a==null?null:String(a)))===(b instanceof Date?b.toISOString().slice(0,10):nullable(b==null?null:String(b)));
+const sameClassifications=(a:readonly AccountClassification[],b:readonly AccountClassification[])=>{const keys=(pairs:readonly AccountClassification[])=>normalizeClassifications({pairs}).map(pair=>JSON.stringify([pair.tipo,pair.subtipo])).sort();return JSON.stringify(keys(a))===JSON.stringify(keys(b));};
 
 export async function get(request:Request){
   try{
@@ -135,9 +136,10 @@ export async function post(request:Request){
         const existing=input.id?lockedAccounts.find(row=>String(row.id)===input.id)??(()=>{throw new Error("El negocio ya no existe.")})():null;
         const access=existing?await assertContactDataWritable(trx,user,existing):null;
         const contactOnly=access?.scope==='open_management';
+        const currentPairs=existing?await trx.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',String(existing.id)).orderBy('id').execute():[];
         if(existing&&contactOnly){// Decision 8A: every field outside the whitelist must equal the stored value (omitted means unchanged).
           const stored=existing as Record<string,unknown>,sent=input as Record<string,unknown>;
-          const changed=Object.keys(sent).filter(k=>!['action','id',...CONTACT_DATA_FIELDS].includes(k)&&sent[k]!==undefined&&!sameText(sent[k],stored[k]));
+          const changed=Object.keys(sent).filter(k=>!['action','id',...CONTACT_DATA_FIELDS].includes(k)&&sent[k]!==undefined&&!((k==='tipo'||k==='subtipo')?sameText(sent[k],stored[k]):k==='classifications'?sameClassifications(sent[k] as AccountClassification[],currentPairs):sameText(sent[k],stored[k])));
           if(changed.length)throw new CrmForbidden(CONTACT_DATA_DENIED);
         }
         if(existing&&input.primaryContact)throw new Error("Las personas de un negocio existente se agregan desde su ficha.");
@@ -147,12 +149,18 @@ export async function post(request:Request){
         await assertActiveAssignee(trx,{next:effectiveRequested===undefined?user.email:effectiveRequested,previous:existing?.referredToLeandro?existing.referredOriginalOwnerEmail:existing?.assignedUserEmail});
         checkEmail(input.email,existing?.email);
         const extra=Object.fromEntries(accountExtraFields.filter(f=>input[f]!==undefined).map(f=>[f,nullable(input[f])]));
-        const tipo=input.tipo===undefined?existing?.tipo??null:nullable(input.tipo);
-        const subtipo=input.subtipo===undefined?(tipo===existing?.tipo?existing?.subtipo??null:null):nullable(input.subtipo);
-        const classification=contactOnly?[]:await classificationErrors(trx,tipo,subtipo,existing??undefined);
-        if(classification.length)throw new Error(classification.join(' '));
+        if(input.classifications!==undefined&& (input.tipo!==undefined||input.subtipo!==undefined))throw new Error('Mandá las verticales como lista.');
+        const oldDisplay={tipo:existing?.tipo??null,subtipo:existing?.subtipo??null};
+        let nextPairs=input.classifications!==undefined?normalizeClassifications({pairs:input.classifications}):currentPairs;
+        if(input.classifications===undefined&&(input.tipo!==undefined||input.subtipo!==undefined)){
+          const tipo=input.tipo===undefined?oldDisplay.tipo:nullable(input.tipo),subtipo=input.subtipo===undefined?(tipo===oldDisplay.tipo?oldDisplay.subtipo:null):nullable(input.subtipo);
+          nextPairs=oldDisplay.tipo?currentPairs.filter(pair=>pair.tipo!==oldDisplay.tipo||pair.subtipo!==oldDisplay.subtipo):currentPairs;
+          if(tipo)nextPairs=[...nextPairs,{tipo,subtipo}];
+          nextPairs=normalizeClassifications({pairs:nextPairs});
+        }
+        if(!existing&&input.classifications===undefined&&!input.tipo)nextPairs=[];
         if(!contactOnly&&input.verifiedOn&&input.verifiedOn>new Date().toISOString().slice(0,10))throw new Error('Fecha de verificación futura.');
-        const fullFields={...extra,tipo,subtipo,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:existing?.referredToLeandro?existing.assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),...(existing?.referredToLeandro&&changedResponsible?{referredOriginalOwnerEmail:requestedSeller??null}:{}),updatedAt:new Date()};
+        const fullFields={...extra,nombre:input.nombre,ciudad:nullable(input.ciudad),telefono:nullable(input.telefono),email:nullable(input.email),sitioWeb:nullable(input.sitioWeb),urlGmap:nullable(input.urlGmap),perfilInstagram:nullable(input.perfilInstagram),perfilFacebook:nullable(input.perfilFacebook),perfilAirbnb:nullable(input.perfilAirbnb),perfilBooking:nullable(input.perfilBooking),perfilTurismoEntreRios:nullable(input.perfilTurismoEntreRios),assignedUserEmail:existing?.referredToLeandro?existing.assignedUserEmail:input.assignedUserEmail===undefined?(existing?existing.assignedUserEmail:user.email):nullable(input.assignedUserEmail),...(existing?.referredToLeandro&&changedResponsible?{referredOriginalOwnerEmail:requestedSeller??null}:{}),updatedAt:new Date()};
         // Spec 98 §17: a new business stores its Instagram as the canonical profile URL; anything that is not a profile is refused (edits keep their rules).
         if(!existing&&fullFields.perfilInstagram){const profile=canonicalInstagramProfile(fullFields.perfilInstagram);if(!profile)throw new Error(INSTAGRAM_PROFILE_INVALID);fullFields.perfilInstagram=profile;}
         const fields=contactOnly?{telefono:input.telefono===undefined?existing!.telefono:nullable(input.telefono),email:input.email===undefined?existing!.email:nullable(input.email),...(input.whatsapp===undefined?{}:{whatsapp:nullable(input.whatsapp)}),updatedAt:new Date()}:fullFields;
@@ -162,7 +170,9 @@ export async function post(request:Request){
           // The primary contact's phone is not checked: a person's phone matching a No contactar business only warns in the dialog (decision 13B).
         }
         const row=existing?await trx.updateTable("crmAccounts").set(fields).where("id","=",input.id!).returningAll().executeTakeFirstOrThrow():await trx.insertInto("crmAccounts").values(fullFields).returningAll().executeTakeFirstOrThrow();
-        await audit(String(row.id),contactOnly?"account_contact_data_updated":existing?"account_updated":"account_created",existing,row,null,contactOnly?{scope:access!.scope,leadIds:access!.leadIds}:{});
+        if(!contactOnly)await setAccountClassifications({trx,accountId:String(row.id),pairs:nextPairs,actor:user,reason:'account_save'});
+        const saved=await trx.selectFrom('crmAccounts').selectAll().where('id','=',String(row.id)).executeTakeFirstOrThrow();
+        await audit(String(row.id),contactOnly?"account_contact_data_updated":existing?"account_updated":"account_created",existing,saved,null,contactOnly?{scope:access!.scope,leadIds:access!.leadIds}:{});
         if(existing&&!contactOnly&&changedResponsible)await reassignRecontactTask(trx,{accountId:row.id,fromEmail:effective??null,toEmail:requestedSeller??null});// Decision 7A: the untouched "Volver a contactar" task follows the new responsible.
         if(existing&&!contactOnly&&changedResponsible&&user.role==='admin'){
           await updateBusinessResponsibleForLockedAccounts(trx,lockedAccounts.filter(member=>String(member.id)!==String(row.id)&&!member.deletedAt&&!member.archivedAt&&!member.mergedIntoId),requestedSeller??null,{email:user.email,displayName:user.displayName,role:'admin'});

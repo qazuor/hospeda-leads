@@ -78,6 +78,11 @@ jobs:
         run: npm run test:commercial
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Account classification integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:classifications
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Tasks and activities migration and integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:work

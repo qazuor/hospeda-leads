@@ -1028,3 +1028,7 @@ Regresiones añadidas en `scripts/test-commercial.ts`, `src/components/Commercia
 ## Spec 106 PR A · bloques 0 y 1 · 06/11/2026
 
 Implementados el test de regresión del renombre de subtipos y su arreglo para gestiones, columnas antiguas del negocio y `crm_account_classifications`; migración 066, helper y pruebas. `npm run typecheck`, Vitest dirigido (1 archivo / 6 pruebas), la suite de migración 066, `test:communication-locks`, `test:commercial`, `test:quality`, `test:work`, `test:mcp` y `test:permissions` pasaron en la base descartable indicada, con seed antes de cada integración. MCP tiene concesión de lectura de la tabla. Escritores de ficha/importación/fusión y lectores/UI permanecen pendientes para los bloques siguientes. Sin PR ni comandos Git.
+
+### Spec 106 PR B — escritores (2026-11-06)
+
+La ficha comercial admite `classifications` y conserva compatibilidad legacy de `tipo`/`subtipo` editando el par de visualización; el cambio pasa por `setAccountClassifications`. La insignia usa la misma ruta mediante `updateBusinessFields`. Importación admite `verticales` (`Vertical/Subtipo; ...`) y agrega clasificaciones al actualizar negocios. Merge incluye clasificaciones en el token y une los pares, bloqueando más de ocho. Ver detalles y limitaciones en `docs/pendientes.md` y el informe externo solicitado.

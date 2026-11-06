@@ -28,8 +28,9 @@ try{
  process.env.BUSINESS_IMPORT_TOKEN_SHA256=createHash('sha256').update(token).digest('hex');process.env.BUSINESS_IMPORT_ACTOR_EMAIL=admin.email;
  await call({},401,'wrong');await call({},401,randomBytes(32).toString('base64url'));
  process.env.BUSINESS_IMPORT_ACTOR_EMAIL=other.email;await call({},503);process.env.BUSINESS_IMPORT_ACTOR_EMAIL=admin.email;
- const tipo='Gastronomía API '+stamp,subtipo='Restaurante API '+stamp;
+ const tipo='Gastronomía API '+stamp,subtipo='Restaurante API '+stamp,tipoC='Alojamiento API '+stamp;
  await db.insertInto('crmVerticals').values({name:tipo,active:true}).execute();await db.insertInto('crmSubtypes').values({name:subtipo,typeName:tipo,active:true}).execute();
+ await db.insertInto('crmVerticals').values({name:tipoC,active:true}).execute();
  delete process.env.BUSINESS_IMPORT_ACTOR_EMAIL;const previousAdminEmail=process.env.ADMIN_EMAIL;process.env.ADMIN_EMAIL=admin.email;await read();process.env.ADMIN_EMAIL=previousAdminEmail;process.env.BUSINESS_IMPORT_ACTOR_EMAIL=admin.email;
  const config=await read<{maxRows:number;subtypes:Array<{name:string}>}>();assert(config.maxRows<=30);assert(config.subtypes.some(s=>s.name===subtipo));
  const before=await counts(),rows=[{nombre:'API negocio '+stamp,ciudad:'Colón',tipo,subtipo,direccion:'Prueba 100 '+stamp,verificationUrls:'https://example.com/local',verifiedOn:'2026-01-01',discoverySource:'Sitio oficial'}];
@@ -47,6 +48,10 @@ try{
  assert(saved.allCreatedAccountsPresent);assert.equal(saved.accounts[0].id,result.details[0].accountId);assert.equal(saved.accounts[0].tipo,tipo);assert.equal(saved.accounts[0].subtipo,subtipo);assert.equal(saved.accounts[0].commercialStatus,'prospect');assert.equal(saved.accounts[0].assignedUserEmail,null);
  assert.equal((await call<ImportReview>(previewBody)).batchId,preview.batchId);
  const duplicate=await call<ImportReview>({...previewBody,rows:[{...rows[0],businessNotes:'Distinto lote'}]});assert(duplicate.rows[0].matches.length);
+ const verticalRows=[{nombre:'API verticales '+stamp,ciudad:'Colón',verticales:`${tipo}/${subtipo}; ${tipoC}`}],verticalPreview=await call<ImportReview>({...previewBody,rows:verticalRows});assert.deepEqual(verticalPreview.rows[0]!.errors,[]);
+ const verticalResult=await call<ImportResult>({...confirm,batchId:verticalPreview.batchId,decisions:[{index:0,action:'create'}]}),verticalId=verticalResult.details[0]!.accountId!;
+ assert.deepEqual(await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',verticalId).orderBy('id').execute(),[{tipo,subtipo},{tipo:tipoC,subtipo:null}]);
+ const invalidVertical=await call<ImportReview>({...previewBody,rows:[{nombre:'API inválida '+stamp,verticales:`${tipo}/No existe`}]});assert(invalidVertical.rows[0]!.errors.some(error=>error.includes('Subtipo no disponible')));
  await call({...confirm,batchId:duplicate.batchId,decisions:[{index:0,action:'create',acknowledge:true}]},409);
  assert.equal((await call<ImportResult>({...confirm,batchId:duplicate.batchId,decisions:[{index:0,action:'skip'}]})).skipped,1);
  const simultaneousRows=[{nombre:'Race API '+stamp,ciudad:'Colón',direccion:'Race 101 '+stamp,tipo,subtipo}];

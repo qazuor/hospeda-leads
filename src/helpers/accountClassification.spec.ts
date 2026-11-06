@@ -27,6 +27,10 @@ describe('classificationListErrors',()=>{
   const pairs=Array.from({length:9},(_,i)=>({tipo:`Vertical ${i}`,subtipo:null}));
   expect(await classificationListErrors({db:activeCatalog,pairs})).toContain('Un negocio puede tener como máximo 8 verticales.');
  });
+ it('counts normalized classifications after duplicate and broad pair collapse',async()=>{
+  const pairs=[...Array.from({length:5},(_,i)=>({tipo:`Vertical ${i}`,subtipo:null})),{tipo:'Same',subtipo:null},{tipo:'Same',subtipo:'Subtype'},...Array.from({length:2},(_,i)=>({tipo:`Repeated ${i}`,subtipo:null}))];
+  expect(await classificationListErrors({db:activeCatalog,pairs})).not.toContain('Un negocio puede tener como máximo 8 verticales.');
+ });
  it('preserves an existing inactive historical pair without querying its catalog',async()=>{
   const historicalDb={selectFrom:()=>{throw new Error('unchanged historical values bypass catalog validation');}} as unknown as Parameters<typeof classificationListErrors>[0]['db'];
   const pair={tipo:'Vertical histórica',subtipo:'Subtipo anterior'};

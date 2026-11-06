@@ -8,6 +8,7 @@ import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_quick_POST.schema";
 import { BusinessFieldsConflict, updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {setAccountClassifications,type AccountClassification} from '../helpers/accountClassification';
 import {errorResponse} from '../helpers/errorResponse';
 import {parseBody} from '../helpers/parseBody';
 
@@ -45,6 +46,16 @@ export async function handle(request: Request) {
         return;
       }
       if(input.scope==='business'&&(!input.accountId||!isInlineBadgeField(input.field)||inlineBadgeFields[input.field].scope!=='business'))throw new Error('Elegí un dato del negocio.');
+      if(input.classifications!==undefined){
+        if(!input.accountId||!['tipo','subtipo'].includes(input.field))throw new Error('Elegí un dato del negocio.');
+        if(input.expectedClassifications===undefined)throw new Error('Recargá la clasificación antes de editarla.');
+        const account=await assertBusinessAccess(trx,input.accountId,user,true);
+        const current=await trx.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',input.accountId).orderBy('id').execute();
+        const same=(a:readonly AccountClassification[],b:readonly AccountClassification[])=>JSON.stringify([...a].sort((x,y)=>JSON.stringify(x).localeCompare(JSON.stringify(y))))===JSON.stringify([...b].sort((x,y)=>JSON.stringify(x).localeCompare(JSON.stringify(y))));
+        if(input.expectedClassifications&&!same(current,input.expectedClassifications)&&!same(current,input.classifications))throw new InlineConflict('La clasificación cambió mientras la editabas. Recargá los datos y revisá el nuevo valor.');
+        if(same(current,input.classifications))return;
+        await setAccountClassifications({trx,accountId:input.accountId,pairs:input.classifications,actor:user,reason:'inline_badge'});return;
+      }
       if(input.accountId){
         const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:input.field==="tipo"?{tipo:input.value,subtipo:null}:input.field==="subtipo"?{subtipo:input.value}:{};
         if(Object.keys(fields).length&&(input.expectedValue!==undefined||input.field==="tipo"||input.field==="subtipo")){

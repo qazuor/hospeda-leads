@@ -1,4 +1,4 @@
-import {classificationErrors} from './accountClassification';
+import {setAccountClassifications,type AccountClassification} from './accountClassification';
 import {assertAccountWritable} from './crmPermissions';
 import {reassignRecontactTask} from './recontactTask';
 import {assertActiveAssignee} from './activeAssignee';
@@ -31,13 +31,17 @@ export async function updateBusinessFields(trx:Transaction<DB>,ids:string[],chan
   if(changes.assignedUserEmail!==undefined)for(const before of accounts)await assertActiveAssignee(trx,{next:changes.assignedUserEmail,previous:before.referredToLeandro?before.referredOriginalOwnerEmail:before.assignedUserEmail});
   for(const before of accounts){
     if(changes.tipo!==undefined||changes.subtipo!==undefined){
-      const errors=await classificationErrors(trx,changes.tipo===undefined?before.tipo:changes.tipo,changes.subtipo===undefined?before.subtipo:changes.subtipo,before);
-      if(errors.length)throw new Error(errors.join(' '));
+      const rows=await trx.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',String(before.id)).orderBy('id').execute();
+      const current=rows.length?rows:[...(before.tipo?[{tipo:before.tipo,subtipo:before.subtipo}]:[])];
+      const nextTipo=changes.tipo===undefined?before.tipo:changes.tipo,nextSubtipo=changes.subtipo===undefined?(nextTipo===before.tipo?before.subtipo:null):changes.subtipo;
+      const pairs:AccountClassification[]=[...current.filter(pair=>pair.tipo!==before.tipo||pair.subtipo!==before.subtipo),...(nextTipo?[{tipo:nextTipo,subtipo:nextSubtipo}]:[])];
+      await setAccountClassifications({trx,accountId:String(before.id),pairs,actor,reason:'inline_badge'});
     }
     const effective=before.referredToLeandro?before.referredOriginalOwnerEmail:before.assignedUserEmail;
-    const changed=Object.keys(changes).some(key=>key==="assignedUserEmail"?effective!==changes.assignedUserEmail:before[key as keyof typeof changes]!==changes[key as keyof typeof changes]);
+    const changed=Object.keys(changes).some(key=>key==="assignedUserEmail"?effective!==changes.assignedUserEmail:key==='tipo'||key==='subtipo'?false:before[key as keyof typeof changes]!==changes[key as keyof typeof changes]);
     if(!changed)continue;
-    const fields={...changes,...(before.referredToLeandro&&changes.assignedUserEmail!==undefined?{referredOriginalOwnerEmail:changes.assignedUserEmail,assignedUserEmail:before.assignedUserEmail}:{}),updatedAt:new Date()};
+    const {tipo:_tipo,subtipo:_subtipo,...nonClassificationChanges}=changes;
+    const fields={...nonClassificationChanges,...(before.referredToLeandro&&changes.assignedUserEmail!==undefined?{referredOriginalOwnerEmail:changes.assignedUserEmail,assignedUserEmail:before.assignedUserEmail}:{}),updatedAt:new Date()};
     const after=await trx.updateTable("crmAccounts").set(fields).where("id","=",String(before.id)).returningAll().executeTakeFirstOrThrow();
     await trx.insertInto("crmCommercialJournal").values({accountId:before.id,contactId:null,action:"account_updated",actorEmail:actor.email,actorName:actor.displayName,metadata:sql`${JSON.stringify({before,after})}::text::jsonb`}).execute();
     if(changes.assignedUserEmail!==undefined)await reassignRecontactTask(trx,{accountId:before.id,fromEmail:effective,toEmail:changes.assignedUserEmail});// Decision 7A: the untouched "Volver a contactar" task follows the new responsible.
