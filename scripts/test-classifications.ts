@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import superjson from 'superjson';
 import {db} from '../src/helpers/db';
-import {post as commercial} from '../src/endpoints/commercial';
+import {get as commercialGet,post as commercial} from '../src/endpoints/commercial';
 import {handle as quick} from '../src/endpoints/leads_quick_POST';
 import {setServerSession} from '../src/helpers/getSetServerSession';
+import {handle as listBusinesses} from '../src/endpoints/leads_GET';
+import {basePreferences,preferencesFromSavedView} from '../src/helpers/businessListPreferences';
 import type {AccountClassification} from '../src/helpers/accountClassification';
 assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
 const stamp=Date.now();
@@ -19,7 +21,29 @@ async function quickWrite(body:unknown,status=200,who=cookie){const r=await quic
 async function catalog(name:string){await db.insertInto('crmVerticals').values({name,active:true}).execute();await db.insertInto('crmSubtypes').values({name:'sub '+name,typeName:name,active:true}).execute();return {tipo:name,subtipo:'sub '+name};}
 try{
  const a=await catalog('Class A '+stamp),b=await catalog('Class B '+stamp),c=await catalog('Class C '+stamp),more=await Promise.all(Array.from({length:6},(_,i)=>catalog(`Class ${i+4} ${stamp}`))),bad={tipo:'Unknown '+stamp,subtipo:null};
- const saved=await write({action:'account_save',nombre:'Classification '+stamp,classifications:[a,b]});
+ const sameVertical={tipo:a.tipo,subtipo:'second '+a.tipo},sharedSubtype='shared '+stamp;await db.insertInto('crmSubtypes').values([{name:sameVertical.subtipo,typeName:a.tipo,active:true},{name:sharedSubtype,typeName:a.tipo,active:true},{name:sharedSubtype,typeName:b.tipo,active:true}]).execute();
+ const saved=await write({action:'account_save',nombre:'Classification '+stamp,classifications:[a,b,sameVertical,{tipo:a.tipo,subtipo:sharedSubtype},{tipo:b.tipo,subtipo:sharedSubtype}]});
+ const unclassified=await write({action:'account_save',nombre:'Unclassified '+stamp});
+ const businessList=async(params:Record<string,string>)=>{const response=await listBusinesses(new Request('http://localhost/_api/leads?'+new URLSearchParams({entity:'business',pageSize:'100',sortBy:'id',sortDir:'desc',...params}),{headers:{cookie}}));assert.equal(response.status,200);return superjson.parse<{rows:Array<{accountId:string;accountTipos:string[];accountSubtipos:string[];opportunityValues:Record<string,string[]>}>;tipos?:string[] }>(await response.text());};
+ const included=await businessList({tipos:JSON.stringify([b.tipo])});assert(included.rows.some(row=>row.accountId===saved.id),'A multi-vertical business matches any included vertical');assert(!included.rows.some(row=>row.accountId===unclassified?.id),'A business without the included vertical is excluded');
+ const projected=(await businessList({tipos:JSON.stringify([a.tipo])})).rows.find(row=>row.accountId===saved.id)!;assert.equal(projected.accountTipos.filter(value=>value===a.tipo).length,1,JSON.stringify(projected.accountTipos));assert.equal(projected.accountTipos.filter(value=>value===b.tipo).length,1,JSON.stringify(projected.accountTipos));assert.equal(projected.opportunityValues.tipo.filter(value=>value===a.tipo).length,1,JSON.stringify(projected.opportunityValues));assert.equal(projected.accountSubtipos.filter(value=>value===sameVertical.subtipo).length,1,JSON.stringify(projected.accountSubtipos));assert.equal(projected.accountSubtipos.filter(value=>value===sharedSubtype).length,1,JSON.stringify(projected.accountSubtipos));
+ const detail=superjson.parse<{account:{classifications:Array<{tipo:string;subtipo:string|null}>}}>(await(await commercialGet(new Request(`http://localhost/_api/commercial?accountId=${saved.id}`,{headers:{cookie}}))).text());assert.deepEqual(detail.account.classifications.map(x=>x.tipo),[a.tipo,a.tipo,a.tipo,b.tipo,b.tipo].sort((x,y)=>x.localeCompare(y)),'Commercial detail keeps catalog/type ordering');
+ const restoredView=preferencesFromSavedView(basePreferences(),{inline:{typeFilter:{include:[b.tipo]}}});
+ assert.deepEqual(restoredView?.legacyFilters?.tipos,[b.tipo],'Legacy saved view vertical filter is restored without migration');
+ assert((await businessList({tipos:JSON.stringify(restoredView?.legacyFilters?.tipos??[])})).rows.some(row=>row.accountId===saved.id),'Saved view vertical filter returns the multi-vertical business');
+ assert(!(await businessList({excludeTipos:JSON.stringify([b.tipo])})).rows.some(row=>row.accountId===saved.id),'Excluding a vertical removes a business that has that vertical');
+ assert((await businessList({excludeTipos:JSON.stringify([b.tipo])})).rows.some(row=>row.accountId!==saved.id),'Excluding Y keeps a business with only X');
+ assert((await businessList({filterGroups:JSON.stringify([{rules:[{field:'tipo',operator:'eq',value:b.tipo}]}])})).rows.some(row=>row.accountId===saved.id),'Advanced exact category rule matches a secondary vertical');
+ const unsupported=await listBusinesses(new Request('http://localhost/_api/leads?'+new URLSearchParams({entity:'business',filterGroups:JSON.stringify([{rules:[{field:'tipo',operator:'contains',value:'Class'}]}])}),{headers:{cookie}}));assert.equal(unsupported.status,400,'Category operators beyond eq/neq/empty/not_empty are rejected by the request schema');
+ assert(!(await businessList({filterGroups:JSON.stringify([{rules:[{field:'tipo',operator:'neq',value:b.tipo}]}])})).rows.some(row=>row.accountId===saved.id),'Advanced neq excludes a business matching any pair');
+ const projectedId=String(-Number(saved.id));
+ for(const [operator,value,expected] of [['empty','',false],['not_empty','',true],['eq',a.tipo,true],['neq',a.tipo,false],['eq','__EMPTY__',false],['neq','__EMPTY__',true]] as const){const rows=(await businessList({filterGroups:JSON.stringify([{rules:[{field:'id',operator:'eq',value:projectedId}]},{rules:[{field:'tipo',operator,value}]}])})).rows;assert.equal(rows.some(row=>row.accountId===saved.id),expected,`tipo ${operator} ${value}`);}
+ for(const [operator,value,expected] of [['empty','',false],['not_empty','',true],['eq',a.subtipo,true],['neq',a.subtipo,false],['eq','__EMPTY__',false],['neq','__EMPTY__',true]] as const){const rows=(await businessList({filterGroups:JSON.stringify([{rules:[{field:'id',operator:'eq',value:projectedId}]},{rules:[{field:'subtipo',operator,value}]}])})).rows;assert.equal(rows.some(row=>row.accountId===saved.id),expected,`subtipo ${operator} ${value}`);}
+ assert((await businessList({tipos:JSON.stringify([a.tipo,b.tipo])})).rows.some(row=>row.accountId===saved.id),'Multi-value include binds and matches with ANY');
+ assert(!(await businessList({excludeSubtipos:JSON.stringify([a.subtipo,sameVertical.subtipo])})).rows.some(row=>row.accountId===saved.id),'Multi-value exclude binds and excludes with ANY');
+ const emptyRows=await businessList({q:'Unclassified '+stamp,tipos:JSON.stringify(['__EMPTY__'])});assert(emptyRows.rows.some(row=>row.accountId===unclassified.id),'Empty vertical means no classification pairs');
+ assert(!(await businessList({q:'Classification '+stamp,tipos:JSON.stringify(['__EMPTY__'])})).rows.some(row=>row.accountId===saved.id),'Exclude empty removes classified businesses');
+ const optionResponse=await listBusinesses(new Request('http://localhost/_api/leads?'+new URLSearchParams({entity:'business',filterOptions:'include'}),{headers:{cookie}}));const options=superjson.parse<{filters:{tipos:string[]}}>(await optionResponse.text());assert(options.filters.tipos.includes(a.tipo)&&options.filters.tipos.includes(b.tipo),'Filter options include classification verticals');
  const rows=()=>db.selectFrom('crmAccountClassifications').selectAll().where('accountId','=',saved.id).orderBy('id').execute();
  const initial=await rows(),keep=initial.find(x=>x.tipo===b.tipo)!;
  await write({action:'account_save',id:saved.id,nombre:'Classification '+stamp,classifications:[b,c]});
