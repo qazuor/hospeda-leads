@@ -212,8 +212,7 @@
         "linkLabel": "",
         "uiLabels": [
           "Anotar lo que pasó",
-          "Agendar tarea"
-        ]
+          "Agendar tarea", "Crear negocio", "Agregar otra vertical"]
       },
       {
         "id": "screens",
