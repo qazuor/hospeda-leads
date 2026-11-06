@@ -7,6 +7,8 @@ import {Button} from './Button';
 import {Input} from './Input';
 import {InboundBusinessSearchPicker} from './InboundBusinessPicker';
 import {sellerChoiceState} from '../helpers/sellerChoice';
+import {Disclosure,DisclosureSummary} from './Disclosure';
+import styles from './Commercial.module.css';
 
 export function BusinessSellerGroupSection({detail}:{detail:CommercialDetail}){
  const {authState}=useAuth(),admin=authState.type==='authenticated'&&authState.user.role==='admin',group=detail.sellerGroup,qc=useQueryClient();
@@ -24,7 +26,8 @@ export function BusinessSellerGroupSection({detail}:{detail:CommercialDetail}){
  const submitLink=()=>{if(!choice||mutation.isPending||requiresChoice&&!seller)return;mutation.mutate({action:'account_link',accountIds:[String(detail.account.id),choice],...(requiresChoice&&seller?{sellerEmail:seller}:{})});};
  const submitEqualize=()=>{if(mutation.isPending||requiresChoice&&!seller)return;mutation.mutate({action:'account_link',accountIds:(group?.members??[]).filter(m=>!m.archived&&!m.deleted&&!m.merged).map(m=>m.id),...(requiresChoice&&seller?{sellerEmail:seller}:{})});};
  const status=(m:NonNullable<CommercialDetail['sellerGroup']>['members'][number])=>m.merged?'Fusionado':m.deleted?'Papelera':m.archived?'Archivado':null;
- return <section aria-label="Negocios vinculados"><h3>Negocios vinculados (mismo dueño)</h3>
+ // Lives in the record's left column (spec 104/90 layout): collapsed unless the business already has linked businesses.
+ return <Disclosure className={styles.relatedSection} open={!!group}><DisclosureSummary><h3>Negocios vinculados ({group?.members.length??0})</h3></DisclosureSummary><section className={styles.section} aria-label="Negocios vinculados (mismo dueño)">
   {inconsistent&&<div role="alert"><p>Estos negocios tienen que tener el mismo vendedor y hoy no lo tienen.</p>{admin&&<Button disabled={mutation.isPending} onClick={startEqualize}>Igualar vendedor</Button>}</div>}
   {mutation.error&&!open&&<p role="alert">{mutation.error.message} <Button variant="outline" disabled={mutation.isPending} onClick={()=>{if(mutation.variables!==undefined)mutation.mutate(mutation.variables)}}>Reintentar</Button></p>}
   {group?.members.map(member=>{const state=status(member),redacted=member.name==='negocio de otro vendedor',pending=pendingMember===member.id;return <article key={member.id} style={{opacity:state?.5:1}}><p>{redacted?<span>H{member.id} · negocio de otro vendedor</span>:<Link to={'/accounts/'+member.id}>H{member.id} · {member.name} · {member.city||'Sin localidad'} · {member.effectiveSellerEmail||'Sin responsable'}{state?' · '+state:''}</Link>}</p>{admin&&<><Input aria-label={'Motivo para desvincular H'+member.id} value={reasons[member.id]??''} disabled={mutation.isPending} onChange={e=>setReasons(value=>({...value,[member.id]:e.target.value}))} placeholder="Motivo (opcional)"/><Button variant="outline" disabled={mutation.isPending} onClick={()=>{setPendingMember(member.id);mutation.mutate({action:'account_unlink',accountId:member.id,...((reasons[member.id]??'').trim()?{reason:reasons[member.id]!.trim()}:{})})}}>{pending?'Desvinculando…':'Desvincular'}</Button></>}</article>})}
@@ -36,5 +39,5 @@ export function BusinessSellerGroupSection({detail}:{detail:CommercialDetail}){
    {mutation.error&&<p role="alert">{mutation.error.message} <Button variant="outline" disabled={mutation.isPending} onClick={()=>mode==='equalize'?submitEqualize():submitLink()}>Reintentar</Button></p>}
    <div><Button disabled={mutation.isPending||mode==='link'&&!choice||requiresChoice&&!seller} onClick={mode==='equalize'?submitEqualize:submitLink}>{mutation.isPending?'Guardando…':mode==='equalize'?'Igualar vendedor':'Confirmar vínculo'}</Button><Button variant="outline" disabled={mutation.isPending} onClick={()=>{setOpen(false);setMode(null)}}>Cancelar</Button></div>
   </div>}
- </section>;
+ </section></Disclosure>;
 }
