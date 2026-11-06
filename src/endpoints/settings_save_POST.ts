@@ -193,13 +193,24 @@ export async function handle(request:Request){
         await setWorkActor(trx,user);
         // Lock the affected businesses first (before any write, which would also hold the live-version row), in id order: the leads active-account guard takes FOR SHARE on each business while
         // updating its leads, so locking leads first would invert the business-then-management order used by every other writer.
-        let affected=trx.selectFrom("leads").select("accountId").distinct().where("subtipo","=",target.name);
-        if(target.typeName)affected=affected.where("tipo","=",target.typeName);
-        await lockAccounts(trx,(await affected.execute()).map(r=>r.accountId));
+        let affectedLeads=trx.selectFrom("leads").select("accountId").distinct().where("subtipo","=",target.name);
+        if(target.typeName)affectedLeads=affectedLeads.where("tipo","=",target.typeName);
+        let affectedAccounts=trx.selectFrom("crmAccounts").select("id").where("subtipo","=",target.name);
+        if(target.typeName)affectedAccounts=affectedAccounts.where("tipo","=",target.typeName);
+        let affectedClassifications=trx.selectFrom("crmAccountClassifications").select("accountId").distinct().where("subtipo","=",target.name);
+        if(target.typeName)affectedClassifications=affectedClassifications.where("tipo","=",target.typeName);
+        const [leadRows,accountRows,classificationRows]=await Promise.all([affectedLeads.execute(),affectedAccounts.execute(),affectedClassifications.execute()]);
+        await lockAccounts(trx,[...leadRows.map(r=>r.accountId),...accountRows.map(r=>r.id),...classificationRows.map(r=>r.accountId)]);
         await trx.updateTable("crmSubtypes").set({name:nextName,active:true}).where("id","=",target.id).execute();
         let leads=trx.updateTable("leads").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name);
         if(target.typeName)leads=leads.where("tipo","=",target.typeName);
         await leads.execute();
+        let accounts=trx.updateTable("crmAccounts").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name);
+        if(target.typeName)accounts=accounts.where("tipo","=",target.typeName);
+        await accounts.execute();
+        let classifications=trx.updateTable("crmAccountClassifications").set({subtipo:nextName}).where("subtipo","=",target.name);
+        if(target.typeName)classifications=classifications.where("tipo","=",target.typeName);
+        await classifications.execute();
       });
     }
 
