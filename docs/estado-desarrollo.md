@@ -1,3 +1,9 @@
+## Plantillas: link de planes por rubro — 06/11/2026
+
+`{{link_planes}}` para Comer y salir y Experiencias apuntaba a la página de publicación (`/publicar/...`) aunque el texto dice «Los planes, para cuando termine la prueba». Ahora apunta a `/es/planes/comer-y-salir/` y `/es/planes/experiencias/`, como Alojamientos (`/es/planes/anfitriones/`); las tres responden 200. Producción no tiene variables guardadas en `app_settings`, así que el cambio aplica con el deploy, sin datos. Validación: test de regresión en `messageVariables.spec.ts` (falló antes del cambio), Vitest de `src/content` y `messageVariables` y typecheck PASS.
+
+Mismo día, en producción con backup previo y aprobación del dueño: descripción para los 68 materiales activos y categorías por momento de la venta (1 · Para arrancar … 7 · Alta y ficha, más «Guías del vendedor» y «Uso del CRM»); «links varios» quedó desactivada. Las 10 referencias `{{material:…}}` de las plantillas apuntan a material activo.
+
 ## Spec 106, PR D — UI para varias verticales — 06/11/2026
 
 Bloque 4 implementado localmente: ficha y alta rápida editan pares vertical/subtipo; la insignia de Vertical abre el editor desde lista y tarjetas con control optimista de concurrencia; ante 409 se recarga la lista actual y se pide guardarla explícitamente, mientras que los errores conservan el borrador y «Reintentar» conserva el payload fallido. La lista compacta muestra el par principal y «+N»; el detalle muestra pares completos. D6 preselecciona una vertical del negocio y envía la elegida. Se actualizaron specs, e2e y guía. Validación de ronda 6: `npm run typecheck` PASS; `npx vitest run src/components src/pages` PASS (888 tests); seis specs focalizadas PASS (42 tests). E2e, build e integración no ejecutados; el esquema de `leads_quick_POST` ya permite `classifications: []` y no se modificó.
