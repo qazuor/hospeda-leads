@@ -43,6 +43,15 @@ try{
  await call(expired,commercialGet,'commercial?accountId=00000000-0000-0000-0000-000000000000',undefined,401);
  const accountId=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Permission business '+suffix,email:'business@example.com'})).id;
  const ownOther=(await call(other,commercialPost,'commercial',{action:'account_save',nombre:'Colleague business '+suffix})).id;
+ await call(admin,commercialPost,'commercial',{action:'account_link',accountIds:[accountId,ownOther],sellerEmail:owner.user.email});
+ await db.updateTable('crmAccounts').set({assignedUserEmail:other.user.email,archivedAt:new Date(),status:'archived'}).where('id','=',ownOther).execute();
+ await call(owner,commercialGet,'commercial?accountId='+accountId);
+ const redactedGroup=await call(owner,commercialGet,'commercial?accountId='+accountId);
+ assert.equal(redactedGroup.sellerGroup.members.find((member:any)=>member.id===ownOther)?.name,'negocio de otro vendedor','Unreadable linked business is redacted');
+ await call(owner,commercialPost,'commercial',{action:'account_link',accountIds:[accountId,ownOther]},403);
+ await call(owner,commercialPost,'commercial',{action:'account_unlink',accountId},403);
+ await db.deleteFrom('crmAccountSellerGroups').where('id','in',db.selectFrom('crmAccountSellerGroupMembers').select('groupId').where('accountId','in',[accountId,ownOther])).execute();
+ await db.updateTable('crmAccounts').set({archivedAt:null,status:'new'}).where('id','=',ownOther).execute();
  const leadId=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Existing management',estado:'Cargado'})).id;
  const contactId=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId,name:'Known person',isPrimary:true,email:'person@example.com'})).id;
  const colleagueLead=(await call(other,commercialPost,'commercial',{action:'opportunity_save',accountId:ownOther,confirmReviewed:true,opportunityName:'Colleague management',estado:'Cargado'})).id;
