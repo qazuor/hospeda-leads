@@ -146,7 +146,7 @@ Recomendación: las columnas `crm_accounts.tipo/subtipo` quedan como **copia del
 
 ### 6.3 Importación (D3)
 
-- CSV: las columnas `tipo` y `subtipo` siguen aceptadas (un par). Columna nueva `verticales` con pares `Vertical/Subtipo` separados por `;` (`Alojamiento/Hotel; Gastronomía/Restaurante; Experiencias`). Se separa en la **primera** `/`; sin `/` es una vertical sin subtipo. `tipo` y `verticales` en la misma fila es un error de la fila.
+- CSV: las columnas `tipo` y `subtipo` siguen aceptadas (un par). Columna nueva `verticales` con pares `Vertical/Subtipo` separados por `;` (`Alojamiento/Hotel; Gastronomía/Restaurante; Experiencias`). Se separa en la **primera** `/`; sin `/` es una vertical sin subtipo. `tipo` y `verticales` en la misma fila es un error de la fila. Por este formato, los nombres de vertical no pueden incluir `/` y ningún nombre puede incluir `;`.
 - API (`BUSINESS_IMPORT_API.md`): campo `clasificaciones: [{tipo, subtipo}]`, mismo tope de 8, mismas reglas. `config` sigue devolviendo verticales y subtipos activos.
 - Alta: crea las filas con `setAccountClassifications` (`reason:'import'`).
 - Actualización de un negocio existente: según D3 (recomendado: **agrega** los pares que falten, nunca borra).

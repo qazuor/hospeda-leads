@@ -454,3 +454,9 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 - `unrefer` con un nuevo responsable aplica D4 al grupo activo en orden de lock antes de bloquear la gestión, con journal y tareas de recontacto. Restaurar al dueño original no altera los demás miembros. Unificado `fromEmail` de recontacto con el vendedor efectivo en filas derivadas.
 - Validación con una semilla nueva por integración: `test:commercial`, `test:permissions` (613), `test:pipeline`, `test:business-reassignment`, `test:user-admin`, `test:work`; `npm run typecheck`; cuatro specs focalizados (21), todo PASS. El primer intento de `test:pipeline` reveló dos defectos del fixture; corregidos y repetidos con semilla fresca.
 - Próximo paso: revisar cambios y preparar el PR a `staging`.
+
+### Spec 106 PR B
+
+- Integrados ficha, compatibilidad legacy de insignia, importación y merge con `setAccountClassifications`.
+- La ruta de insignia acepta la lista y `expectedClassifications`; la UI actual sigue usando el modo scalar compatible. Pendiente: agregar pruebas de regresión específicas de lista/diff/merge/importación (las suites existentes pasan, pero no cubren todos los casos nuevos); resolver el writer del renombre de subtipo en Configuración dentro del bloque 0 si no quedó atendido por el PR previo.
+- Validación ejecutada: typecheck; `accountClassification.spec.ts`; `test-commercial.ts`, `test-data-quality.ts`, `test-business-import.ts`, `test-business-import-api.ts` sobre la DB desechable indicada, reseed antes de cada suite.
