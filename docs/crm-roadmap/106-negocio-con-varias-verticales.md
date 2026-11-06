@@ -257,6 +257,8 @@ Fuente: `~/backups/hospeda-crm/dedup2-secondary-verticals-20261106.json` en el V
 
 ### 13.1 Pasos
 
+> Si el rol `crm_mcp_reader` ya existe en el entorno, `provision-mcp-reader.mjs` no le otorga permisos sobre tablas nuevas: antes de habilitar el MCP, otorgar `SELECT` sobre `crm_account_classifications` (y `crm_account_seller_groups*` de la spec 107).
+
 1. Confirmar que la 066 está aplicada en producción (`schema_migrations`) y que la versión desplegada incluye los bloques 1 a 4.
 2. Respaldo: `pg_dump` completo a `~/backups/hospeda-crm/` con fecha.
 3. Ensayo sobre una copia restaurada del respaldo: `node scripts/load-account-classifications.mjs --file <json>` (en seco por defecto). Para cada negocio muestra los pares actuales, los que se agregarían, los rechazados (vertical o subtipo inactivo o inexistente, negocio fusionado/en Papelera/inexistente, tope de 8) y no escribe nada.
