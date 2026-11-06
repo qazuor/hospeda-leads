@@ -72,8 +72,11 @@ const decodeEntities=(text:string)=>text.replace(/&(#x[0-9a-f]{1,8}|#\d{1,10}|[a
  return code<=0x10ffff&&(code<0xd800||code>0xdfff)?String.fromCodePoint(code):all;
 });
 const META_KEYS=['og:image:secure_url','og:image','og:image:url','twitter:image','twitter:image:src'];
-/** Only this much of a page is scanned for preview tags (they live in `<head>`); also stops at `</head>`. */
-export const LINK_PREVIEW_MAX_HEAD_CHARS=65536;
+/**
+ * Only this much of a page is scanned for preview tags (they live in `<head>`); also stops at `</head>`. The scan is linear, so the cap only
+ * bounds work: real heads with inline CSS and scripts put `og:image` past 64 KB (hospeda.com.ar has it at ~96 KB).
+ */
+export const LINK_PREVIEW_MAX_HEAD_CHARS=524288;
 const SPACE=/\s/;
 /**
  * Attributes of one tag body (`property="og:image" content=…`), scanned by hand in one pass: every step advances, so the cost is linear in
@@ -97,7 +100,7 @@ function tagAttributes(body:string):Map<string,string>{
 }
 /**
  * The preview image of a page: `og:image:secure_url`, `og:image`, `og:image:url`, then `twitter:image`, resolved against the page; only https.
- * Linear scan of at most the first 64 KB, up to `</head>`.
+ * Linear scan of at most the first 512 KB, up to `</head>`.
  */
 export function extractPreviewImage({html,baseUrl}:{html:string;baseUrl:URL}):string|null{
  // Both patterns are literal (no repetition), so each search is linear; indexes refer to the original text (values keep their case).
@@ -117,6 +120,17 @@ export function extractPreviewImage({html,baseUrl}:{html:string;baseUrl:URL}):st
  }
  return null;
 }
+const DRIVE_HOSTS=new Set(['drive.google.com','docs.google.com']);
+/**
+ * Google Drive and Docs file pages carry no `og:image` for any client; their public thumbnail (a redirect to googleusercontent) is the preview.
+ * It exists only for files shared with «Cualquier persona con el enlace». Null for any other URL or a malformed id.
+ */
+export function googleDriveThumbnail(url:URL):string|null{
+ if(!DRIVE_HOSTS.has(url.hostname))return null;
+ const id=/\/d\/([^/]+)/.exec(url.pathname)?.[1]??(url.pathname==='/open'||url.pathname==='/uc'?url.searchParams.get('id'):null);
+ return id&&/^[\w-]{10,200}$/.test(id)?`https://drive.google.com/thumbnail?id=${id}&sz=w1200`:null;
+}
+const DRIVE_NO_THUMBNAIL='Google Drive no dio una vista previa de ese archivo. Revisá que esté compartido con «Cualquier persona con el enlace», o subí una imagen.';
 /** Resolves every address of a host (`dns.lookup` with `all`, so `/etc/hosts` counts too). */
 export type Resolve=(host:string)=>Promise<readonly {address:string;family:number}[]>;
 const dnsResolve:Resolve=async host=>{try{return await dnsLookup(host,{all:true,verbatim:true});}catch{return [];}};
@@ -196,12 +210,20 @@ export async function fetchLinkPreviewImage({url,resolve=dnsResolve,fetchPinned=
  try{
   const page=await guardedGet({url:target,accept:'text/html,application/xhtml+xml;q=0.9',maxBytes:LINK_PREVIEW_MAX_HTML_BYTES,truncate:true,resolve,fetchPinned,signal:controller.signal});
   if(!/^(text\/html|application\/xhtml\+xml)$/.test(mimeOf(page.contentType)))throw new LinkPreviewError('bad_type','El enlace no es una página web.');
-  const image=extractPreviewImage({html:new TextDecoder().decode(page.body),baseUrl:page.url});
+  const tagged=extractPreviewImage({html:new TextDecoder().decode(page.body),baseUrl:page.url});
+  // A private Drive file redirects to the Google login page, so the link as stored is checked too.
+  const drive=tagged?null:googleDriveThumbnail(page.url)??googleDriveThumbnail(target),image=tagged??drive;
   if(!image)throw new LinkPreviewError('no_image','La página no tiene imagen de vista previa.');
-  const found=await guardedGet({url:new URL(image),accept:IMAGE_TYPES.join(','),maxBytes:LINK_PREVIEW_MAX_IMAGE_BYTES,truncate:false,resolve,fetchPinned,signal:controller.signal});
-  const contentType=mimeOf(found.contentType);
-  if(!(IMAGE_TYPES as readonly string[]).includes(contentType)||!signatureMatches({mimeType:contentType,bytes:found.body.subarray(0,16)}))throw new LinkPreviewError('bad_type','La imagen del enlace no es JPG, PNG, WebP ni GIF.');
-  return {body:found.body,contentType};
+  try{
+   const found=await guardedGet({url:new URL(image),accept:IMAGE_TYPES.join(','),maxBytes:LINK_PREVIEW_MAX_IMAGE_BYTES,truncate:false,resolve,fetchPinned,signal:controller.signal});
+   const contentType=mimeOf(found.contentType);
+   if(!(IMAGE_TYPES as readonly string[]).includes(contentType)||!signatureMatches({mimeType:contentType,bytes:found.body.subarray(0,16)}))throw new LinkPreviewError('bad_type','La imagen del enlace no es JPG, PNG, WebP ni GIF.');
+   return {body:found.body,contentType};
+  }catch(error){
+   // Drive answers an error page (500, HTML) instead of a thumbnail when the file is not public.
+   if(drive&&error instanceof LinkPreviewError&&(error.code==='failed'||error.code==='bad_type'))throw new LinkPreviewError('no_image',DRIVE_NO_THUMBNAIL);
+   throw error;
+  }
  }catch(error){
   if(error instanceof LinkPreviewError)throw error;
   if(controller.signal.aborted)throw new LinkPreviewError('timeout','El sitio tardó demasiado en responder.');

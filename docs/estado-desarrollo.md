@@ -1,4 +1,42 @@
+## Nota interna de materiales de venta — implementación lista para validar (05/11/2026)
+
+En `feat/sales-material-internal-note`, la migración 062 traslada `description` a `internal_note`; la nota se expone y busca solo para administradores. El formulario distingue «Descripción» pública y «Nota interna». La biblioteca ofrece tarjetas/lista y secciones de entregables y uso interno. No se aplicó la migración ni se ejecutó la integración de base de datos; el propietario debe correr `scripts/test-sales-material.ts` en PostgreSQL descartable.
+
 # Estado del CRM — corte al 2 de noviembre de 2026
+
+## Presencia de usuarios en el header — 05/11/2026
+
+- Implementación local en `feat/online-users`: presencia separada por fuente CRM, WhatsApp e Instagram; clientes visibles envían heartbeat, el listado reciente es solo para admins y el popover muestra fuentes y hora. El corte es 120 segundos; el heartbeat no renueva la sesión. La migración nueva es `063_user_presence.sql` (062 está reservado por otra rama). Userscript actualizado a 1.8.6. Typecheck y 81 pruebas focalizadas pasan; queda ejecutar la integración `npm run test:presence` en PostgreSQL descartable.
+- Se agregó `scripts/test-presence.ts` y el comando/etapa CI `test:presence`. La integración no se ejecutó localmente; requiere base descartable migrada y sembrada. WhatsApp userscript no informa actividad y queda como posible trabajo futuro.
+- Próximo paso: ejecutar `npm run db:migrate`, `npm run db:seed:test` y `npm run test:presence` con `DATABASE_URL` apuntando a una base local descartable; luego correr CI. Validación local limitada a typecheck y specs focalizadas, pendiente al cierre de esta entrada.
+
+
+## Portada automática de enlaces — 05/11/2026
+
+- `fix/link-preview-cover` (PR a `staging`). Causa, verificada con el log de producción (`Link preview <host>: no_image`) y con las páginas reales:
+  - hospeda.com.ar tiene `og:image` a ~96 KB, porque el `<head>` mide ~103 KB por el CSS y los scripts en línea. El escaneo cortaba en 64 KB y ahora llega a 512 KB. Sigue siendo lineal y frena en `</head>`.
+  - Google Drive y Docs no publican `og:image` para ningún cliente. Ahora se usa la miniatura pública (`drive.google.com/thumbnail?id=…`). Solo funciona con archivos compartidos con «Cualquier persona con el enlace»; si no, se explica eso.
+- Validación: `linkPreview.spec.ts` con 3 tests de regresión, que fallaban antes del cambio. También pasan `linkPreview.transport.spec.ts`, `salesMaterialService.spec.ts`, `salesMaterialAutoCover.spec.ts` (110) y `typecheck`. Prueba en vivo con el helper contra los enlaces de producción: hospeda.com.ar y dos archivos de Drive pasan de `no_image` a imagen.
+- Próximo paso: después del deploy, usar «Portada → Generar desde el enlace» en los materiales de enlace sin portada.
+## Varias líneas de WhatsApp por usuario — 05/11/2026
+
+- `feat/user-whatsapp-lines` (PR a `staging`):
+  - La migración 061 agrega `users.whatsapp_phones text[]`, con hasta 5 números de 8 a 15 dígitos y sin repetidos (CHECK con una función IMMUTABLE), y copia ahí el valor de `whatsapp_phone`.
+  - `whatsapp_phone` queda deprecada y se borra en una migración posterior, para no romper el contenedor viejo durante el deploy.
+  - En Ajustes, el diálogo del usuario edita la lista de números.
+  - Script 1.8.5: el panel se activa con cualquiera de los números asignados.
+  - El status agrega `whatsappAccounts` y mantiene `whatsappAccount` para los scripts viejos: el número si hay uno solo, `null` si hay cero o varios. `USERSCRIPT_MIN_VERSION` no cambia.
+- Validación:
+  - `npm run typecheck` PASS y 4 specs (44 tests) PASS.
+  - En PostgreSQL 17 descartable: migraciones 001–061 aplicadas, `db:seed:test`, `scripts/test-user-admin.ts` PASS y `scripts/test-userscript.ts` PASS.
+  - Prueba manual de la base: el backfill copia el número; el CHECK rechaza repetidos, números cortos y 6 números, y acepta 5.
+
+## Reemplazar archivo o enlace de material — 05/11/2026
+
+- `feat/material-edit-replace` (PR a `staging`): «Editar material» muestra el contenido vigente y permite crear una versión desde archivo o enlace. Se conserva el contenido histórico; los enlaces existentes resuelven la versión nueva. Archivados muestran el contenido en modo lectura. Si falla el reemplazo luego de guardar datos, el diálogo conserva el formulario y reintenta solo la versión.
+- El servicio devuelve `{ok:true,revision}` en `update`, que incrementa la revisión; la versión usa esa revisión. No requirió cambios de servidor ni esquema.
+- Validación final: `npx vitest run src/components/SalesMaterialForm.spec.tsx src/components/SalesMaterialCard.spec.tsx src/components/SalesMaterialPanel.spec.tsx` PASS (64, incluye reintento con datos editados tras un reemplazo fallido); `npm run typecheck` PASS. Navegador e integración quedan para CI.
+- Próximo paso: merge a staging con CI verde; el cambio de origen (archivo ↔ enlace) queda pendiente.
 
 ## Etiquetas de chats siguen el scroll — 04/11/2026
 
@@ -36,6 +74,12 @@
 - Links reales del sitio en los mensajes y material de venta dentro de «Envío de la información» (por título). Migración `058_message_catalog_v3.sql` generada desde el código: reemplaza las 33 plantillas de la 036 por 42.
 - Validación: `messageCatalog.spec.ts` (13) y `messageVariables.spec.ts` (15) PASS; specs de render, política, materiales, contexto y formato de chat PASS; `npm run typecheck` PASS; `test-message-catalog-migration.mjs` (036) y el nuevo `test-message-catalog-v3-migration.mjs` (058, incluido en `test:communication`) PASS en Postgres 17 descartable. Sin build ni suites completas locales.
 - Próximo paso: PR a staging, CI verde, backup y promoción a main cuando el propietario lo pida; la migración se aplica en el deploy.
+
+## Catálogo de mensajes v4 — 05/11/2026
+
+- Migración 060: materiales por vertical en «Envío de la información»; requiere cinco títulos activos únicos cuando haya materiales activos. La migración falla con el título faltante o duplicado. Proveedores enlaza el directorio.
+- Validado en PostgreSQL descartable: `test-message-catalog-v4-migration.mjs` (sin materiales, completo con un señuelo «Presentacion Alojamientos» activo, título faltante y título duplicado), los tests de catálogo 036 y 058 siguen pasando, y todas las migraciones aplican en una base nueva (48 plantillas). También pasan `messageCatalog.spec.ts`, `messageVariables.spec.ts` y `typecheck`.
+- Orden de despliegue: primero se cargan en producción los cinco títulos exactos y después se despliega. Si falta alguno, la migración falla y el deploy no avanza.
 
 ## Guardia de cuentas del user script — 02/11/2026
 

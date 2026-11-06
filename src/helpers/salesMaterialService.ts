@@ -47,7 +47,7 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
  const found=(await sql<MaterialRow>`SELECT m.* FROM crm_sales_materials m WHERE (${query.status==='archived'} AND m.status='archived' OR ${query.status!=='archived'} AND (${query.includeArchived==='1'} OR m.status='active'))
   AND (${query.kind??null}::text IS NULL OR m.kind=${query.kind??null})
   AND (${categoryIds.length===0} OR EXISTS(SELECT 1 FROM crm_sales_material_category_links l WHERE l.material_id=m.id AND l.category_id=ANY(${categoryIds}::bigint[])))
-  AND (${searchSql('m.title',query.search)} OR ${searchSql('m.description',query.search)})
+  AND (${searchSql('m.title',query.search)} OR ${searchSql('m.description',query.search)} OR (${admin} AND ${searchSql('m.internal_note',query.search)}))
   ORDER BY m.status,m.updated_at DESC,m.id LIMIT ${LIST_LIMIT+1}`.execute(db)).rows;
  const truncated=found.length>LIST_LIMIT,rows=found.slice(0,LIST_LIMIT);
  const ids=rows.map(r=>r.id);
@@ -64,7 +64,8 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
  const materials=rows.map(({coverKey,coverMime:_mime,coverBytes:_bytes,coverMode,currentVersion,...m}):SalesMaterial=>{
   const own=versions.rows.filter(v=>v.materialId===m.id).map(publicVersion);
   const current=own.find(v=>v.version===currentVersion)??null;
-  return {...m,verticals:m.verticals??[],hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,coverSource:coverMode==='none'?'none':coverKey?coverMode:null,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
+  const {internalNote,...visible}=m;
+  return {...visible,...(admin?{internalNote}:{}),verticals:m.verticals??[],hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,coverSource:coverMode==='none'?'none':coverKey?coverMode:null,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
  });
  return {materials:contextVertical?salesMaterialRelevance({materials,vertical:contextVertical}):materials,contextVertical,verticals:verticals.map(v=>v.name),truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured(),maxEmailAttachmentBytes:config.maxEmailAttachmentBytes}};
 }
@@ -186,7 +187,7 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
    await sql`SELECT pg_advisory_xact_lock(hashtext('crm_sales_materials'),hashtext(${input.id}))`.execute(e);
    if((await sql`SELECT id FROM crm_sales_materials WHERE id=${input.id}::uuid`.execute(e)).rows[0])return {id:input.id};
    await assertCategories(e,input.categoryIds);await assertVerticals(e,input.verticals);
-   await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,verticals,open_direct,created_by_email) VALUES(${input.id}::uuid,${input.title},${input.description},${input.kind},${input.source},${input.verticals}::text[],${input.openDirect??false},${user.email})`.execute(e);
+   await sql`INSERT INTO crm_sales_materials(id,title,description,internal_note,kind,source,verticals,open_direct,created_by_email) VALUES(${input.id}::uuid,${input.title},${input.description},${input.internalNote},${input.kind},${input.source},${input.verticals}::text[],${input.openDirect??false},${user.email})`.execute(e);
    await replaceCategories(e,input.id,input.categoryIds,[]);
    await insertVersion(e,{materialId:input.id,version:1,source:input.version,verified,user});
    await sql`UPDATE crm_sales_materials SET current_version=1 WHERE id=${input.id}::uuid`.execute(e);
@@ -208,7 +209,7 @@ export async function mutateSalesMaterial(db:Kysely<DB>,{input,user,storage}:{in
   const next=m.revision+1;
   if(input.action==='update'){
    const before=await categoryIdsOf(e,m.id);await assertCategories(e,input.categoryIds,before);await assertVerticals(e,input.verticals,m.verticals??[]);
-   await sql`UPDATE crm_sales_materials SET title=${input.title},description=${input.description},kind=${input.kind},verticals=${input.verticals}::text[],open_direct=coalesce(${input.openDirect??null}::boolean,open_direct),revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
+   await sql`UPDATE crm_sales_materials SET title=${input.title},description=${input.description},internal_note=coalesce(${input.internalNote??null}::text,internal_note),kind=${input.kind},verticals=${input.verticals}::text[],open_direct=coalesce(${input.openDirect??null}::boolean,open_direct),revision=${next},updated_at=now() WHERE id=${m.id}::uuid`.execute(e);
    await replaceCategories(e,m.id,input.categoryIds,before);
   }else if(input.action==='version'){
    if(m.status==='archived')throw new Error('Restaurá el material para agregar una versión.');

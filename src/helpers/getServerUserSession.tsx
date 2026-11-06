@@ -6,11 +6,12 @@ import { shouldTouchSession } from "./sessionTouch";
 
 const SESSION_CLEANUP_PROBABILITY = 0.01;
 
-export async function getServerUserSession(request: Request) {
+export async function getServerUserSession(request: Request, options: { touchSession?: boolean } = {}) {
   const session = await getServerSessionOrThrow(request);
+  const touchSession = options.touchSession !== false;
 
   // Occasionally clean up expired sessions
-  if (Math.random() < SESSION_CLEANUP_PROBABILITY) {
+  if (touchSession && Math.random() < SESSION_CLEANUP_PROBABILITY) {
     try {
       await db
         .deleteFrom("sessions")
@@ -59,7 +60,7 @@ export async function getServerUserSession(request: Request) {
   };
 
   const now = new Date();
-  const shouldTouch = shouldTouchSession({ lastAccessed: result.sessionLastAccessed, now });
+  const shouldTouch = touchSession && shouldTouchSession({ lastAccessed: result.sessionLastAccessed, now });
   const effectiveLastAccessed = shouldTouch ? now : result.sessionLastAccessed ?? now;
   if (shouldTouch) {
     await db

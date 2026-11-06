@@ -3,11 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const api = vi.hoisted(() => ({
   fetchStatus: vi.fn(), fetchContext: vi.fn(), fetchAutoRegistrations: vi.fn(), saveAutoRegisterPreference: vi.fn(),
   request: vi.fn(), registerBatch: vi.fn(), fetchTemplates: vi.fn(), prepareTemplate: vi.fn(), dispatchTemplate: vi.fn(),
-  fetchMaterials: vi.fn(), addMaterial: vi.fn(), removeMaterial: vi.fn(), fetchMaterialFile: vi.fn(), setCrmRequestGuard: vi.fn()
+  fetchMaterials: vi.fn(), addMaterial: vi.fn(), removeMaterial: vi.fn(), fetchMaterialFile: vi.fn(), setCrmRequestGuard: vi.fn(),
+  sendUserscriptPresence: vi.fn(async () => ({ ok: true }))
 }));
 vi.mock("./api", () => ({ ...api, ApiError: class ApiError extends Error { constructor(message: string, public status: number, public minVersion?: string) { super(message); } } }));
 
-const success = (whatsappAccount: string | null) => ({ minVersion: "1.0.0", user: { email: "seller@example.com", displayName: "Seller" }, whatsappAccount, matches: [] });
+const success = (whatsappAccount: string | null, whatsappAccounts?: string[]) => ({ minVersion: "1.0.0", user: { email: "seller@example.com", displayName: "Seller" }, whatsappAccount, ...(whatsappAccounts ? { whatsappAccounts } : {}), matches: [] });
 let storage: Storage;
 let boot: () => Promise<void>;
 let activeIntervals: Set<number>;
@@ -48,11 +49,17 @@ describe("WhatsApp account lifecycle boot", () => {
     for (let second = 0; second < 30; second++) { await vi.advanceTimersByTimeAsync(1000); expect(panel!.isConnected).toBe(true); expect(document.getElementById("hospeda-userscript-banner")).toBe(panel); }
   });
 
+  it("a second assigned account keeps the panel on", async () => {
+    api.fetchStatus.mockResolvedValue(success(null, ["5491111111111", "5493442123456"])); await boot(); await flush();
+    expect(visibleText()).toBe(""); expect(document.querySelector("hospeda-crm")).not.toBeNull();
+  });
+
   it("boot mismatch shows only the account notice and leaves only the account monitor", async () => {
     api.fetchStatus.mockResolvedValue(success("+5491111111111")); await boot();
     expect(visibleText()).toBe("Este WhatsApp no es el número asignado a tu usuario: el script está apagado.");
     expect(allApi().filter(fn => fn !== api.fetchStatus).every(fn => !(fn as ReturnType<typeof vi.fn>).mock.calls.length)).toBe(true);
-    expect(activeIntervals.size).toBe(1);
+    // The account monitor plus the presence heartbeat, which stays silent while the number does not match (no API call above).
+    expect(activeIntervals.size).toBe(2);
   });
 
   it("keeps a steady mismatch isolated through app churn, visibility, storage, menu and status expiry", async () => {

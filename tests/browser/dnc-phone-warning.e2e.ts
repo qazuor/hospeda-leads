@@ -4,6 +4,7 @@ import {basePreferences} from '../../src/helpers/businessListPreferences';
 import {localDay} from '../../src/helpers/workDates';
 import {waitForTransitions} from './support/transitions';
 import {simulateUserscript} from './helpers/userscript';
+import {isPresenceRequest} from './support/presence';
 
 // Decision D2: a person whose phone is exactly a No contactar business's phone gets a NON-blocking notice at contact time. The API is mocked.
 const NOTE='Teléfono de un negocio No contactar',TEXT='Este teléfono es de un negocio que pidió no ser contactado: Hostería Silenciosa (Colón).';
@@ -18,7 +19,7 @@ async function mock(page:Page,extra:Record<string,unknown>={}){
  await page.addInitScript(({preferences})=>{localStorage.setItem('hospeda-live-mode','off');localStorage.setItem('hospeda-business-list-v1-user-3',JSON.stringify({preferences,context:{page:1,scrollY:0,scrollX:0}}))},{preferences:{...basePreferences(),columns:['nombre','actions'],pins:{}}});
  await page.route('https://fonts.googleapis.com/**',route=>route.abort());
  await page.route('**/_api/**',async route=>{
-  const url=new URL(route.request().url());if(route.request().method()!=='GET')writes.push(url.pathname);
+  const url=new URL(route.request().url());if(route.request().method()!=='GET'&&!isPresenceRequest(route.request().url()))writes.push(url.pathname);
   let data:unknown={};const p=url.pathname;
   if(p.endsWith('/auth/session'))data={user:{id:3,email:'owner@example.com',displayName:'Owner',role:'user'}};
   else if(p.endsWith('/business_list_defaults'))data={defaults:null};

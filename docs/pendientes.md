@@ -1,8 +1,16 @@
+## Materiales de venta: nota interna, lista y separación de uso — validar integración
+
+La implementación está en `feat/sales-material-internal-note`; falta que el propietario ejecute `scripts/test-sales-material.ts` en PostgreSQL descartable y aplique la migración por el flujo habitual. No usar una base de producción.
+
 > Promoción `staging` → `main`: última el 02/11/2026 (#334, script 1.8.1 solo con las cuentas de Hospeda, con respaldo previo de la base; ver `estado-desarrollo.md`). Las anteriores fueron el 01/11/2026 (#330) y el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
 
 # Pendientes y próximo trabajo
 
-- **Administración de usuarios / WhatsApp:** rama `feat/user-admin-whatsapp-line`, sin PR. El coordinador confirmó `test:auth`, `test:user-admin` y `scripts/test-userscript.ts` PASS en DB descartable; pass 4 corrió `npm run typecheck` y specs focalizadas. Falta `test:inbound` en DB descartable y PR a staging.
+- **Presencia de usuarios (`feat/online-users`, sin PR):** typecheck y 81 pruebas focalizadas pasan; ejecutar `npm run test:presence` en PostgreSQL descartable después de migrar y sembrar, luego CI antes del PR. El userscript 1.8.6 aporta actividad visible de WhatsApp e Instagram.
+
+- **Material de venta: cambiar el origen (archivo ↔ enlace).** «Editar» ya reemplaza el archivo o el enlace (`feat/material-edit-replace`), pero el origen sigue fijo desde la creación. Pedido del propietario para más adelante: requiere servidor, migración y portada/vista previa.
+
+- **Varias líneas de WhatsApp por usuario (`feat/user-whatsapp-lines`, script 1.8.5):** después del deploy, en una migración posterior, borrar `users.whatsapp_phone`, que 061 deja deprecada para no romper el contenedor viejo durante el deploy. Los scripts ≤1.8.4 de usuarios con 2 o más números ven el panel en cualquier número hasta que actualicen.
 
 - **Catálogo de mensajes v3:** migración 058 lista en `feat/message-catalog-v3`; falta PR a staging y promoción. Confirmar con el propietario para quién es «Presentacion Hospedin» (hoy no va en ningún mensaje).
 
@@ -423,3 +431,7 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 
 - Implementación y cobertura focalizada en `fix/userscript-mismatch-flicker`; versión 1.8.3 y `USERSCRIPT_MIN_VERSION` sin cambio. Vitest de `userscript/src` (384) y typecheck PASS.
 - Pendiente: CI, merge a `staging` y promoción a `main` (requiere ok del propietario).
+### Catálogo de mensajes v4 · 05/11/2026
+
+- Implementado y probado en PostgreSQL descartable. Falta: PR a `staging`, que el propietario cargue los títulos en producción y recién después la promoción a `main`.
+- Antes de desplegar con materiales activos, cargar los títulos únicos documentados en `decisiones.md`.

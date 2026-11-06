@@ -1,16 +1,21 @@
 # Decisiones estables del CRM
 
+## Presencia de usuarios en el CRM — 05/11/2026
+
+- «En línea» significa que el usuario tiene el CRM abierto en una pestaña visible y el servidor recibió su heartbeat en los últimos 120 segundos. El cliente envía cada 60 segundos solo visible, al cargar si ya está visible y al volver a primer plano, con un límite de un envío cada 20 segundos.
+- La presencia se guarda por usuario y fuente (`crm`, `whatsapp`, `instagram`) en `user_presence`; un heartbeat por fuente actualiza como máximo cada 20 segundos. El CRM informa solo pestañas visibles; WhatsApp Web e Instagram informan actividad del userscript visible. La lista admin agrega fuentes vistas en los últimos 120 segundos, excluye usuarios desactivados y no prolonga ni modifica sesiones.
+
 ## Recorrido comercial y catálogo de mensajes v3 — 02/11/2026
 
 - El negocio se registra y crea su propia ficha; la prueba de 30 días empieza al publicarla y la suscripción se elige al terminar. Ofrecer que Hospeda arme la ficha es un rescate: solo si el cliente dice que no entiende cómo hacerlo, luego de que se registre.
 - El primer contacto pide permiso con una pregunta sencilla y no adjunta material. La presentación se comparte en el mensaje posterior a un sí. La bienvenida no pide material.
 - Los mensajes llevan links reales del sitio (verificados el 02/11/2026): registro `/es/auth/signup/`, planes por rubro, presentación por rubro, preguntas frecuentes e Instagram. El primer mensaje por chat solo nombra el dominio `hospeda.com.ar`: un link largo desde un número desconocido parece spam.
-- El material de venta va dentro de «Envío de la información», resuelto por título al aplicar la migración 058: Alojamientos → «Presentacion Alojamientos», otros rubros → «Folleto», proveedores → «Presentacion a proveedores», aliados → «3 formas de estar en Hospeda». Si el material no existe o está archivado, el mensaje queda sin él.
-- La migración 036 ya está aplicada y no se reescribe: el generador ahora escribe `058_message_catalog_v3.sql`.
+- La migración 036 ya está aplicada y no se reescribe; 058 conserva el catálogo v3 y 060 reemplaza el catálogo con v4.
+- Catálogo v4: los materiales activos requeridos para «Envío de la información» son «Presentación corta · Alojamientos», «Presentación corta · Comer y salir», «Presentación corta · Experiencias», «Cómo funciona Hospeda» y «3 formas de estar en Hospeda». Proveedores enlaza el directorio. Si existen materiales activos, 060 falla si falta o está duplicado cualquiera de esos títulos; si no hay materiales activos, omite las referencias.
 
 ## Cuenta propia del user script — 01/11/2026
 
-- WhatsApp compara la cuenta abierta en WhatsApp Web con el número asignado al usuario del CRM; si ese usuario no tiene línea configurada, usa `WHATSAPP_ACCOUNT_PHONE` como fallback global. Si ambos faltan, se conserva el comportamiento actual. Instagram sigue usando `INSTAGRAM_ACCOUNT_USERNAME`.
+- WhatsApp compara la cuenta abierta en WhatsApp Web con cualquiera de hasta cinco números asignados al usuario del CRM; si no hay números asignados, usa `WHATSAPP_ACCOUNT_PHONE` como fallback global. Si ambos faltan, se conserva el comportamiento actual. El status mantiene `whatsappAccount` para scripts viejos: entrega el número si hay uno y `null` si hay cero o varios. Instagram sigue usando `INSTAGRAM_ACCOUNT_USERNAME`.
 
 Estas decisiones provienen del propietario y del comportamiento revisado. Cambiarlas requiere tratar el cambio como funcional, no esconderlo en una corrección estética. El estado de implementación y los pendientes están en documentos separados.
 
@@ -459,3 +464,7 @@ Las decisiones A1–A5 las aprobó el propietario. D1–D8 son las recomendacion
 ### Administración de usuarios — 04/11/2026
 
 Al desactivar un usuario, los negocios activos no archivados, las gestiones abiertas y las tareas pendientes se reasignan dentro del propio diálogo a un usuario activo que el administrador elige. Los registros cerrados/archivados permanecen como historial. La operación bloquea al usuario y vuelve a contar asignaciones dentro de la transacción.
+
+## Notas internas de materiales de venta — 05/11/2026
+
+La nota interna de un material es exclusiva de administradores y nunca forma parte del enlace público. `description` es la descripción visible al equipo y al cliente; la migración 062 mueve el contenido histórico de `description` a `internal_note` y vacía `description`.

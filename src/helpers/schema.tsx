@@ -221,7 +221,7 @@ export interface Users {
   fullName: string | null;
   id: Generated<number>;
   phone: string | null;
-  whatsappPhone: string | null;
+  whatsappPhones: Generated<string[]>;
   deactivatedAt: Timestamp | null;
   role: Generated<UserRole>;
   senderEmail: string | null;
@@ -241,6 +241,8 @@ export interface CrmUserscriptTokens {
   lastVersion:string|null;
   revokedAt:Timestamp|null;
 }
+
+export interface UserPresence { userId:number; source:'crm'|'whatsapp'|'instagram'; lastSeenAt:Timestamp }
 
 /** Spec 97 §5.1: the Instagram web thread of a username for the Hospeda account (migration 053). */
 export interface CrmInstagramThreads {
@@ -394,6 +396,7 @@ export interface DB {
   sessions: Sessions;
   userPasswords: UserPasswords;
   users: Users;
+  userPresence: UserPresence;
 }
 
 

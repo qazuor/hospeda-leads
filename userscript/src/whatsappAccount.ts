@@ -1,13 +1,11 @@
 import { samePhone } from "../../src/helpers/phoneIdentity";
-
 export type WhatsappAccountState = "unconfigured" | "unknown" | "ok" | "mismatch";
-
-export function whatsappAccountState({ expected, loggedIn }: { expected: string | null | undefined; loggedIn: string | null | undefined }): WhatsappAccountState {
-  if (!expected) return "unconfigured";
+export function whatsappAccountState({ expected, loggedIn }: { expected: readonly string[] | string | null | undefined; loggedIn: string | null | undefined }): WhatsappAccountState {
+  const accounts = Array.isArray(expected) ? expected : expected ? [expected] : [];
+  if (!accounts.length) return "unconfigured";
   if (!loggedIn) return "unknown";
-  return samePhone({ a: expected, b: loggedIn }) ? "ok" : "mismatch";
+  return accounts.some(phone => samePhone({ a: phone, b: loggedIn })) ? "ok" : "mismatch";
 }
-
 export function loggedInWhatsappPhone(storage: Pick<Storage, "getItem">): string | null {
   try {
     const raw = storage.getItem("last-wid-md");

@@ -1,4 +1,4 @@
-import { addMaterial, dispatchTemplate, removeMaterial, fetchInstagramContext, fetchMaterials, fetchInstagramThreads, fetchInstagramTemplates, fetchStatus, markTemplateNotSent, prepareInstagramTemplate, reportInstagramThread, reportInstagramThreadStale, type DispatchResult, type InstagramContextResponse, type InstagramInboxThread, type InstagramPrepare, type MaterialChange, type InstagramTemplatesResponse, type InstagramThreadReport, type MaterialsResponse, type PreparedTemplate, type StatusResponse } from "../api";
+import { addMaterial, sendUserscriptPresence, dispatchTemplate, removeMaterial, fetchInstagramContext, fetchMaterials, fetchInstagramThreads, fetchInstagramTemplates, fetchStatus, markTemplateNotSent, prepareInstagramTemplate, reportInstagramThread, reportInstagramThreadStale, type DispatchResult, type InstagramContextResponse, type InstagramInboxThread, type InstagramPrepare, type MaterialChange, type InstagramTemplatesResponse, type InstagramThreadReport, type MaterialsResponse, type PreparedTemplate, type StatusResponse } from "../api";
 
 /**
  * Spec 97 §5.3: the allowlist of CRM calls the Instagram side may make, bound to the CRM base and the saved token. The token travels only in
@@ -20,7 +20,7 @@ export type InstagramApi = {
   readonly addMaterial: (payload: { messageId: string; revision: number; materialId: string }) => Promise<MaterialChange>;
   readonly removeMaterial: (payload: { messageId: string; revision: number; shareId: string }) => Promise<MaterialChange>;
 };
-export const INSTAGRAM_API_FUNCTIONS: readonly string[] = ["fetchStatus", "fetchInstagramContext", "reportInstagramThread", "reportInstagramThreadStale", "fetchInstagramTemplates", "prepareInstagramTemplate", "dispatchTemplate", "markTemplateNotSent", "fetchInstagramThreads", "fetchMaterials", "addMaterial", "removeMaterial"];
+export const INSTAGRAM_API_FUNCTIONS: readonly string[] = ["fetchStatus", "fetchInstagramContext", "reportInstagramThread", "reportInstagramThreadStale", "fetchInstagramTemplates", "prepareInstagramTemplate", "dispatchTemplate", "markTemplateNotSent", "fetchInstagramThreads", "fetchMaterials", "addMaterial", "removeMaterial", "sendUserscriptPresence"];
 
 export function instagramApi({ base, token }: { base: string; token: () => string }): InstagramApi {
   return {
@@ -37,4 +37,9 @@ export function instagramApi({ base, token }: { base: string; token: () => strin
     addMaterial: payload => addMaterial(base, token(), payload),
     removeMaterial: payload => removeMaterial(base, token(), payload),
   };
+}
+
+/** Presence heartbeat for instagram.com: the seller counts as online while Instagram is open with the script (allowlisted above). */
+export function instagramPresence({ base, token }: { base: string; token: () => string }): () => Promise<unknown> {
+  return () => sendUserscriptPresence(base, token(), "instagram");
 }

@@ -47,17 +47,19 @@ export type SalesMaterialSavedNotice={coverMaterialId:string};
 export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,onClose,onSaved}:{mode:SalesMaterialFormMode;categories:SalesMaterialCategory[];/** Active catalog verticals, in order. */verticals?:readonly string[];limits:SalesMaterialLimits;onClose:()=>void;onSaved:(message:string,notice?:SalesMaterialSavedNotice)=>void}){
  const qc=useQueryClient();
  const material='material' in mode?mode.material:null;
- const [title,setTitle]=useState(material?.title??''),[description,setDescription]=useState(material?.description??'');
+ const [title,setTitle]=useState(material?.title??''),[description,setDescription]=useState(material?.description??''),[internalNote,setInternalNote]=useState(material?.internalNote??'');
  const [kind,setKind]=useState<'deliverable'|'internal'>(material?.kind??'deliverable'),[source,setSource]=useState<'file'|'url'>(material?.source??'file');
  const [categoryIds,setCategoryIds]=useState<string[]>(material?.categories.map(c=>c.id)??[]),[openDirect,setOpenDirect]=useState(material?.openDirect??false);
  const [extraCategories,setExtraCategories]=useState<SalesMaterialCategory[]>([]),[verticals,setVerticals]=useState<string[]>(material?.verticals??[]);
- const [file,setFile]=useState<File|null>(null),[cover,setCover]=useState<File|null>(null),[url,setUrl]=useState('');
+ const [file,setFile]=useState<File|null>(null),[cover,setCover]=useState<File|null>(null),[url,setUrl]=useState(mode.type==='edit'?material?.currentVersion?.url??'':'');
  const [fileNotice,setFileNotice]=useState(''),[coverNotice,setCoverNotice]=useState(''),picks=useRef({file:0,cover:0});
  const [pending,setPending]=useState(''),[progress,setProgress]=useState<UploadProgress|null>(null),[error,setError]=useState(''),[generateError,setGenerateError]=useState('');
  // Owner review of spec 96: while saving, the form gives way to a progress view listing each step (`steps`); an error brings the form back.
  const [saving,setSaving]=useState(false),[steps,setSteps]=useState<string[]>([]),[generating,setGenerating]=useState(false),[creatingCategory,setCreatingCategory]=useState(false);
  useEffect(()=>{if(saving&&pending)setSteps(list=>list.at(-1)===pending?list:[...list,pending]);},[saving,pending]);
  const lock=useRef(false),abort=useRef<AbortController|null>(null),createId=useRef(crypto.randomUUID());
+ // Edit mode: the data last saved by `update` in this dialog, so a retry after a failed replacement resends it only if it changed.
+ const editUpdateDone=useRef<string|null>(null);
  // The revision this dialog saves against: refreshed after a 409 so a retry uses the latest one. The verified upload is kept for that retry (a 409 never consumes it).
  // `latest` is the material as the server last returned it, so «Generar desde el archivo» retries with the current cover state too.
  const revision=useRef(material?.revision??1),latest=useRef(material),uploaded=useRef<{file:File;purpose:'file'|'cover';uploadId:string}|null>(null);
@@ -68,14 +70,15 @@ export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,o
  const unavailableCategories=known.filter(c=>!c.active).map(c=>({label:c.name,reason:`«${c.name}» está desactivada. Reactivala en Configuración → «Categorías de material».`}));
  // A vertical the material has that is no longer active stays visible (and kept on save), like a deactivated category.
  const verticalOptions=[...catalog.map(v=>({value:v,label:v})),...(material?.verticals??[]).filter(v=>!catalog.includes(v)).map(v=>({value:v,label:v+' (desactivada)'}))];
- const needsFile=mode.type==='create'?source==='file':mode.type==='version'&&material?.source==='file';
- const needsUrl=mode.type==='create'?source==='url':mode.type==='version'&&material?.source==='url';
+ const needsFile=mode.type==='create'?source==='file':(mode.type==='version'||mode.type==='edit')&&material?.source==='file';
+ const needsUrl=mode.type==='create'?source==='url':(mode.type==='version'||mode.type==='edit')&&material?.source==='url';
+ const replaceUrl=mode.type==='edit'&&material?.source==='url'&&url.trim()!==material.currentVersion?.url?.trim();
  const fileError=file?pickedFileError({file,purpose:'file',maxUploadBytes:limits.maxUploadBytes}):null;
  const coverError=cover?pickedFileError({file:cover,purpose:'cover',maxUploadBytes:limits.maxCoverBytes}):null;
  const urlError=needsUrl&&url.trim()?externalUrlError({url:url.trim()}):null;
  const missing=(mode.type==='create'||mode.type==='edit')&&title.trim().length<3?'Escribí un título de 3 letras o más.':
-  needsFile&&!file?'Elegí el archivo del material.':needsUrl&&!url.trim()?'Pegá el enlace del material.':mode.type==='cover'&&!cover?'Elegí una imagen para la portada.':
-  fileError||coverError||urlError||(!limits.storageConfigured&&(needsFile||!!cover)?'Almacenamiento no configurado: no se pueden subir archivos.':null);
+  (mode.type==='create'||mode.type==='version')&&needsFile&&!file?'Elegí el archivo del material.':needsUrl&&!url.trim()?'Pegá el enlace del material.':mode.type==='cover'&&!cover?'Elegí una imagen para la portada.':
+  fileError||coverError||urlError||(!limits.storageConfigured&&((mode.type==='edit'?!!file:needsFile)||!!cover)?'Almacenamiento no configurado: no se pueden subir archivos.':null);
  const becomesInternal=mode.type==='edit'&&material?.kind==='deliverable'&&kind==='internal';
  /** Keeps the picked file and, once its first bytes are read, swaps in a renamed copy when its extension lies about its content. */
  async function pick(kind:'file'|'cover',picked:File|null){
@@ -137,28 +140,43 @@ export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,o
    const result=await saveLinkAutoCover({materialId,revision:at});if(result.ok)return '';
    coverFor=materialId;return ` ${result.error} La tarjeta muestra el dibujo del enlace; podés subir una imagen con «Elegir portada».`;
   };
+  const saveVersion=async(materialId:string,at:number,sourceFile:File|null,sourceUrl:string)=>{
+   const version=material?.source==='file'?{uploadId:await upload(sourceFile!,'file',materialId)}:{url:sourceUrl.trim()};
+   setPending(mode.type==='edit'?'Reemplazando el material…':'Guardando versión…');
+   const result=await postSalesMaterial({action:'version',id:materialId,revision:at,version});
+   const next=result.revision??at+1;
+   revision.current=next;
+   if(material?.coverSource==null||material.coverSource==='auto')return material?.source==='file'?autoCover(sourceFile!,materialId,next):linkCover(materialId,next);
+   return '';
+  };
   try{
    if(mode.type==='create'){
     const id=createId.current;
     const version=source==='file'?{uploadId:await upload(file!,'file',id)}:{url:url.trim()};
     setPending('Guardando material…');
-    await postSalesMaterial({action:'create',id,title:title.trim(),description:description.trim(),kind,source,categoryIds,verticals,version,openDirect});saved='Material guardado.';
+    await postSalesMaterial({action:'create',id,title:title.trim(),description:description.trim(),internalNote:internalNote.trim(),kind,source,categoryIds,verticals,version,openDirect});saved='Material guardado.';
     if(cover){const uploadId=await upload(cover,'cover',id);setPending('Guardando portada…');await postSalesMaterial({action:'cover',id,revision:1,uploadId});}
     else saved+=source==='file'?await autoCover(file!,id,1):await linkCover(id,1);
    }else if(mode.type==='edit'){
-    setPending('Guardando cambios…');await postSalesMaterial({action:'update',id:material!.id,revision:revision.current,title:title.trim(),description:description.trim(),kind,categoryIds,verticals,openDirect});saved='Cambios guardados.';
+    const data={title:title.trim(),description:description.trim(),internalNote:internalNote.trim(),kind,categoryIds,verticals,openDirect},key=JSON.stringify(data);
+    if(editUpdateDone.current!==key){setPending('Guardando cambios…');const result=await postSalesMaterial({action:'update',id:material!.id,revision:revision.current,...data});revision.current=result.revision??revision.current+1;editUpdateDone.current=key;}
+    saved='Cambios guardados.';
+    if(file||replaceUrl){saved=material!.source==='file'?'Cambios guardados. Archivo reemplazado; las versiones anteriores se conservan.':'Cambios guardados. Enlace reemplazado; las versiones anteriores se conservan.';saved+=await saveVersion(material!.id,revision.current,file,url);}
    }else if(mode.type==='version'){
-    const version=material!.source==='file'?{uploadId:await upload(file!,'file',material!.id)}:{url:url.trim()};
-    setPending('Guardando versión…');const result=await postSalesMaterial({action:'version',id:material!.id,revision:revision.current,version});saved='Nueva versión guardada. Las anteriores se conservan.';
-    // The server drops an automatic cover with the old file; a manual cover or a removal stays and always wins. If `coverSource` is stale,
-    // the server keeps the manual choice and answers `coverKept`, which is a quiet skip (no note).
-    if(material!.coverSource==null||material!.coverSource==='auto'){const at=result.revision??revision.current+1;saved+=material!.source==='file'?await autoCover(file!,material!.id,at):await linkCover(material!.id,at);}
+    saved='Nueva versión guardada. Las anteriores se conservan.'+await saveVersion(material!.id,revision.current,file,url);
    }else{
     const uploadId=await upload(cover!,'cover',material!.id);
     setPending('Guardando portada…');await postSalesMaterial({action:'cover',id:material!.id,revision:revision.current,uploadId});saved='Portada actualizada.';
    }
    uploaded.current=null;await qc.invalidateQueries({queryKey:['sales-materials']});if(coverFor)onSaved(saved,{coverMaterialId:coverFor});else onSaved(saved);
   }catch(e){
+   if(mode.type==='edit'&&editUpdateDone.current&&(file||replaceUrl)){
+    let detail=e instanceof Error?e.message:'No se pudo guardar.';
+    if(e instanceof CrmApiError&&e.status===409){const fresh=await refreshRevision();detail+=(fresh?' Ya tomamos los datos más recientes; reintentá.':' Actualizá la página antes de reintentar.')+' Lo que cargaste se conserva.';}
+    else detail+=' Lo que cargaste se conserva; podés reintentar.';
+    setError(`Los datos se guardaron, pero el archivo o enlace no se reemplazó: ${detail}`);
+    void qc.invalidateQueries({queryKey:['sales-materials']});return;
+   }
    if(saved){void qc.invalidateQueries({queryKey:['sales-materials']});onSaved(saved+' La portada no se pudo guardar: probá de nuevo con «Elegir portada».',{coverMaterialId:material?.id??createId.current});return;}
    setError(await failure(e,'No se pudo guardar.'));
   }finally{lock.current=false;setPending('');setSaving(false)}
@@ -201,11 +219,12 @@ export function SalesMaterialForm({mode,categories,verticals:catalog=[],limits,o
    {progress&&<div className={styles.actions}><Button variant="outline" onClick={()=>abort.current?.abort()}>Cancelar subida</Button></div>}
   </div>:<form className={styles.form} aria-busy={busy} onSubmit={event=>{event.preventDefault();void save()}}>
    {mode.type==='create'&&<label>Origen<NativeSelect value={source} disabled={busy} onChange={e=>setSource(e.target.value as 'file'|'url')}><option value="file">Archivo</option><option value="url">Enlace externo</option></NativeSelect></label>}
-   {needsFile&&<label>Archivo<Input type="file" aria-label="Archivo" accept={SALES_MATERIAL_ACCEPT} disabled={busy} onChange={e=>void pick('file',e.target.files?.[0]??null)}/><span className={styles.hint}>Imágenes, PDF, video, audio o documentos de Office, hasta {formatBytes({bytes:limits.maxUploadBytes})}.{file&&!fileError?` Elegiste ${file.name} (${formatBytes({bytes:file.size})}).`:''}</span>{fileNotice&&<span className={styles.hint} role="status">{fileNotice}</span>}</label>}
-   {needsUrl&&<label>Enlace (https)<Input type="url" value={url} disabled={busy} placeholder="https://…" onChange={e=>setUrl(e.target.value)}/></label>}
+   {needsFile&&(mode.type==='edit'?<section aria-label="Contenido actual"><strong>Archivo actual</strong><p className={styles.hint}>{material?.currentVersion?.fileName??'Archivo'}{material?.currentVersion?.byteSize?` · ${formatBytes({bytes:material.currentVersion.byteSize})}`:''} · versión {material?.currentVersion?.version??'—'}</p>{material?.status==='archived'?<span className={styles.hint}>Material archivado: el archivo no se puede reemplazar.</span>:<><label>Reemplazar archivo<Input type="file" aria-label="Reemplazar archivo" accept={SALES_MATERIAL_ACCEPT} disabled={busy||!limits.storageConfigured} onChange={e=>void pick('file',e.target.files?.[0]??null)}/><span className={styles.hint}>Opcional. Imágenes, PDF, video, audio o documentos de Office, hasta {formatBytes({bytes:limits.maxUploadBytes})}.{file&&!fileError?` Elegiste ${file.name} (${formatBytes({bytes:file.size})}).`:''}</span>{fileNotice&&<span className={styles.hint} role="status">{fileNotice}</span>}</label>{!limits.storageConfigured&&<span className={styles.hint}>Almacenamiento no configurado: no se pueden subir archivos.</span>}<p className={styles.hint}>Al reemplazarlo se conservan las versiones anteriores y los enlaces ya enviados abren el contenido nuevo.</p></>}</section>:<label>Archivo<Input type="file" aria-label="Archivo" accept={SALES_MATERIAL_ACCEPT} disabled={busy} onChange={e=>void pick('file',e.target.files?.[0]??null)}/><span className={styles.hint}>Imágenes, PDF, video, audio o documentos de Office, hasta {formatBytes({bytes:limits.maxUploadBytes})}.{file&&!fileError?` Elegiste ${file.name} (${formatBytes({bytes:file.size})}).`:''}</span>{fileNotice&&<span className={styles.hint} role="status">{fileNotice}</span>}</label>)}
+   {needsUrl&&(mode.type==='edit'?<section aria-label="Contenido actual"><label>Enlace (https)<Input type="url" value={url} disabled={busy||material?.status==='archived'} placeholder="https://…" onChange={e=>setUrl(e.target.value)}/></label>{material?.status==='archived'?<span className={styles.hint}>Material archivado: el enlace no se puede reemplazar.</span>:<p className={styles.hint}>Al reemplazarlo se conservan las versiones anteriores y los enlaces ya enviados abren el contenido nuevo.</p>}</section>:<label>Enlace (https)<Input type="url" value={url} disabled={busy} placeholder="https://…" onChange={e=>setUrl(e.target.value)}/></label>)}
    {(mode.type==='create'||mode.type==='edit')&&<>
     <label>Título<Input value={title} maxLength={200} disabled={busy} onChange={e=>setTitle(e.target.value)} placeholder="Ej.: Folleto de tarifas 2027" aria-describedby="sales-material-title-hint"/></label><span id="sales-material-title-hint" className={styles.hint}>Lo ve el cliente: en el mensaje («Podés ver «…» en: …»), en la página del material y en la vista previa de WhatsApp.</span>
-    <label>Comentario<Textarea value={description} maxLength={4000} disabled={busy} onChange={e=>setDescription(e.target.value)} placeholder="Para qué sirve, a quién conviene mostrarlo"/></label>
+    <label>Descripción<Textarea value={description} maxLength={4000} disabled={busy} onChange={e=>setDescription(e.target.value)} placeholder="Para qué sirve, a quién conviene mostrarlo"/><span className={styles.hint}>La ven vendedores y clientes en el enlace compartido.</span></label>
+    <label>Nota interna<Textarea value={internalNote} maxLength={4000} disabled={busy} onChange={e=>setInternalNote(e.target.value)} placeholder="Información exclusiva para administradores"/><span className={styles.hint}>Solo la ven los administradores. No se muestra a vendedores ni a clientes.</span></label>
     <label>Tipo<NativeSelect value={kind} disabled={busy} onChange={e=>setKind(e.target.value as 'deliverable'|'internal')}><option value="deliverable">Entregable: se puede mandar a clientes</option><option value="internal">Interno: solo para vendedores</option></NativeSelect></label>
     <div><label className={styles.check}><Checkbox checked={openDirect} disabled={busy} disabledReason={BUSY} aria-describedby="sales-material-open-direct-hint" onChange={e=>setOpenDirect(e.currentTarget.checked)}/>Abrir directo</label><span id="sales-material-open-direct-hint" className={styles.hint}>{OPEN_DIRECT_HINTS[mode.type==='create'?source:material?.source??'file']}</span></div>
     {becomesInternal&&<p className={styles.warning} role="note">Al pasarlo a interno, los enlaces que ya se mandaron van a mostrar «Este material ya no está disponible».</p>}

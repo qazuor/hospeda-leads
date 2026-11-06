@@ -33,8 +33,9 @@ export function fetchContext(base: string, query: { code?: string; phone?: strin
 }
 
 /** Since spec 97 the CRM also publishes the Hospeda Instagram username (§4.5); null when it is not configured. */
-export type StatusResponse = Omit<ContextResponse, "matches"> & { instagramAccount?: string | null; whatsappAccount?: string | null };
+export type StatusResponse = Omit<ContextResponse, "matches"> & { instagramAccount?: string | null; whatsappAccounts?: string[]; whatsappAccount?: string | null };
 export function fetchStatus(base: string, token: string): Promise<StatusResponse> { return request(`${base}/_api/userscript/status`, token, "GET", undefined, true); }
+export const sendUserscriptPresence=(base:string,token:string,source:'whatsapp'|'instagram')=>request<{ok:true}>(`${base}/_api/userscript/presence`,token,'POST',{source});
 
 export function registerBatch(base: string, token: string, payload: { accountId: string; chat: { title: string; phone: string | null }; messages: unknown[]; automatic?:boolean }): Promise<RegisterResponse> {
   return request(`${base}/_api/userscript/register`, token, "POST", payload);

@@ -8,7 +8,7 @@ export type SettingsUser={
   fullName:string|null;
   displayName:string;
   phone:string|null;
-  whatsappPhone:string|null;
+  whatsappPhones:string[];
   deactivatedAt:Date|null;
   sex:string|null;
   senderEmail:string|null;

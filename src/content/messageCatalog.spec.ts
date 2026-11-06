@@ -39,7 +39,7 @@ describe('message catalog', () => {
       expect(MESSAGE_CATALOG_TEMPLATES.filter(template => template.name.startsWith(`${name} ·`)).map(template => template.channel)).toEqual(['email', 'whatsapp']);
     }
     for (const managementType of ['main', 'provider', 'partner']) {
-      expect(MESSAGE_CATALOG_TEMPLATES.filter(template => template.name.startsWith('Envío de la información') && template.managementType === managementType)).toHaveLength(managementType === 'main' ? 6 : 3);
+        expect(MESSAGE_CATALOG_TEMPLATES.filter(template => template.name.startsWith('Envío de la información') && template.managementType === managementType)).toHaveLength(managementType === 'main' ? 12 : 3);
     }
   });
 
@@ -138,8 +138,19 @@ describe('message catalog', () => {
 
   it('builds migration rows with vertical targeting without writing a migration artifact', () => {
     const sql = buildMessageCatalogMigration().sql;
+    expect(MESSAGE_CATALOG_TEMPLATES).toHaveLength(48);
     expect(sql).toContain('message_templates(channel,name,subject,body,management_type,purpose,vertical)');
     expect(sql).toContain("'main','resume','Alojamientos'");
+    expect(sql).toContain('Falta el material activo «%». Cargalo con ese título exacto antes de desplegar.');
+    expect(sql).toContain('Hay % materiales activos con el título «%». Dejá uno solo activo antes de desplegar.');
+    expect(sql).toContain("'Presentación corta · Alojamientos'");
+    expect(sql).toContain("'Presentación corta · Comer y salir'");
+    expect(sql).toContain("'Presentación corta · Experiencias'");
+    expect(sql).toContain("'Cómo funciona Hospeda'");
+    expect(sql).toContain("'3 formas de estar en Hospeda'");
+    expect(sql).toContain('IF NOT EXISTS (SELECT 1 FROM crm_sales_materials WHERE status=');
+    expect(sql).not.toContain('ORDER BY created_at LIMIT 1');
+    expect(sql.split('\n')[0]).toContain('v4');
     expect(sql.match(/INSERT INTO message_templates/g)).toHaveLength(1);
   });
 });

@@ -972,6 +972,8 @@ Opciones del administrador para dar acceso, mantener catálogos y revisar datos.
 
 ### Administrar modelos de comunicación y material de venta
 
+En cada material, «Descripción» se muestra al equipo y al cliente que abre el enlace. «Nota interna» solo la ven los administradores. La biblioteca permite cambiar entre «Tarjetas» y «Lista»; separa los entregables que se pueden enviar a clientes del material de uso interno.
+
 **Cuándo usarlo:** Cuando el equipo necesita materiales comunes para ofrecer.
 
 1. Solo los administradores crean, editan, duplican, publican, desactivan o reactivan modelos compartidos. Los modelos pueden ser para email, WhatsApp, redes sociales u otros canales; no para llamadas.
@@ -1240,7 +1242,7 @@ Instalá el script de Hospeda en WhatsApp Web para ver el negocio de cada chat y
 3. Si ves «Token inválido o revocado. Conectá uno nuevo desde Ajustes.», creá un token nuevo en «User script de WhatsApp», tocá «Cambiar token» en el panel y pegalo.
 4. Si ves «Hay una versión nueva de Hospeda» o «Actualizá el script de Hospeda», tocá «Actualizar», confirmá en Tampermonkey y recargá WhatsApp Web. Con «Más tarde» el aviso vuelve al día siguiente; si el CRM ya no acepta tu versión, vuelve al recargar.
 5. Si ves «No se pudo consultar el CRM. Reintentando en el próximo cambio.», revisá tu conexión. El script vuelve a intentar cuando cambiás de chat.
-6. El script de WhatsApp funciona solo con el número de WhatsApp que el administrador te asignó en tu usuario. Si aparece «Este WhatsApp no es el número asignado a tu usuario: el script está apagado.», cambiá de cuenta o pedile al administrador que revise tu número; si no puede verificarla, esperá a que WhatsApp termine de cargar.
+6. El script de WhatsApp funciona solo con alguno de los números que el administrador te asignó en tu usuario. Si aparece «Este WhatsApp no es el número asignado a tu usuario: el script está apagado.», cambiá a una de esas cuentas o pedile al administrador que revise los números; si no puede verificarla, esperá a que WhatsApp termine de cargar.
 7. Si ves «No pude leer este chat. Registrá a mano desde el CRM y copiá el diagnóstico para el equipo.», WhatsApp cambió su pantalla. Registrá lo que haga falta desde la ficha, en «Comunicación», con «Registrar» y «Respuesta sin mensaje». Después tocá «Copiar diagnóstico del chat» en el panel y mandáselo al administrador.
 8. Si un mensaje aparece como rechazado en el resumen, leé el motivo. Los casos habituales son: el negocio está en estado Nuevo, no podés modificarlo o el mensaje ya está registrado en otro negocio.
 
