@@ -13,8 +13,7 @@ const main=async()=>{
  if(!parsed.success)fail('Input must be an object mapping numeric account IDs to arrays of classification strings.');
  const ids=Object.keys(parsed.data),canonical=new Set();
  for(const id of ids){const key=BigInt(id).toString();if(canonical.has(key))fail(`Input contains account IDs that resolve to the same account (including ${id}).`);canonical.add(key);}
- const result=await loadAccountClassifications({db,entries:parsed.data,actor:actorIndex>=0?args[actorIndex+1]:null,apply});
- for(const line of result.lines)console.log(line);
+ const result=await loadAccountClassifications({db,entries:parsed.data,actor:actorIndex>=0?args[actorIndex+1]:null,apply,log:console.log});
  if(result.totals.added+result.totals.unchanged+result.totals.rejected+result.totals.failed!==result.candidateCount){console.log('Summary error: outcome totals do not match the number of candidates.');process.exitCode=1;}
  if(result.exitCode)process.exitCode=1;
 };

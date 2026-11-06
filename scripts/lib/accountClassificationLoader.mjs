@@ -46,16 +46,19 @@ async function plan({db,accountId,account,rows,entries}){
  return {outcomes:ordered,candidates:planned.candidates,finalWanted:planned.finalWanted};
 }
 
-export async function loadAccountClassifications({db,entries,actor,apply,onAfterPlan,write=setAccountClassifications}){
+export async function loadAccountClassifications({db,entries,actor,apply,onAfterPlan,write=setAccountClassifications,log=()=>{}}){
  if(apply&&typeof actor==='string'){actor=await db.selectFrom('users').select(['email','displayName']).where('email','=',actor).where('deactivatedAt','is',null).executeTakeFirst();if(!actor)throw new Error('Actor must be an existing active user.');}
  if(apply&&!actor)throw new Error('Actor must be an existing active user.');
- const outcomes=new Map(), lines=[],ids=Object.keys(entries);
+ const outcomes=new Map(), lines=[],ids=Object.keys(entries),catalogOrder=(await db.selectFrom('crmVerticals').select('name').orderBy('sortOrder').orderBy('name').execute()).map(row=>row.name);
+ const emit=line=>{lines.push(line);log(line);};
+ let inputMismatch=false;
  for(const accountId of ids){
   const labels=[...new Set(entries[accountId])];
+  const businessLines=[];
   try{
    const account=await db.selectFrom('crmAccounts').selectAll().where('id','=',accountId).executeTakeFirst();
    const rows=account?await db.selectFrom('crmAccountClassifications').selectAll().where('accountId','=',accountId).orderBy('id').execute():[];
-   lines.push(`H${accountId} ${account?`${account.nombre} [${account.mergedIntoId?'merged':account.deletedAt?'trash':'active'}]`:'[missing]'}; current=${normalizeClassifications({pairs:rows}).map(labelOf).join('; ')||'(none)'}`);
+   businessLines.push(`H${accountId} ${account?`${account.nombre} [${account.mergedIntoId?'merged':account.deletedAt?'trash':'active'}]`:'[missing]'}; current=${normalizeClassifications({pairs:rows}).map(labelOf).join('; ')||'(none)'}`);
    let result=await plan({db,accountId,account,rows,entries:labels});
    if(onAfterPlan)await onAfterPlan({accountId,db,result});
    if(apply&&result.candidates.length){
@@ -80,19 +83,31 @@ export async function loadAccountClassifications({db,entries,actor,apply,onAfter
    }
    outcomes.set(accountId,result.outcomes);
   }catch(error){outcomes.set(accountId,labels.map(label=>({label,kind:'failed',reason:error instanceof Error?error.message:'unknown error'})));}
+  const account=await db.selectFrom('crmAccounts').select(['mergedIntoId','deletedAt','tipo','subtipo']).where('id','=',accountId).executeTakeFirst();
+  if(account&&!account.mergedIntoId&&!account.deletedAt){
+   const rows=await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',accountId).execute(),display=displayClassification({pairs:rows,verticalOrder:catalogOrder});
+   businessLines.push(`H${accountId}: ${rows.map(labelOf).join('; ')||'(none)'}`);
+   if((account.tipo??null)!==(display?.tipo??null)||(account.subtipo??null)!==(display?.subtipo??null)){
+    inputMismatch=true;
+    const expected=display?labelOf(display):'(none)',actual=account.tipo??'(none)';
+    businessLines.push(`  display mismatch: tipo/subtipo ${actual}${account.subtipo?`/${account.subtipo}`:''} vs ${expected} → failed`);
+    const list=outcomes.get(accountId)??[],index=list.findIndex(item=>item.kind!=='failed');
+    if(index>=0)list[index]={...list[index],kind:'failed',reason:list[index].reason?`${list[index].reason}; display copy does not match classification rows`:'display copy does not match classification rows'};
+    else if(list.length)list[0]={...list[0],reason:`${list[0].reason}; display copy does not match classification rows`};
+    outcomes.set(accountId,list);
+   }
+  }
+  for(const outcome of outcomes.get(accountId)??[])businessLines.push(`  ${outcome.kind} ${outcome.label}${outcome.reason?`: ${outcome.reason}`:''}`);
+  for(const line of businessLines)emit(line);
  }
  const totals={added:0,unchanged:0,rejected:0,failed:0};
- for(const [id,list] of outcomes)for(const outcome of list){totals[outcome.kind]++;lines.push(`  ${outcome.kind} ${outcome.label}${outcome.reason?`: ${outcome.reason}`:''}`);}
- let inputMismatch=false;
+ for(const list of outcomes.values())for(const outcome of list)totals[outcome.kind]++;
  try{
-  lines.push('Final read-only verification:');
-  const catalogOrder=(await db.selectFrom('crmVerticals').select('name').orderBy('sortOrder').orderBy('name').execute()).map(row=>row.name);
-  lines.push('Input businesses result:');
-  for(const accountId of ids){const account=await db.selectFrom('crmAccounts').select(['mergedIntoId','deletedAt','tipo','subtipo']).where('id','=',accountId).executeTakeFirst();if(!account||account.mergedIntoId||account.deletedAt)continue;const rows=await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',accountId).execute(),display=displayClassification({pairs:rows,verticalOrder:catalogOrder});lines.push(`H${accountId}: ${rows.map(labelOf).join('; ')||'(none)'}`);if((account.tipo??null)!==(display?.tipo??null)||(account.subtipo??null)!==(display?.subtipo??null)){inputMismatch=true;lines.push(`  display mismatch: expected ${display?labelOf(display):'(none)'}; actual ${account.tipo??'(none)'}${account.subtipo?`/${account.subtipo}`:''}`);const list=outcomes.get(accountId)??[];const index=list.findIndex(item=>item.kind!=='failed');if(index>=0){totals[list[index].kind]--;list[index]={...list[index],kind:'failed',reason:'display copy does not match classification rows'};totals.failed++;outcomes.set(accountId,list);}}}
+  emit('Final read-only verification:');
   const mismatch=await sql`SELECT count(*)::text AS count FROM crm_accounts a LEFT JOIN LATERAL (SELECT c.tipo,c.subtipo FROM crm_account_classifications c LEFT JOIN crm_verticals v ON v.name=c.tipo WHERE c.account_id=a.id ORDER BY v.sort_order NULLS LAST,c.tipo,(c.subtipo IS NOT NULL),c.subtipo LIMIT 1) d ON true WHERE a.merged_into_id IS NULL AND a.deleted_at IS NULL AND (a.tipo IS DISTINCT FROM d.tipo OR a.subtipo IS DISTINCT FROM d.subtipo)`.execute(db);
-  lines.push(`Display-copy mismatches: ${Number(mismatch.rows[0]?.count??0)}`);
- }catch(error){lines.push(`Final verification failed: ${error instanceof Error?error.message:'unknown error'}`);}
+  emit(`Display-copy mismatches: ${Number(mismatch.rows[0]?.count??0)}`);
+ }catch(error){emit(`Final verification failed: ${error instanceof Error?error.message:'unknown error'}`);}
  const candidateCount=ids.reduce((sum,id)=>sum+new Set(entries[id]).size,0);
- lines.push(`Summary: added=${totals.added}, unchanged=${totals.unchanged}, rejected=${totals.rejected}, failed=${totals.failed}; candidates=${candidateCount}.`);
+ emit(`Summary: added=${totals.added}, unchanged=${totals.unchanged}, rejected=${totals.rejected}, failed=${totals.failed}; candidates=${candidateCount}.`);
  return {lines,totals,candidateCount,exitCode:totals.failed||inputMismatch?1:0,outcomes};
 }
