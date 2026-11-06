@@ -110,6 +110,14 @@ for(const width of [1280,390])test(`sales material screen: groups, card menu, fi
  await main.getByLabel('Buscar material',{exact:true}).fill(stamp);await main.getByText('Internos',{exact:true}).click();
  await expect(headings).toHaveText(['Uso interno · solo para el equipo','Sin categoría1']);
  await page.screenshot({path:`test-results/material-screen-${width}.png`,fullPage:true});
+ // Owner request: the search bar stays pinned under the app header, and list rows keep «Abrir enlace» beside the text on wide screens.
+ // Phones pin only the search box, so the filters do not cover half the screen.
+ const pinned=width>=768?main.getByTestId('material-sticky-bar'):main.locator('label',{hasText:'Buscar material'});expect(await pinned.evaluate(e=>getComputedStyle(e).position)).toBe('sticky');
+ await main.getByText('Lista',{exact:true}).click();const row=main.getByRole('article',{name:'Guía suelta '+stamp});
+ const title=(await row.getByRole('heading',{level:3}).boundingBox())!,open=(await row.getByRole('link',{name:'Abrir enlace',exact:true}).boundingBox())!,cover=(await row.locator('[data-format]').first().boundingBox())!;
+ expect(cover.width).toBeLessThanOrEqual(64);
+ if(width>=1280){expect(open.x).toBeGreaterThan(title.x+title.width);expect(open.y).toBeLessThan(title.y+(await row.boundingBox())!.height);}
+ await page.screenshot({path:`test-results/material-screen-list-${width}.png`,fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
  expect(errors).toEqual([]);
 });
