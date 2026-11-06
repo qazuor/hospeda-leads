@@ -10,7 +10,7 @@ Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono r
 
 # Pendientes y próximo trabajo
 
-- **Spec 106 completa en código (bloques 0–6):** pendiente revisión/PR a `staging` y CI. Después, promoción/deploy solo cuando lo pida el propietario; el runbook §13 (carga de las 14 verticales) queda a cargo del operador y requiere aprobación explícita del propietario. Validaciones del bloque 6 y limitaciones: ver `/tmp/claude-1000/-home-qazuor-projects-WEBS-hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s106f-report.md`.
+- **Spec 106 completa en código (bloques 0–6):** pendiente revisión/PR a `staging` y CI. Después, promoción/deploy solo cuando lo pida el propietario; el runbook §13 (carga de las 14 verticales) queda a cargo del operador y requiere aprobación explícita del propietario. Validaciones del bloque 6 y de su ronda 2: `/tmp/claude-1000/-home-qazuor-projects-WEBS-hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s106f2-report.md`; detalle inicial: `/tmp/claude-1000/-home-qazuor-projects-WEBS-hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s106f-report.md`.
 
 - **Spec 106 PR A · bloques 0 y 1:** implementación local en `feat/spec-106-multi-vertical` (regresión/fix de renombre, migración 066, helper y pruebas). Typecheck, Vitest focalizado e integraciones de migración, comunicación-bloqueos, comercial, calidad, work, MCP y permisos pasaron con seed descartable. Próximo paso: revisión y PR; después seguir con bloques 2 y 3.
 
