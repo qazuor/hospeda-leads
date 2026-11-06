@@ -15,7 +15,7 @@ export type SettingsUser={
   role:"admin"|"user";
   hasPassword:boolean;
   invitationPending:boolean;
-  businessCount?:number; managementCount?:number; taskCount?:number;
+  businessCount?:number; managementCount?:number; taskCount?:number; sellerGroupWarnings?:string[];
 };
 
 export type OperationalUser=Pick<SettingsUser,"id"|"email"|"displayName"|"role"> & Partial<Omit<SettingsUser,"id"|"email"|"displayName"|"role">>;

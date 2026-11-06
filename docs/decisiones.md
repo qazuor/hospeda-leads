@@ -468,3 +468,7 @@ Al desactivar un usuario, los negocios activos no archivados, las gestiones abie
 ## Notas internas de materiales de venta — 05/11/2026
 
 La nota interna de un material es exclusiva de administradores y nunca forma parte del enlace público. `description` es la descripción visible al equipo y al cliente; la migración 062 mueve el contenido histórico de `description` a `internal_note` y vacía `description`.
+
+## Negocios vinculados con el mismo vendedor — spec 107, 06/11/2026
+
+Los negocios vinculados siguen siendo registros separados y mantienen un vendedor efectivo común. Miembros archivados, fusionados o en Papelera permanecen en el grupo y no cuentan para la consistencia; restaurar o desarchivar no reasigna automáticamente. Una fusión mueve la membresía al destino cuando solo el origen tenía grupo, elimina la membresía del origen cuando ambos estaban en el mismo grupo y bloquea grupos distintos o vendedores incompatibles. El borrado físico limpia grupos de cero o un miembro. La carga de los cinco pares existentes queda para el operador con aprobación del propietario mediante el runbook; ningún cambio de código carga datos reales.

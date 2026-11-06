@@ -446,6 +446,10 @@ try{
     await mutate({action:'account_link',accountIds:[a,b]},admin.value,409);
     await mutate({action:'account_link',accountIds:[a,b]},user.value,403);
     await mutate({action:'account_link',accountIds:[a,b],sellerEmail:admin.email},admin.value);
+    await mutate({action:'account_trash',accountIds:[b],deleted:true,reason:'Fixture de grupo'},admin.value);assert.equal(await db.selectFrom('crmAccountSellerGroupMembers').select('accountId').where('accountId','in',[a,b]).execute().then(rows=>rows.length),2,'Trashing a linked business leaves both memberships intact');
+    await mutate({action:'account_trash',accountIds:[b],deleted:false,reason:'Fixture de grupo'},admin.value);
+    await mutate({action:'account_archive',accountId:b,archived:true,reason:'Fixture de grupo'},admin.value);assert.equal(await db.selectFrom('crmAccountSellerGroupMembers').select('accountId').where('accountId','in',[a,b]).execute().then(rows=>rows.length),2,'Archiving a linked business leaves both memberships intact');
+    await mutate({action:'account_archive',accountId:b,archived:false,reason:'Fixture de grupo'},admin.value);
     // Review regression: a seller saving their own email must not equalize an inconsistent group.
     await db.updateTable('crmAccounts').set({assignedUserEmail:user.email}).where('id','=',a).execute();await db.updateTable('crmAccounts').set({assignedUserEmail:admin.email}).where('id','=',b).execute();
     await mutate({action:'account_save',id:a,nombre:`Seller group A ${suffix}`,assignedUserEmail:user.email},user.value);assert.equal((await db.selectFrom('crmAccounts').select('assignedUserEmail').where('id','=',b).executeTakeFirstOrThrow()).assignedUserEmail,admin.email,'Seller unchanged assignment does not rewrite another member');

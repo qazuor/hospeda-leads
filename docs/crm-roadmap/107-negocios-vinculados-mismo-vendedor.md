@@ -83,7 +83,7 @@ Orden: 1 → 2 → (3, 4, 5 en paralelo) → 6. Los tests unitarios de la redist
 
 ### 5.1 Migración 064
 
-Esta spec usa la migración 064; spec 106 toma la 065.
+Esta spec usa la migración 064; el bloque final agrega la 065; spec 106 toma la 066.
 
 ```sql
 CREATE TABLE crm_account_seller_groups (
@@ -201,6 +201,7 @@ Antes de tocar el greedy: `src/helpers/businessReassignment.spec.ts` (nuevo) fij
   - Ambos en el mismo grupo: el origen sale del grupo; si queda uno solo, el grupo se borra.
   - En grupos distintos, o el destino tiene otro vendedor que el grupo del origen: la fusión se bloquea con «Estos negocios están vinculados con otros. Igualá el vendedor o desvinculalos antes de fusionar.».
   - El preview muestra el grupo resultante; `snapshot` incluye las filas de miembros (el token cambia si alguien vincula durante la revisión).
+  - La confirmación bloquea las cuentas del grupo por ID ascendente antes de bloquear/escribir membresías. El journal usa `account_seller_group_linked` cuando el destino toma el lugar del origen y `account_seller_group_unlinked` cuando el origen sale de un grupo compartido; cada cuenta afectada recibe el evento.
 - **Papelera y archivo** (D5): el miembro sigue en el grupo pero deja de contar. Al restaurar o desarchivar, si su vendedor no coincide con el del grupo, la ficha muestra el aviso de grupo inconsistente (no se reasigna solo).
 
 ## 10. Permisos y contratos
@@ -230,7 +231,7 @@ Antes de tocar el greedy: `src/helpers/businessReassignment.spec.ts` (nuevo) fij
 | `src/server/mcp/data.ts`, `scripts/provision-mcp-reader.mjs` | Lectura y permisos |
 | `scripts/load-seller-groups.mjs` (nuevo) | Carga del runbook 14, en seco por defecto |
 
-Spec 107 toma la migración 064; spec 106 toma la 065.
+Spec 107 toma la migración 064 y su bloque final agrega la 065; spec 106 toma la 066.
 
 ## 12. Plan de tests
 
@@ -267,9 +268,10 @@ Solo lo ejecuta **el operador con aprobación explícita del propietario** para 
 1. Confirmar que la 064 está aplicada y que la versión desplegada incluye los bloques 1 a 5.
 2. Respaldo: `pg_dump` completo a `~/backups/hospeda-crm/` con fecha.
 3. Archivo de entrada fuera de Git (p. ej. `~/backups/hospeda-crm/seller-groups-20261106.json`): `[[73,184],[1486,1556],[2065,2070],[2296,2315],[2875,2881]]`.
-4. Ensayo sobre una copia restaurada: `node scripts/load-seller-groups.mjs --file <json>` (en seco por defecto). Por par muestra nombres, estados, responsables y si ya tienen grupo; marca los que tienen vendedores distintos, están fusionados o en Papelera. No escribe nada.
+4. Ensayo sobre una copia restaurada: `npm run load:seller-groups -- --file <json>` (en seco por defecto). Acepta `[[73,184],...]` o `{"accounts":[73,184],"sellerEmail":"…"}` (también una lista de esos objetos). Por par muestra nombres, estados, vendedores efectivos y grupos actuales; marca diferencias de vendedor, fusionados, Papelera y archivados. No escribe nada.
+   El script saltea (y lo informa) pares con negocios fusionados, en Papelera o archivados, sin vendedor, o con un `sellerEmail` que no es un usuario activo. Si un negocio del par ya está en un grupo, lista a los otros miembros y cuenta su vendedor. Un error en un par revierte solo ese par y la corrida sigue; el resumen final informa `failed`.
 5. El propietario revisa. Para un par con vendedores distintos, indica el vendedor en el archivo (`{"accounts":[73,184],"sellerEmail":"…"}`); sin eso el script lo saltea.
-6. Aplicar en producción con `--apply`: una transacción por par con `linkAccounts` (actor = el operador, nota «Mismo dueño, cargado desde la deduplicación del 06/11/2026»). Verificación de solo lectura: 5 grupos, 10 miembros, todos consistentes.
+6. Aplicar en producción con `npm run load:seller-groups -- --file <json> --apply --actor <email>`: el actor debe ser un administrador activo; hay una transacción por par con `linkAccounts` y la nota «Mismo dueño, cargado desde la deduplicación del 06/11/2026». Verificación de solo lectura: 5 grupos, 10 miembros, todos consistentes.
 7. **Opcional, aparte y con su propia aprobación:** quitar de las notas del negocio la línea «Mismo dueño que #X: siempre con el mismo vendedor». Recomendado: dejarlas hasta que el propietario vea el vínculo funcionando en producción; después, editarlas desde la ficha (queda en el historial) o con un `UPDATE` revisado que solo quite esa línea exacta.
 8. Vuelta atrás: «Desvincular» desde la ficha. No se restaura el dump encima de producción (decisiones línea 161).
 
@@ -352,5 +354,5 @@ El propietario aceptó todas las recomendaciones (D1 a D6, opción A salvo donde
 
 ## 18. Migraciones y datos
 
-- **064** crea las dos tablas sin datos. Esta spec se integra primero; spec 106 toma la **065**. No se edita ninguna migración aplicada.
+- **064** crea las dos tablas sin datos. **065** elimina grupos que queden con cero o un miembro, incluso cuando una cuenta se elimina físicamente y la FK borra su membresía. No se edita ninguna migración aplicada; spec 106 toma la **067**.
 - Datos de producción: solo el runbook 14, con aprobación del propietario. La migración no crea grupos ni toca notas.

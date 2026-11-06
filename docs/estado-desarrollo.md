@@ -28,6 +28,14 @@ En `feat/sales-material-list-layout`: el buscador, los filtros y el selector Tar
 
 # Estado del CRM — corte al 2 de noviembre de 2026
 
+## Spec 107, PR C — fusión, desactivación y loader — 06/11/2026
+
+Bloques 5 y 6 implementados localmente: la fusión mueve/retira membresías según §9, bloquea grupos incompatibles, incluye membresías completas en el token y registra journals por cuenta; Papelera/archivo conservan vínculos; la baja de usuario muestra advertencias de grupos sin cambiar la lógica de reasignación. El loader `scripts/load-seller-groups.mjs` es dry-run por defecto, aplica por par con `linkAccounts` y verifica solo lectura. La migración nueva 065 limpia grupos que quedan con cero o un miembro, también ante cascada por borrado físico.
+
+Validación en la PostgreSQL descartable indicada por el prompt, con reseed antes de cada suite: `scripts/test-data-quality.ts`, `scripts/test-user-admin.ts`, `scripts/test-load-seller-groups.ts`, suite `test:commercial` (scripts constituyentes), `scripts/test-permissions.ts` (613), `scripts/test-business-reassignment.ts` y suite `test:work` (migración + API), todo PASS. `npm run typecheck` y Vitest dirigido a `accountSellerGroups.spec.ts` + `sellerChoice.spec.ts` (6) PASS. La migración se aplicó únicamente a la DB descartable. No se ejecutaron build ni navegador; no se cargaron datos reales.
+
+Próximo paso: preparar el PR a `staging`; después queda únicamente el runbook de producción §14, que requiere ejecución del operador con aprobación explícita del propietario.
+
 ## Presencia de usuarios en el header — 05/11/2026
 
 - Implementación local en `feat/online-users`: presencia separada por fuente CRM, WhatsApp e Instagram; clientes visibles envían heartbeat, el listado reciente es solo para admins y el popover muestra fuentes y hora. El corte es 120 segundos; el heartbeat no renueva la sesión. La migración nueva es `063_user_presence.sql` (062 está reservado por otra rama). Userscript actualizado a 1.8.6. Typecheck y 81 pruebas focalizadas pasan; queda ejecutar la integración `npm run test:presence` en PostgreSQL descartable.

@@ -11,6 +11,7 @@ import {businessImportFields,legacyBusinessFields,accountExtraFields,businessFie
 import {qualityMutation,type QualityMutation,type ReviewRow,type ImportResult} from '../endpoints/dataQuality.schema';
 import {setWorkActor} from './workAudit';
 import type {User} from './User';
+import {loadSellerGroups,effectiveSellerEmail,isActiveSellerGroupMember} from './accountSellerGroups';
 export class QualityForbidden extends Error{}
 export class QualityConflict extends Error{}
 export class QualityValidation extends Error{}
@@ -59,6 +60,7 @@ async function evidence(trx:Transaction<DB>,accountId:string,fields:Record<strin
 async function snapshot(database:Kysely<DB>,sourceId:string,destinationId:string){
  const accounts=await database.selectFrom('crmAccounts').selectAll().where('id','in',[sourceId,destinationId]).orderBy('id').execute();
  const relations:Record<string,unknown[] >={};
+ relations.sellerGroupMembers=(await sql`SELECT m.group_id,m.account_id,m.added_at,m.added_by FROM crm_account_seller_group_members m WHERE m.group_id IN (SELECT group_id FROM crm_account_seller_group_members WHERE account_id IN (${sourceId}::bigint,${destinationId}::bigint)) ORDER BY m.group_id,m.account_id`.execute(database)).rows;
  for(const table of ['leads','crmContacts','crmTasks','crmActivities','crmDataEvidence','crmCommercialJournal','leadJournal','crmWorkJournal'] as const)relations[table]=await database.selectFrom(table).selectAll().where('accountId','in',[sourceId,destinationId]).orderBy('id').execute();
  // These tables are intentionally queried using SQL: generated schema predates phase 3.
  for(const table of ['crm_pipeline_events','crm_objections','crm_messages','crm_contact_restrictions','crm_communication_responses','crm_communication_response_corrections','crm_communication_interaction_corrections','crm_communication_journal','crm_documents','crm_document_links','crm_auto_registrations','crm_sales_material_shares'])relations[table]=(await sql`SELECT * FROM ${sql.table(table)} WHERE account_id IN (${sourceId}::bigint,${destinationId}::bigint) ORDER BY id`.execute(database)).rows;
@@ -73,8 +75,12 @@ export async function mergePreview(database:Kysely<DB>,sourceId:string,destinati
  const data=await snapshot(database,sourceId,destinationId);
  const source=data.accounts.find(a=>String(a.id)===sourceId),destination=data.accounts.find(a=>String(a.id)===destinationId);
  if(!source||!destination||source.mergedIntoId||destination.mergedIntoId||source.deletedAt||destination.deletedAt)throw new QualityConflict('El negocio ya fue fusionado o no existe.');
+ const groups=await loadSellerGroups({trx:database,accountIds:[sourceId,destinationId]}), sourceGroup=groups.find(g=>g.members.some(m=>m.id===sourceId)), destinationGroup=groups.find(g=>g.members.some(m=>m.id===destinationId));
+ if(sourceGroup&&destinationGroup&&sourceGroup.groupId!==destinationGroup.groupId)throw new QualityConflict('Estos negocios están vinculados con otros. Igualá el vendedor o desvinculalos antes de fusionar.');
+ if(sourceGroup&&!destinationGroup){const active=sourceGroup.members.filter(isActiveSellerGroupMember),sellers=[...new Set(active.map(effectiveSellerEmail))];if(sellers.length>1||(sellers.length===1&&effectiveSellerEmail({...destination,referredToLeandro:destination.referredToLeandro,referredOriginalOwnerEmail:destination.referredOriginalOwnerEmail,assignedUserEmail:destination.assignedUserEmail})!==sellers[0]))throw new QualityConflict('Estos negocios están vinculados con otros. Igualá el vendedor o desvinculalos antes de fusionar.');}
+ const resultingSellerGroup=sourceGroup?{groupId:sourceGroup.groupId,members:sourceGroup.members.filter(m=>!destinationGroup||m.id!==sourceId).map(m=>!destinationGroup&&m.id===sourceId?{...m,id:destinationId,nombre:destination.nombre}:m),destinationTakesSourcePlace:!destinationGroup}:null;
  const dates=[source.clientSince,destination.clientSince].filter((d):d is Date=>!!d).sort((a,b)=>a.getTime()-b.getTime());
- return {source,destination,token:digest(data),counts:Object.fromEntries(Object.entries(data.relations).map(([k,v])=>[k,v.length])),policy:{doNotContact:source.doNotContact||destination.doNotContact,commercialStatus:source.commercialStatus==='client'||destination.commercialStatus==='client'?'client':'prospect',clientSince:dates[0]?.toISOString()??null},snapshot:data};
+ return {source,destination,token:digest(data),counts:Object.fromEntries(Object.entries(data.relations).map(([k,v])=>[k,v.length])),policy:{doNotContact:source.doNotContact||destination.doNotContact,commercialStatus:source.commercialStatus==='client'||destination.commercialStatus==='client'?'client':'prospect',clientSince:dates[0]?.toISOString()??null},sellerGroup:resultingSellerGroup,snapshot:data};
 }
 export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user:User,policy?:{businessCreateOnly:true}){
  const input=qualityMutation.parse(raw);
@@ -155,11 +161,23 @@ export async function mutateQuality(database:Kysely<DB>,raw:QualityMutation,user
    // Freeze all affected relationships, including legacy writers and JSON contact references.
    await sql`LOCK TABLE crm_accounts,leads,crm_contacts,crm_tasks,crm_activities,crm_objections,crm_pipeline_events,crm_data_evidence,crm_commercial_journal,lead_journal,crm_work_journal,lead_notes,email_outbox,crm_messages,crm_contact_restrictions,crm_communication_responses,crm_communication_response_corrections,crm_communication_interaction_corrections,crm_communication_journal,crm_documents,crm_document_links,crm_document_versions,crm_sales_material_shares IN SHARE ROW EXCLUSIVE MODE`.execute(trx);
    // Merges keep the table lock (it excludes communication/resource writers, which take ROW EXCLUSIVE first) and also take both business rows, like every per-account writer.
-   await lockAccounts(trx,[input.sourceId,input.destinationId]);
+   const groupAccounts=await sql<{id:string}>`SELECT DISTINCT member.account_id::text id FROM crm_account_seller_group_members member WHERE member.group_id IN (SELECT group_id FROM crm_account_seller_group_members WHERE account_id IN (${input.sourceId}::bigint,${input.destinationId}::bigint))`.execute(trx);
+   const lockedIds=[input.sourceId,input.destinationId,...groupAccounts.rows.map(r=>r.id)];
+   await lockAccounts(trx,lockedIds);
+   const latestIds=await sql<{id:string}>`SELECT DISTINCT member.account_id::text id FROM crm_account_seller_group_members member WHERE member.group_id IN (SELECT group_id FROM crm_account_seller_group_members WHERE account_id IN (${input.sourceId}::bigint,${input.destinationId}::bigint))`.execute(trx);
+   if(latestIds.rows.some(r=>!lockedIds.includes(r.id)))throw new QualityConflict('Cambió el negocio o sus relaciones. Revisá un nuevo preview antes de fusionar.');
    const p=await mergePreview(trx,input.sourceId,input.destinationId);
    if(p.token!==input.token)throw new QualityConflict('Cambió el negocio o sus relaciones. Revisá un nuevo preview antes de fusionar.');
    if(businessFields.some(f=>!input.selections[f]))throw new QualityValidation('Elegí el valor de cada campo.');
    const fields=Object.fromEntries(businessFields.map(f=>[f,p[input.selections[f]!][f]]));
+   const group=p.sellerGroup as {groupId:string;members:Array<{id:string}>;destinationTakesSourcePlace:boolean}|null;
+   if(group){
+    const memberIds=group.members.map(m=>m.id);
+    if(group.destinationTakesSourcePlace)await trx.updateTable('crmAccountSellerGroupMembers').set({accountId:input.destinationId}).where('accountId','=',input.sourceId).execute();
+    else {await trx.deleteFrom('crmAccountSellerGroupMembers').where('accountId','=',input.sourceId).execute();if(memberIds.length<=1){await trx.deleteFrom('crmAccountSellerGroupMembers').where('groupId','=',group.groupId).execute();await trx.deleteFrom('crmAccountSellerGroups').where('id','=',group.groupId).execute();}}
+    const action=group.destinationTakesSourcePlace?'account_seller_group_linked':'account_seller_group_unlinked';
+    for(const accountId of new Set([input.sourceId,input.destinationId,...memberIds]))await trx.insertInto('crmCommercialJournal').values({accountId,contactId:null,action,actorEmail:user.email,actorName:user.displayName,metadata:json({groupId:group.groupId,sourceId:input.sourceId,destinationId:input.destinationId,members:memberIds})}).execute();
+   }
    if(!String(fields.nombre??'').trim())throw new QualityValidation('Nombre obligatorio');
    await sql`SET CONSTRAINTS ALL DEFERRED`.execute(trx);
    const sourceHasPrimary=await trx.selectFrom('crmContacts').select('id').where('accountId','=',input.sourceId).where('isPrimary','=',true).where('deletedAt','is',null).executeTakeFirst();
