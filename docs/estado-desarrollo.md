@@ -1032,3 +1032,9 @@ Implementados el test de regresión del renombre de subtipos y su arreglo para g
 ### Spec 106 PR B — escritores (2026-11-06)
 
 La ficha comercial admite `classifications` y conserva compatibilidad legacy de `tipo`/`subtipo` editando el par de visualización; el cambio pasa por `setAccountClassifications`. La insignia usa la misma ruta mediante `updateBusinessFields`. Importación admite `verticales` (`Vertical/Subtipo; ...`) y agrega clasificaciones al actualizar negocios. Merge incluye clasificaciones en el token y une los pares, bloqueando más de ocho. Ver detalles y limitaciones en `docs/pendientes.md` y el informe externo solicitado.
+
+### Spec 106 PR C · lectores, filtros y MCP · 06/11/2026
+
+La proyección de Negocios deduplica verticales y subtipos compartidos, conserva el orden D1 y expone las listas correctamente en camelCase; `tipo`/`subtipo` siguen como par de visualización. MCP overview conserva buckets por vertical, agrega negocios sin clasificación y devuelve un total distinto; la descripción aclara que los conteos por vertical se solapan. El esquema restringe las reglas de categoría a `eq`/`neq`/`empty`/`not_empty`.
+
+Ronda 2: regresiones de clasificación cubren pares duplicados, filtros con exclusiones y vacíos, multi valor, opciones, orden del detalle y lista MCP. `npm run typecheck`, `test:classifications`, `test:commercial`, `test:mcp`, `test:permissions` (617 checks), `test-search.ts` y Vitest `src/endpoints` (162) pasan; se refrescaron 17 snapshots SQL por el agregado intencional. Cada suite de integración tuvo semilla fresca sobre la DB descartable indicada. No se ejecutaron build ni browser. Sin Git/PR.
