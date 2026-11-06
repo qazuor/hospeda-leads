@@ -333,7 +333,7 @@ try{
   const leadColumns=(await sql<{columnName:string}>`select column_name from information_schema.columns where table_schema='public' and table_name='leads' order by ordinal_position`.execute(db)).rows.map(r=>r.columnName);
   assert.deepEqual([...BUSINESS_PROJECTION_LEAD_COLUMNS],leadColumns,'businessTable.ts must list every leads column in table order');
   const projectionColumns=Object.keys((await db.selectFrom(businessTableSource().as('p')).selectAll().limit(1).execute())[0]??{});
-  if(projectionColumns.length)assert.deepEqual(projectionColumns,[...leadColumns.map(c=>c.replace(/_([a-z0-9])/g,(_,x)=>x.toUpperCase())),'whatsapp','contactPhone','contactEmail','businessStatus']);
+  if(projectionColumns.length)assert.deepEqual(projectionColumns,[...leadColumns.map(c=>c.replace(/_([a-z0-9])/g,(_,x)=>x.toUpperCase())),'whatsapp','contactPhone','contactEmail','accountTipos','accountSubtipos','businessStatus']);
   const token=`Proyección ${suffix}`;const projected:string[]=[];
   for(let i=0;i<12;i++)projected.push((await db.insertInto('crmAccounts').values({nombre:`${token} ${String(i).padStart(2,'0')}`,assignedUserEmail:user.email}).returning('id').executeTakeFirstOrThrow()).id);
   const day=(offset:number)=>new Date(Date.UTC(2026,0,10+offset,15));

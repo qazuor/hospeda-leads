@@ -460,3 +460,9 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 - Integrados ficha, compatibilidad legacy de insignia, importación y merge con `setAccountClassifications`.
 - La ruta de insignia acepta la lista y `expectedClassifications`; la UI actual sigue usando el modo scalar compatible. Pendiente: agregar pruebas de regresión específicas de lista/diff/merge/importación (las suites existentes pasan, pero no cubren todos los casos nuevos); resolver el writer del renombre de subtipo en Configuración dentro del bloque 0 si no quedó atendido por el PR previo.
 - Validación ejecutada: typecheck; `accountClassification.spec.ts`; `test-commercial.ts`, `test-data-quality.ts`, `test-business-import.ts`, `test-business-import-api.ts` sobre la DB desechable indicada, reseed antes de cada suite.
+
+### Spec 106 PR C · lectores y filtros
+
+- La lista de Negocios, detalle comercial y MCP leen las clasificaciones completas; los escalares siguen siendo el par de visualización. Los filtros simples/avanzados y las opciones de catálogo aplican D7; las vistas guardadas conservan sus claves existentes y no requieren migración.
+- Ronda 2 de revisión resuelta localmente: listas deduplicadas, MCP overview con bucket null y total distinto, reglas de categoría validadas y cobertura ampliada. Typecheck, Vitest endpoints (162) y suites clasificación/comercial/MCP/permisos/búsqueda pasan con seed fresco. Ver detalle en `docs/estado-desarrollo.md` y `/tmp/.../s106c2-report.md`.
+- Próximo paso: bloque 4 (UI) y bloque 5 (mensajes/material/email/historial), luego revisar el PR completo.
