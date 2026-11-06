@@ -66,8 +66,9 @@ for(const width of [1280,390])test(`sales material screen: groups, card menu, fi
 
  await page.goto('/sales-material');const main=page.locator('main');
  await main.getByLabel('Buscar material',{exact:true}).fill(stamp);
+ // Kind sections («Entregables», «Uso interno») and their category groups are both h2; cards are h3.
  const headings=main.getByRole('heading',{level:2});
- await expect(headings).toHaveText([`Folletos ${stamp}2`,`Videos ${stamp}1`,'Sin categoría1']);
+ await expect(headings).toHaveText(['Entregables · para mandar a clientes',`Folletos ${stamp}2`,`Videos ${stamp}1`,'Uso interno · solo para el equipo','Sin categoría1']);
  await expect(main.getByRole('article',{name:'Video promo '+stamp})).toHaveCount(2);
  // Collapsible sections.
  const videosToggle=main.getByRole('button',{name:new RegExp(`^Videos ${stamp}`)});await videosToggle.click();await expect(videosToggle).toHaveAttribute('aria-expanded','false');await expect(main.getByRole('article',{name:'Video promo '+stamp})).toHaveCount(1);await videosToggle.click();
@@ -103,11 +104,11 @@ for(const width of [1280,390])test(`sales material screen: groups, card menu, fi
 
  // Filters: format narrows the list, «Limpiar filtros» appears only while filtering and resets everything.
  await main.getByRole('combobox',{name:'Formato',exact:true}).selectOption('link');
- await expect(headings).toHaveText([`Folletos ${stamp}1`,`Videos ${stamp}1`,'Sin categoría1']);
+ await expect(headings).toHaveText(['Entregables · para mandar a clientes',`Folletos ${stamp}1`,`Videos ${stamp}1`,'Uso interno · solo para el equipo','Sin categoría1']);
  await main.getByRole('button',{name:'Limpiar filtros',exact:true}).click();
  await expect(main.getByLabel('Buscar material',{exact:true})).toHaveValue('');await expect(main.getByRole('button',{name:'Limpiar filtros',exact:true})).toHaveCount(0);
  await main.getByLabel('Buscar material',{exact:true}).fill(stamp);await main.getByText('Internos',{exact:true}).click();
- await expect(headings).toHaveText(['Sin categoría1']);
+ await expect(headings).toHaveText(['Uso interno · solo para el equipo','Sin categoría1']);
  await page.screenshot({path:`test-results/material-screen-${width}.png`,fullPage:true});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
  expect(errors).toEqual([]);

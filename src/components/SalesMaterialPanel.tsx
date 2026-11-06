@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {toast} from 'sonner';
 import {keepPreviousData,useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
-import {Loader} from '@mantine/core';
+import {Loader,SegmentedControl} from '@mantine/core';
 import {ChevronDown,ImagePlus,Plus,Square} from 'lucide-react';
 import {getSalesMaterials,postSalesMaterial,type SalesMaterial,type SalesMaterialLimits} from '../endpoints/salesMaterials.schema';
 import {failedAutoCoverIds,needsAutoCover,saveMissingAutoCover} from '../helpers/salesMaterialAutoCover';
@@ -20,6 +20,8 @@ import styles from './SalesMaterial.module.css';
 import layout from './ui/CrmLayout.module.css';
 
 export {SalesMaterialCard} from './SalesMaterialCard';
+const VIEW_KEY='crm-sales-material-view-v1';
+function readView(): 'grid'|'list'{try{return window.localStorage.getItem(VIEW_KEY)==='list'?'list':'grid'}catch{return 'grid'}}
 /**
  * «Material de venta»: every user lists, opens and downloads; admins also create, edit, version, change covers, archive and restore (spec 89 §12).
  * Spec 95: filter bar in one row, list grouped by category in collapsible sections and «Generar portadas faltantes» for admins.
@@ -33,6 +35,8 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
  const q=useQuery({queryKey:['sales-materials',query],queryFn:()=>getSalesMaterials(query),placeholderData:keepPreviousData});
  const [form,setForm]=useState<SalesMaterialFormMode|null>(null),[preview,setPreview]=useState<SalesMaterial|null>(null),[error,setError]=useState(''),[pending,setPending]=useState('');
  const [collapsed,setCollapsed]=useState<ReadonlySet<string>>(new Set());
+ const [view,setView]=useState<'grid'|'list'>(readView);
+ useEffect(()=>{try{window.localStorage.setItem(VIEW_KEY,view)}catch{/* Storage is optional. */}},[view]);
  const lock=useRef(false);
  const archive=useMutation({mutationFn:postSalesMaterial,onSettled:()=>{void qc.invalidateQueries({queryKey:['sales-materials']})}});
  async function toggleArchive(material:SalesMaterial){
@@ -87,7 +91,6 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
  useEffect(()=>setCollapsed(new Set()),[filterKey]);
  const limits:SalesMaterialLimits|undefined=q.data?.limits;
  const filtered=hasSalesMaterialFilters(filters);
- const groups=q.data?groupSalesMaterials({materials,categories:q.data.categories,onlyCategoryIds:filters.categoryIds}):[];
  const anchored=new Set<string>();
  const toggle=(key:string)=>setCollapsed(prev=>{const next=new Set(prev);if(next.has(key))next.delete(key);else next.add(key);return next;});
  const actions=admin?<>
@@ -99,15 +102,16 @@ export function SalesMaterialPanel({admin,selectedId,header}:{admin:boolean;sele
  return <>{header?header(actions):actions&&<div className={styles.toolbar}>{actions}</div>}<section className={layout.panel+' '+styles.stack} aria-busy={q.isFetching||!!pending}>
   <SalesMaterialFiltersBar admin={admin} categories={q.data?.categories??[]} verticals={q.data?.verticals??[]} value={filters} onChange={setFilters}/>
   {limits&&!limits.storageConfigured&&<p className={styles.warning} role="note">Almacenamiento no configurado. Los archivos no se pueden subir ni abrir hasta que un administrador cargue las variables R2 en el servidor. Los enlaces externos siguen funcionando.</p>}
+  <SegmentedControl aria-label="Vista del material de venta" value={view} onChange={v=>setView(v as 'grid'|'list')} data={[{value:'grid',label:'Tarjetas'},{value:'list',label:'Lista'}]}/>
   {pending&&<p role="status" className={styles.status}><Loader size="xs" aria-hidden="true"/>{pending}</p>}{error&&<p role="alert" className={styles.error}>{error}</p>}
   {q.isPending?<QueryLoadingNotice>Cargando material de venta…</QueryLoadingNotice>:!q.data?<QueryErrorNotice error={q.error!} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>:<>
    {q.error&&<QueryErrorNotice error={q.error} onRetry={q.refetch} busy={q.isFetching} label="Reintentar material"/>}
    {q.data.truncated&&<p className={styles.warning} role="note">Hay más material del que se muestra. Buscá por título o filtrá por categoría o tipo para encontrar el resto.</p>}
    {materials.length===0?<CrmEmptyState>{filtered?<p>No hay material con esos filtros. Probá con otra búsqueda o categoría.</p>:<p>Todavía no hay material de venta.{admin?' Usá «Nuevo material» para subir el primero.':' Lo carga un administrador; si te falta alguno, pedíselo.'}</p>}</CrmEmptyState>:
-    <div className={styles.groups}>{groups.map(g=>{const open=!collapsed.has(g.key);const id='material-group-'+g.key;return <section key={g.key} className={styles.group} aria-labelledby={id+'-title'}>
-     <h2 id={id+'-title'} className={styles.groupTitle}><button type="button" aria-expanded={open} aria-controls={id} onClick={()=>toggle(g.key)}><ChevronDown size={18} aria-hidden="true" data-open={open||undefined}/>{g.name}<Badge variant="secondary">{g.materials.length}</Badge></button></h2>
-     {open&&<div id={id} className={styles.grid}>{g.materials.map(m=>{const anchor=!anchored.has(m.id);anchored.add(m.id);return <SalesMaterialCard key={m.id} material={m} admin={admin} selected={m.id===selectedId} anchor={anchor} busy={!!pending} storageConfigured={q.data.limits.storageConfigured} onEdit={setForm} onArchive={m=>void toggleArchive(m)} onPreview={setPreview}/>})}</div>}
-    </section>})}</div>}
+    <div className={styles.kindSections}>{(['deliverable','internal'] as const).filter(kind=>filters.status!=='deliverable'&&filters.status!=='internal'||filters.status===kind).map(kind=>{const sectionMaterials=materials.filter(m=>m.kind===kind);if(!sectionMaterials.length)return null;const sectionGroups=groupSalesMaterials({materials:sectionMaterials,categories:q.data.categories,onlyCategoryIds:filters.categoryIds});const title=kind==='deliverable'?'Entregables · para mandar a clientes':'Uso interno · solo para el equipo';return <section key={kind} className={styles.kindSection}><header><h2>{title}</h2><Badge variant={kind==='deliverable'?'success':'warning'}>{sectionMaterials.length}</Badge><p>{kind==='deliverable'?'Materiales que se pueden compartir con clientes.':'Materiales exclusivos del equipo; no se mandan a clientes.'}</p></header><div className={styles.groups}>{sectionGroups.map(g=>{const open=!collapsed.has(kind+g.key);const id='material-group-'+kind+'-'+g.key;return <section key={g.key} className={styles.group} aria-labelledby={id+'-title'}>
+     <h2 id={id+'-title'} className={styles.groupTitle}><button type="button" aria-expanded={open} aria-controls={id} onClick={()=>toggle(kind+g.key)}><ChevronDown size={18} aria-hidden="true" data-open={open||undefined}/>{g.name}<Badge variant="secondary">{g.materials.length}</Badge></button></h2>
+     {open&&<div id={id} className={view==='grid'?styles.grid:styles.list}>{g.materials.map(m=>{const anchor=!anchored.has(m.id);anchored.add(m.id);return <SalesMaterialCard key={m.id} material={m} admin={admin} selected={m.id===selectedId} anchor={anchor} busy={!!pending} storageConfigured={q.data.limits.storageConfigured} view={view} onEdit={setForm} onArchive={m=>void toggleArchive(m)} onPreview={setPreview}/>})}</div>}
+    </section>})}</div></section>})}</div>}
   </>}
   {preview&&<SalesMaterialPreview material={preview} onClose={()=>setPreview(null)}/>}
   {form&&limits&&q.data&&<SalesMaterialForm key={form.type+('material' in form?form.material.id:'')} mode={form} categories={q.data.categories} verticals={q.data.verticals??[]} limits={limits} onClose={()=>setForm(null)} onSaved={saved}/>}

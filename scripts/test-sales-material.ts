@@ -58,7 +58,7 @@ try{
  // Authentication and seller permissions: every write is admin-only on the server.
  assert.equal((await raw(endpoints.get,'sales_materials','')).status,401);
  assert.equal((await raw(endpoints.file,'sales_materials/file?versionId='+randomUUID(),'')).status,401);
- const sellerList=await call(endpoints.get,'sales_materials',seller.cookie);assert.equal(sellerList.limits.storageConfigured,true);assert.equal(sellerList.limits.maxUploadBytes,524288000);assert.equal(sellerList.truncated,false);
+ const sellerList=await call(endpoints.get,'sales_materials',seller.cookie);assert.equal(sellerList.limits.storageConfigured,true);assert.equal(sellerList.limits.maxUploadBytes,524288000);assert.equal(sellerList.truncated,false);assert(sellerList.materials.every((m:Record<string,unknown>)=>!Object.hasOwn(m,'internalNote')),'seller list must redact internalNote');
  await call(endpoints.get,'sales_materials?includeArchived=1',seller.cookie,undefined,403);
  const id=randomUUID();
  for(const body of [{action:'category_create',name:'Vendedor '+stamp},{action:'create',id,title:'Intento',description:'',kind:'deliverable',source:'url',categoryIds:[],version:{url:'https://example.com/a'}},{action:'archive',id,revision:1}])await call(endpoints.post,'sales_materials',seller.cookie,body,403);
@@ -76,9 +76,10 @@ try{
  const put=new URL(first.putUrl);assert.equal(put.searchParams.get('X-Amz-Expires'),'1800');assert.match(put.searchParams.get('X-Amz-SignedHeaders')!,/content-type/);assert.match(put.searchParams.get('X-Amz-SignedHeaders')!,/content-length/,'The declared size is signed');assert(put.searchParams.get('X-Amz-Signature'));assert.match(decodeURIComponent(put.pathname),new RegExp(`^/crm-material/materials/${id}/v1-[0-9a-f-]{36}\\.pdf$`));
  assert.equal(first.headers['Content-Type'],'application/pdf');
  assert.equal((await fetch(first.putUrl,{method:'PUT',headers:{'Content-Type':'application/pdf'},body:new Uint8Array(pdf('v1'))})).status,200);
- const create={action:'create',id,title:'Folleto '+stamp,description:'Tarifas y beneficios',kind:'deliverable',source:'file',categoryIds:[category,category],version:{uploadId:first.uploadId}};
+ const create={action:'create',id,title:'Folleto '+stamp,description:'Descripción pública '+stamp,internalNote:'nota privada '+stamp,kind:'deliverable',source:'file',categoryIds:[category,category],version:{uploadId:first.uploadId}};
  await call(endpoints.post,'sales_materials',admin.cookie,{...create,categoryIds:[spare]},400);
  assert.deepEqual(await call(endpoints.post,'sales_materials',admin.cookie,create),{id,revision:1});
+ const adminFound=await call(endpoints.get,'sales_materials?search='+encodeURIComponent('nota privada '+stamp),admin.cookie);assert.equal(adminFound.materials[0]?.internalNote,'nota privada '+stamp);const sellerFound=await call(endpoints.get,'sales_materials?search='+encodeURIComponent('Folleto '+stamp),seller.cookie);const sellerMaterial=sellerFound.materials.find((m:Record<string,unknown>)=>m.id===id);assert(sellerMaterial);assert(!Object.hasOwn(sellerMaterial,'internalNote'),'seller material payload must not contain internalNote');
  assert.deepEqual(await call(endpoints.post,'sales_materials',admin.cookie,create),{id},'A double submit returns the stored material');
  assert.equal((await material(id)).currentVersion,1);assert.equal((await uploadRow(first.uploadId)).status,'completed');
  await call(endpoints.post,'sales_materials',admin.cookie,{action:'version',id,revision:1,version:{uploadId:first.uploadId}},409);
@@ -114,6 +115,7 @@ try{
  checks++;
  // Update (kind, categories), archive and restore with optimistic revisions.
  assert.deepEqual(await call(endpoints.post,'sales_materials',admin.cookie,{action:'update',id,revision:2,title:'Folleto interno '+stamp,description:'Solo equipo',kind:'internal',categoryIds:[]}),{ok:true,revision:3});
+ assert.equal((await sql<{note:string}>`SELECT internal_note AS note FROM crm_sales_materials WHERE id=${id}::uuid`.execute(db)).rows[0]?.note,'nota privada '+stamp,'An update without internalNote keeps the stored note');
  assert.equal((await call(endpoints.get,'sales_materials?kind=deliverable&search='+stamp,seller.cookie)).materials.length,0);
  assert.equal((await call(endpoints.get,'sales_materials?kind=internal&search='+stamp,seller.cookie)).materials.length,1,'Sellers read internal material');
  await call(endpoints.post,'sales_materials',admin.cookie,{action:'archive',id,revision:2},409);
@@ -340,6 +342,20 @@ try{
  const linkJournal=(await sql<{kind:string}>`SELECT jsonb_typeof(after_value->'categoryIds') AS kind FROM crm_resource_journal WHERE entity='crm_sales_material_category_links' AND entity_id=${id}`.execute(db)).rows;assert(linkJournal.length>0&&linkJournal.every(r=>r.kind==='array'),'Category journal stores JSON objects, not strings');assert(journal.every(j=>j.actorEmail===admin.user.email));
  // The migration only creates tables and a settings key: no DML on the old library.
  const migration=await readFile('migrations/046_sales_material.sql','utf8');assert(!/[\u0300-\u036f]/.test(migration),'Combining characters are written as escapes');
+ // Migration 062 replayed on a rollback-only copy: the description moves into internal_note, empty descriptions stay empty.
+ const internalNoteMigration=await readFile('migrations/062_sales_material_internal_note.sql','utf8');
+ const replayed=await db.transaction().execute(async trx=>{
+  await sql`ALTER TABLE crm_sales_materials DROP COLUMN internal_note`.execute(trx);
+  const withText=randomUUID(),empty=randomUUID();
+  for(const [mid,text] of [[withText,'Comentario interno '+stamp],[empty,'']] as const)await sql`INSERT INTO crm_sales_materials(id,title,description,kind,source,verticals,open_direct,created_by_email) VALUES(${mid}::uuid,${'Migración '+mid.slice(0,8)},${text},'deliverable','url','{}'::text[],false,${admin.user.email})`.execute(trx);
+  await sql.raw(internalNoteMigration).execute(trx);
+  const rows=(await sql<{id:string;description:string;internalNote:string}>`SELECT id::text AS id,description,internal_note AS internal_note FROM crm_sales_materials WHERE id=ANY(${[withText,empty]}::uuid[])`.execute(trx)).rows;
+  const tooLong=await sql`UPDATE crm_sales_materials SET internal_note=repeat('x',4001) WHERE id=${empty}::uuid`.execute(trx).then(()=>false,()=>true);
+  throw Object.assign(new Error('rollback'),{rows,withText,empty,tooLong});
+ }).catch((error:Error&{rows?:{id:string;description:string;internalNote:string}[];withText?:string;empty?:string;tooLong?:boolean})=>{if(error.message!=='rollback')throw error;return error;});
+ assert.deepEqual(replayed.rows?.find(r=>r.id===replayed.withText),{id:replayed.withText,description:'',internalNote:'Comentario interno '+stamp},'062 moves the description into the internal note');
+ assert.deepEqual(replayed.rows?.find(r=>r.id===replayed.empty),{id:replayed.empty,description:'',internalNote:''},'062 keeps empty descriptions empty');
+ assert.equal(replayed.tooLong,true,'internal_note is capped at 4000 characters');
  assert.deepEqual((await sql<{t:string}>`SELECT tgname AS t FROM pg_trigger WHERE tgrelid='crm_sales_material_uploads'::regclass AND NOT tgisinternal ORDER BY 1`.execute(db)).rows.map(r=>r.t),['resource_audit'],'Upload bookkeeping does not bump the live domain');assert(!/(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+crm_document/i.test(migration));
  assert.equal(JSON.parse((await db.selectFrom('appSettings').select('value').where('key','=','crm_communication').executeTakeFirstOrThrow()).value).maxDocumentBytes,2097152);
  assert(requests.some(r=>r.startsWith('HEAD '))&&requests.some(r=>r.startsWith('DELETE ')));

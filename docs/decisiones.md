@@ -459,3 +459,7 @@ Las decisiones A1–A5 las aprobó el propietario. D1–D8 son las recomendacion
 ### Administración de usuarios — 04/11/2026
 
 Al desactivar un usuario, los negocios activos no archivados, las gestiones abiertas y las tareas pendientes se reasignan dentro del propio diálogo a un usuario activo que el administrador elige. Los registros cerrados/archivados permanecen como historial. La operación bloquea al usuario y vuelve a contar asignaciones dentro de la transacción.
+
+## Notas internas de materiales de venta — 05/11/2026
+
+La nota interna de un material es exclusiva de administradores y nunca forma parte del enlace público. `description` es la descripción visible al equipo y al cliente; la migración 062 mueve el contenido histórico de `description` a `internal_note` y vacía `description`.

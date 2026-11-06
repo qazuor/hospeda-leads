@@ -1,3 +1,7 @@
+## Nota interna de materiales de venta — implementación lista para validar (05/11/2026)
+
+En `feat/sales-material-internal-note`, la migración 062 traslada `description` a `internal_note`; la nota se expone y busca solo para administradores. El formulario distingue «Descripción» pública y «Nota interna». La biblioteca ofrece tarjetas/lista y secciones de entregables y uso interno. No se aplicó la migración ni se ejecutó la integración de base de datos; el propietario debe correr `scripts/test-sales-material.ts` en PostgreSQL descartable.
+
 # Estado del CRM — corte al 2 de noviembre de 2026
 
 

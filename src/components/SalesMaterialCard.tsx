@@ -28,24 +28,25 @@ export function SalesMaterialCover({material,storageConfigured}:{material:SalesM
   <Icon size={32} aria-hidden="true"/><span>{SALES_MATERIAL_FORMAT_LABELS[format]}</span>{category&&<span className={styles.initials} aria-hidden="true">{categoryInitials(category.name)}</span>}
  </span>;
 }
-type CardProps={material:SalesMaterial;admin:boolean;selected:boolean;anchor:boolean;busy:boolean;storageConfigured:boolean;onEdit:(mode:SalesMaterialFormMode)=>void;onArchive:(material:SalesMaterial)=>void;onPreview:(material:SalesMaterial)=>void};
+type CardProps={material:SalesMaterial;admin:boolean;selected:boolean;anchor:boolean;busy:boolean;storageConfigured:boolean;view?:'grid'|'list';onEdit:(mode:SalesMaterialFormMode)=>void;onArchive:(material:SalesMaterial)=>void;onPreview:(material:SalesMaterial)=>void};
 /**
  * Card of one material (spec 95): the cover and the title open the preview, «Abrir» is the one visible action and «⋯» holds Descargar and,
  * for admins, Editar, Nueva versión, Portada and (apart) Archivar/Restaurar. Disabled reasons and permissions are the ones of spec 89.
  * `anchor` puts the `material-<id>` id on this card (a material listed under several categories is anchored once).
  */
-export function SalesMaterialCard({material,admin,selected,anchor,busy,storageConfigured,onEdit,onArchive,onPreview}:CardProps){
+export function SalesMaterialCard({material,admin,selected,anchor,busy,storageConfigured,view='grid',onEdit,onArchive,onPreview}:CardProps){
  const current=material.currentVersion;const format=salesMaterialFormat({mimeType:current?.mimeType??null});
  const archived=material.status==='archived';const previewable=storageConfigured&&canPreviewSalesMaterial({material});
  const file=!!current&&!current.url;const busyProps={disabled:busy,title:busy?SALES_MATERIAL_BUSY:undefined};
  const showMenu=file||admin;
- return <article className={styles.card} data-selected={selected||undefined} data-archived={archived||undefined} id={anchor?'material-'+material.id:undefined} aria-label={material.title}>
+ return <article className={styles.card} data-view={view} data-kind={material.kind} data-selected={selected||undefined} data-archived={archived||undefined} id={anchor?'material-'+material.id:undefined} aria-label={material.title}>
   {previewable?<button type="button" className={styles.cover} data-format={format} tabIndex={-1} aria-hidden="true" onClick={()=>onPreview(material)}><SalesMaterialCover material={material} storageConfigured={storageConfigured}/></button>
    :<div className={styles.cover} data-format={format}><SalesMaterialCover material={material} storageConfigured={storageConfigured}/></div>}
   <div className={styles.body}>
    <h3>{previewable?<button type="button" className={styles.titleButton} aria-label={'Vista previa de «'+material.title+'»'} onClick={()=>onPreview(material)}>{material.title}</button>:material.title}</h3>
    <div className={styles.badges}><Badge variant={material.kind==='deliverable'?'success':'warning'}>{material.kind==='deliverable'?'Entregable':'Interno'}</Badge><Badge variant="secondary">{SALES_MATERIAL_FORMAT_LABELS[format]}</Badge>{archived&&<Badge variant="destructive">Archivado</Badge>}{material.categories.map(c=><Badge key={c.id} variant="outline">{c.name}</Badge>)}{(material.verticals??[]).map(v=><Badge key={'v:'+v} variant="secondary" aria-label={'Vertical '+v}>{v}</Badge>)}</div>
    {material.description&&<p className={styles.description}>{material.description}</p>}
+   {admin&&!!material.internalNote&&<p className={styles.internalNote}><strong>Nota interna</strong>{' · '}{material.internalNote}</p>}
    {current&&<p className={styles.meta}>{current.url?'Enlace externo':`${current.fileName??'Archivo'}${current.byteSize?' · '+formatBytes({bytes:current.byteSize}):''}`} · versión {current.version}</p>}
    {material.kind==='internal'&&<p className={styles.meta}>Solo para vendedores: no se manda a clientes.</p>}
    <div className={styles.cardActions}>

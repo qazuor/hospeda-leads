@@ -11,7 +11,7 @@ vi.mock('../endpoints/salesMaterials.schema',async importOriginal=>({...await im
 vi.mock('../helpers/salesMaterialAutoCover',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialAutoCover')>(),saveAutoCover:api.autoCover,saveMissingAutoCover:api.missing,saveLinkAutoCover:api.linkCover}));
 vi.mock('../helpers/salesMaterialUpload',async importOriginal=>({...await importOriginal<typeof import('../helpers/salesMaterialUpload')>(),uploadSalesMaterialFile:api.upload}));
 const limits:SalesMaterialLimits={maxUploadBytes:524288000,maxCoverBytes:1048576,storageConfigured:true,maxEmailAttachmentBytes:10485760};
-const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,categories:[],currentVersion:null};
+const material:SalesMaterial={id:'m-1',title:'Folleto',description:'',internalNote:'Solo admin',kind:'deliverable',source:'file',status:'active',openDirect:false,archivedAt:null,archivedByEmail:null,revision:5,createdByEmail:'a@example.com',createdAt:new Date(),updatedAt:new Date(),verticals:[],hasCover:false,categories:[],currentVersion:null};
 beforeEach(()=>{window.matchMedia=vi.fn().mockImplementation(query=>({matches:false,media:query,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn()}));globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};api.post.mockResolvedValue({ok:true});api.autoCover.mockResolvedValue({ok:true,revision:2});api.linkCover.mockResolvedValue({ok:true,revision:2});Element.prototype.scrollIntoView=vi.fn();});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
 const onSaved=vi.fn(),onClose=vi.fn();
@@ -28,6 +28,7 @@ describe('pickedFileError',()=>{
 describe('SalesMaterialForm',()=>{
  it('tells the admin that the client sees the title (owner review of spec 96)',()=>{
   setup({type:'create'});
+  expect(screen.getByText('Descripción')).toBeTruthy();expect(screen.getByText('La ven vendedores y clientes en el enlace compartido.')).toBeTruthy();expect(screen.getByText('Nota interna')).toBeTruthy();expect(screen.getByText('Solo la ven los administradores. No se muestra a vendedores ni a clientes.')).toBeTruthy();
   const title=screen.getByLabelText('Título');
   expect(document.getElementById(title.getAttribute('aria-describedby')!)?.textContent).toMatch(/^Lo ve el cliente/);
  });
@@ -41,7 +42,7 @@ describe('SalesMaterialForm',()=>{
   fireEvent.change(screen.getByLabelText('Enlace (https)'),{target:{value:'https://example.com/video'}});
   fireEvent.click(save('Guardar material'));
   await waitFor(()=>expect(onSaved).toHaveBeenCalledWith('Material guardado.'));
-  expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',title:'Video institucional',description:'',kind:'deliverable',source:'url',categoryIds:[],verticals:[],version:{url:'https://example.com/video'}}));
+  expect(api.post).toHaveBeenCalledWith(expect.objectContaining({action:'create',title:'Video institucional',description:'',internalNote:'',kind:'deliverable',source:'url',categoryIds:[],verticals:[],version:{url:'https://example.com/video'}}));
   expect(api.upload).not.toHaveBeenCalled();
   // Spec 102 D1: without a manual cover, the link asks for its site's preview image.
   expect(api.linkCover).toHaveBeenCalledWith({materialId:expect.any(String),revision:1});
@@ -161,7 +162,7 @@ describe('SalesMaterialForm',()=>{
   fireEvent.change(screen.getByLabelText('Tipo'),{target:{value:'internal'}});
   expect(screen.getByRole('note').textContent).toContain('van a mostrar «Este material ya no está disponible»');
   fireEvent.click(save('Guardar cambios'));
-  await waitFor(()=>expect(api.post).toHaveBeenCalledWith({action:'update',id:'m-1',revision:5,title:'Folleto',description:'',kind:'internal',categoryIds:[],verticals:[],openDirect:false}));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith({action:'update',id:'m-1',revision:5,title:'Folleto',description:'',internalNote:'Solo admin',kind:'internal',categoryIds:[],verticals:[],openDirect:false}));
  });
  it('spec 101 D3/D4: creates a material set to «Abrir directo» and explains what it changes',async()=>{
   setup({type:'create'});

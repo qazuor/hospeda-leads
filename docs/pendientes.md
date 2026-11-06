@@ -1,3 +1,7 @@
+## Materiales de venta: nota interna, lista y separación de uso — validar integración
+
+La implementación está en `feat/sales-material-internal-note`; falta que el propietario ejecute `scripts/test-sales-material.ts` en PostgreSQL descartable y aplique la migración por el flujo habitual. No usar una base de producción.
+
 > Promoción `staging` → `main`: última el 02/11/2026 (#334, script 1.8.1 solo con las cuentas de Hospeda, con respaldo previo de la base; ver `estado-desarrollo.md`). Las anteriores fueron el 01/11/2026 (#330) y el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
 
 # Pendientes y próximo trabajo
