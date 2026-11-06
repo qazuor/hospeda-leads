@@ -113,6 +113,11 @@ jobs:
         run: npm run test:load-seller-groups
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Account classification loader integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:load-account-classifications
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Account classifications migration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:account-classifications-migration
