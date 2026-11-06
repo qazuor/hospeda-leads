@@ -101,6 +101,12 @@ describe("message variables", () => {
     expect(resolveMessageVariables({type:'Alojamiento',commercialProfile:'Referente',channel:'email',__seed:'x'},defs).texto).toBe('Más específica');
   });
 
+  it('matches a business type against any business subtype and intersects vertical lists',()=>{
+    const defs:MessageVariableDefinition[]=[{key:'texto',label:'Texto',description:'',source:{kind:'text',key:''},active:true,alternatives:[{id:'match',text:'Sí',conditions:{verticals:['Gastronomía'],businessType:'Restaurante'}}]}];
+    expect(resolveMessageVariables({verticals:['Alojamiento','Gastronomía'],subtypes:['Hotel','Restaurante']},defs).texto).toBe('Sí');
+    expect(resolveMessageVariables({verticals:['Alojamiento'],subtypes:['Hotel','Restaurante']},defs).texto).toBe('');
+  });
+
   it('normalizes stored legacy single vertical and profile conditions into lists',()=>{
     const variable=defaultMessageVariableSettings()[5];
     const legacy:unknown=[{...variable,alternatives:[{id:'legacy',text:'Legacy',conditions:{vertical:'Alojamiento',commercialProfile:'Referente'}}]}];

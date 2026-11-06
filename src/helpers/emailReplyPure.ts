@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {formatDateTime} from './crmDates';
 
 export function replySubject(subject:string){const clean=subject.trim();if(!clean)return 'Re: (sin asunto)';const base=clean.replace(/^(?:re\s*:\s*)+/i,'').trim();return `Re: ${base||'(sin asunto)'}`;}
+export function replyVerticalLabel({managementVertical,businessVerticals}:{managementVertical:string|null;businessVerticals:readonly string[]}):string|null{return managementVertical??(businessVerticals.length===1?businessVerticals[0]:null);}
 const messageIds=(value:string)=>value.match(/<[^<>\s]+@[^<>\s]+>/g)??[];
 export function threadHeaders({inboundMessageId,inboundReferences}:{inboundMessageId:string;inboundReferences:string}){
  const inbound=messageIds(inboundMessageId)[0]??`<${inboundMessageId.replace(/^<|>$/g,'')}>`;

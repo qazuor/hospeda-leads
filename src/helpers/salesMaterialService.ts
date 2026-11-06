@@ -1,6 +1,6 @@
 import {sql,type Kysely,type Transaction} from 'kysely';import {randomUUID} from 'node:crypto';import {z} from 'zod';
 import type {DB} from './schema';import type {User} from './User';import {setWorkActor} from './workAudit';
-import {CrmForbidden,assertBusinessAccess,assertLeadAccess} from './crmPermissions';import {salesMaterialRelevance} from './salesMaterialRelevance';
+import {CrmForbidden,assertBusinessAccess,assertLeadAccess} from './crmPermissions';import {salesMaterialRelevance} from './salesMaterialRelevance';import {displayClassification} from './accountClassification';
 import {LinkPreviewError,fetchLinkPreviewImage} from './linkPreview';import {CommunicationConflict} from './communicationService';
 import {searchSql} from './searchSql';import {r2Configured,r2Storage,R2Unavailable,type R2Storage} from './r2';
 import {salesMaterialCategoryKey,SALES_MATERIAL_MAX_COVER_BYTES,SALES_MATERIAL_MAX_UPLOAD_BYTES,contentDisposition,fileExtension,salesMaterialObjectKey,signatureMatches,uploadDeclarationError} from './salesMaterialTypes';
@@ -33,12 +33,12 @@ export const LIST_LIMIT=500;
  * Spec 102 D5: the vertical of the seller's context: the management's, else its business's; without a management, the business's. Read only
  * when the user may read that management/business: otherwise (or when it does not exist) null, so a foreign business's vertical never leaks.
  */
-export async function salesMaterialContextVertical(e:E,{user,accountId,leadId}:{user:User;accountId?:string|null;leadId?:string|null}):Promise<string|null>{
+export async function salesMaterialContext(e:E,{user,accountId,leadId}:{user:User;accountId?:string|null;leadId?:string|null}):Promise<{contextVertical:string|null;contextVerticals:string[]}>{
  const tipo=(v:string|null|undefined)=>v?.trim()||null;
  // A management of another business than the one given is ignored.
- if(leadId)try{const lead=await assertLeadAccess(e,leadId,user);if(!accountId||String(lead.accountId)===String(accountId)){if(tipo(lead.tipo))return tipo(lead.tipo);accountId=String(lead.accountId);}}catch{/* Unreadable or missing: try the business. */}
- if(accountId)try{return tipo((await assertBusinessAccess(e,accountId,user)).tipo);}catch{/* Unreadable or missing: no order. */}
- return null;
+ if(leadId)try{const lead=await assertLeadAccess(e,leadId,user);if(!accountId||String(lead.accountId)===String(accountId)){if(tipo(lead.tipo))return {contextVertical:tipo(lead.tipo),contextVerticals:[tipo(lead.tipo)!]};accountId=String(lead.accountId);}}catch{/* Unreadable or missing: try the business. */}
+ if(accountId)try{const account=await assertBusinessAccess(e,accountId,user);const [rows,verticals]=await Promise.all([e.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',String(accountId)).execute(),e.selectFrom('crmVerticals').select('name').orderBy('sortOrder').orderBy('name').execute()]);const pairs=rows.map(row=>({tipo:row.tipo,subtipo:row.subtipo})),verticalOrder=verticals.map(row=>row.name),display=displayClassification({pairs,verticalOrder}),rest=[...new Set(pairs.map(row=>row.tipo).filter(name=>name!==display?.tipo))].sort((a,b)=>(verticalOrder.indexOf(a)<0?Number.MAX_SAFE_INTEGER:verticalOrder.indexOf(a))-(verticalOrder.indexOf(b)<0?Number.MAX_SAFE_INTEGER:verticalOrder.indexOf(b))||a.localeCompare(b)),listed=[...new Set([...(display?[display.tipo]:[]),...rest])],fallback=tipo(account.tipo),contextVerticals=listed.length?listed:fallback?[fallback]:[];return {contextVertical:fallback,contextVerticals};}catch{/* Unreadable or missing: no order. */}
+ return {contextVertical:null,contextVerticals:[]};
 }
 export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;query:{search:string;categoryId?:string;categoryIds?:readonly string[];kind?:'deliverable'|'internal';includeArchived:'0'|'1';status?:'archived';forAccountId?:string;forLeadId?:string}}):Promise<SalesMaterialList>{
  const admin=user.role==='admin';
@@ -57,9 +57,9 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
   sql<SalesMaterialCategory>`SELECT id,name,active FROM crm_sales_material_categories WHERE ${admin} OR active ORDER BY lower(name)`.execute(db),
   salesMaterialConfig(db)
  ]);
- const [verticals,contextVertical]=await Promise.all([
+ const [verticals,context]=await Promise.all([
   db.selectFrom('crmVerticals').select('name').where('active','=',true).orderBy('sortOrder').orderBy('name').execute(),
-  query.forAccountId||query.forLeadId?salesMaterialContextVertical(db,{user,accountId:query.forAccountId,leadId:query.forLeadId}):Promise.resolve(null)
+  query.forAccountId||query.forLeadId?salesMaterialContext(db,{user,accountId:query.forAccountId,leadId:query.forLeadId}):Promise.resolve({contextVertical:null,contextVerticals:[]})
  ]);
  const materials=rows.map(({coverKey,coverMime:_mime,coverBytes:_bytes,coverMode,currentVersion,...m}):SalesMaterial=>{
   const own=versions.rows.filter(v=>v.materialId===m.id).map(publicVersion);
@@ -67,7 +67,7 @@ export async function listSalesMaterials(db:Kysely<DB>,{user,query}:{user:User;q
   const {internalNote,...visible}=m;
   return {...visible,...(admin?{internalNote}:{}),verticals:m.verticals??[],hasCover:!!coverKey||!!current&&current.mimeType?.startsWith('image/')===true&&(current.byteSize??Infinity)<=SALES_MATERIAL_MAX_COVER_BYTES,coverSource:coverMode==='none'?'none':coverKey?coverMode:null,categories:links.rows.filter(l=>l.materialId===m.id).map(({materialId:_id,...c})=>c),currentVersion:current,...(admin?{versions:own}:{})};
  });
- return {materials:contextVertical?salesMaterialRelevance({materials,vertical:contextVertical}):materials,contextVertical,verticals:verticals.map(v=>v.name),truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured(),maxEmailAttachmentBytes:config.maxEmailAttachmentBytes}};
+ return {materials:context.contextVerticals.length?salesMaterialRelevance({materials,contextVerticals:context.contextVerticals}):materials,contextVertical:context.contextVertical,contextVerticals:context.contextVerticals,verticals:verticals.map(v=>v.name),truncated,categories:categories.rows,limits:{maxUploadBytes:config.maxUploadBytes,maxCoverBytes:SALES_MATERIAL_MAX_COVER_BYTES,storageConfigured:r2Configured(),maxEmailAttachmentBytes:config.maxEmailAttachmentBytes}};
 }
 async function materialFor(e:E,id:string,lock=false){
  const m=(await (lock?sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid FOR UPDATE`:sql<MaterialRow>`SELECT * FROM crm_sales_materials WHERE id=${id}::uuid`).execute(e)).rows[0];

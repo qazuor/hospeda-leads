@@ -469,4 +469,6 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 
 - La lista de Negocios, detalle comercial y MCP leen las clasificaciones completas; los escalares siguen siendo el par de visualización. Los filtros simples/avanzados y las opciones de catálogo aplican D7; las vistas guardadas conservan sus claves existentes y no requieren migración.
 - Ronda 2 de revisión resuelta localmente: listas deduplicadas, MCP overview con bucket null y total distinto, reglas de categoría validadas y cobertura ampliada. Typecheck, Vitest endpoints (162) y suites clasificación/comercial/MCP/permisos/búsqueda pasan con seed fresco. Ver detalle en `docs/estado-desarrollo.md` y `/tmp/.../s106c2-report.md`.
-- Próximo paso: bloque 4 (UI) y bloque 5 (mensajes/material/email/historial), luego revisar el PR completo.
+- Bloques 4 (UI) y 5 (mensajes/material/email/historial) implementados en sus ramas de PR; revisar y coordinar los PR a `staging`.
+
+- **Spec 106, bloque 5:** implementado localmente en `feat/spec-106-messages`, con compatibilidad de plantillas y variables D9 (ronda 2), relevancia de material por todas las verticales, `contextVerticals` en CRM y userscript, etiqueta email D10 e historial de pares bajo «Verticales» (ronda 3). Validación detallada y estado del PR: ver `estado-desarrollo.md`; falta revisión/PR a `staging` y CI.

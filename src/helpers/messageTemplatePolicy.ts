@@ -1,4 +1,4 @@
-type TemplateScope = {channel:string;vertical?:string|null;commercialProfile?:string|null;managementType?:string|null;purpose?:string|null};
+type TemplateScope = {channel:string;vertical?:string|null;verticals?:readonly string[];commercialProfile?:string|null;managementType?:string|null;purpose?:string|null};
 
 /** Segmentation is explicit; an unknown management value does not hide models. */
 export function templateCompatibility(template:TemplateScope,context:TemplateScope):string|null {
@@ -7,8 +7,8 @@ export function templateCompatibility(template:TemplateScope,context:TemplateSco
   const managementType=context.managementType?.trim();
   if(managementType&&template.managementType?.trim()&&template.managementType.trim()!==managementType)
     return 'El modelo corresponde a otro tipo de gestión.';
-  const vertical=context.vertical?.trim(),profile=context.commercialProfile?.trim();
-  if(vertical&&template.vertical?.trim()&&canonicalVertical(template.vertical.trim())!==canonicalVertical(vertical))
+  const verticals=(context.verticals?.length?context.verticals:[context.vertical??'']).map(v=>v.trim()).filter(Boolean),profile=context.commercialProfile?.trim();
+  if(verticals.length&&template.vertical?.trim()&&!verticals.some(v=>canonicalVertical(template.vertical!.trim())===canonicalVertical(v)))
     return `El modelo corresponde a la vertical ${template.vertical.trim()}.`;
   if(profile&&template.commercialProfile?.trim()&&template.commercialProfile.trim()!==profile)
     return `El modelo corresponde al perfil ${template.commercialProfile.trim()}.`;
