@@ -14,6 +14,7 @@ import {managementStageByKey} from '../helpers/businessManagement';
 import {useAuth} from '../helpers/useAuth';
 import {Button} from './Button';
 import {ValueBadge} from './ValueBadge';
+import {BusinessClassificationBadges} from './BusinessClassificationBadges';
 import {StageStepper} from './StageStepper';
 import {BusinessChannel,type BusinessChannelKind} from './BusinessChannel';
 import {businessLinkHref} from '../helpers/businessLinks';
@@ -23,7 +24,7 @@ import {QueryErrorNotice} from './QueryErrorNotice';
 import styles from './BusinessPreviewDrawer.module.css';
 
 /** List row fields the preview needs; the rest comes from the commercial detail. */
-export type BusinessPreviewRow={accountId:string|number;nombre:string;nextActionTitle?:string|null;fechaProximaAccion?:unknown;canModify?:boolean};
+export type BusinessPreviewRow={accountId:string|number;nombre:string;nextActionTitle?:string|null;fechaProximaAccion?:unknown;canModify?:boolean;accountTipos?:string[];accountSubtipos?:string[];tipo?:string|null;subtipo?:string|null};
 /** Props of {@link BusinessPreviewDrawer}. */
 export interface BusinessPreviewDrawerProps {
  readonly row:BusinessPreviewRow|null;
@@ -72,7 +73,7 @@ export function BusinessPreviewDrawer({row,opened,onClose,onOpenRecord,returnFoc
    :d&&<>
     <p className={styles.meta}><ValueBadge category="status" value={d.account.status?businessStatusLabels[d.account.status]:'Pendiente de migración'} nativeTooltip={false}/><span>H{d.account.id}</span></p>
     <dl className={styles.facts}>
-     <dt>Rubro</dt><dd>{d.account.tipo||'—'}</dd>
+     <dt>Rubro</dt><dd><BusinessClassificationBadges classifications={d.account.classifications?.length?d.account.classifications:undefined} verticals={row?.accountTipos??(d.account.tipo?[d.account.tipo]:[])} subtypes={row?.accountSubtipos??(d.account.subtipo?[d.account.subtipo]:[])}/></dd>
      <dt>Ciudad</dt><dd>{d.account.ciudad||'—'}</dd>
      <dt>Responsable</dt><dd>{responsible||'Sin responsable'}</dd>
      <dt>Persona de contacto</dt><dd>{d.contacts.find(c=>c.isPrimary)?.name??'Sin persona de contacto'}</dd>
