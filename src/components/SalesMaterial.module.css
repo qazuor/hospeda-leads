@@ -12,8 +12,8 @@
 .statusField{flex:0 1 auto;max-width:100%}
 .statusField>:last-child{max-width:100%;overflow-x:auto;min-height:var(--crm-control-height);align-items:center}
 .groups{display:grid;gap:20px;min-width:0}
-.kindSections{display:grid;gap:28px;min-width:0}.kindSection{display:grid;gap:14px;min-width:0;padding-top:18px;border-top:2px solid var(--surface-border)}.kindSection>header{display:grid;grid-template-columns:minmax(0,auto) auto;align-items:center;gap:6px 10px}.kindSection>header h2,.kindSection>header p{margin:0}.kindSection>header p{grid-column:1/-1;color:var(--muted-foreground);font-size:13px}.list{display:grid;gap:8px;min-width:0}.card[data-view="list"]{grid-template-columns:96px minmax(0,1fr);grid-template-rows:auto;border-radius:10px}.card[data-view="list"] .cover{aspect-ratio:1;border:0;border-right:1px solid var(--surface-border)}.card[data-view="list"] .body{padding:10px}.card[data-view="list"] .description{-webkit-line-clamp:2}.card[data-kind="internal"]{border-inline-start:4px solid color-mix(in srgb,var(--warning) 65%,transparent)}.internalNote{margin:0;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--warning) 12%,var(--card));font-size:13px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
-.card .internalNote{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.card[data-view="list"] .internalNote,.card[data-view="list"] .description{-webkit-line-clamp:2}.internalNote strong{color:var(--warning)}
+.kindSections{display:grid;gap:28px;min-width:0}.kindSection{display:grid;gap:14px;min-width:0;padding-top:18px;border-top:2px solid var(--surface-border)}.kindSection>header{display:grid;grid-template-columns:minmax(0,auto) auto;align-items:center;gap:6px 10px}.kindSection>header h2,.kindSection>header p{margin:0}.kindSection>header p{grid-column:1/-1;color:var(--muted-foreground);font-size:13px}.list{display:grid;gap:8px;min-width:0}.card[data-kind="internal"]{border-inline-start:4px solid color-mix(in srgb,var(--warning) 65%,transparent)}.internalNote{margin:0;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--warning) 12%,var(--card));font-size:13px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
+.card .internalNote{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.card[data-view="list"] .internalNote{-webkit-line-clamp:2}.internalNote strong{color:var(--warning)}
 .group{display:grid;gap:12px;min-width:0}
 .groupTitle{margin:0;font-size:17px}
 .groupTitle button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:600;cursor:pointer;border-radius:8px}
@@ -33,10 +33,9 @@ button.cover{padding:0;border:0;font:inherit;cursor:pointer}
 button.cover:hover img{transform:scale(1.02)}
 .cover img{transition:transform .2s}
 .coverLabel{display:grid;justify-items:center;gap:6px;font-size:13px;font-weight:600}
-/* Spec 95: drawn cover when there is no image: format icon on the color of the first category, with its initials. */
+/* Spec 95: drawn cover when there is no image: format icon on the color of the first category. */
 .placeholder{position:relative;display:grid;place-items:center;align-content:center;gap:6px;width:100%;height:100%;font-size:13px;font-weight:600;color:var(--muted-foreground)}
 .placeholder[data-category="true"]{background:color-mix(in srgb,hsl(var(--cover-hue) 65% 50%) 18%,var(--muted));color:color-mix(in srgb,hsl(var(--cover-hue) 65% 35%) 70%,var(--foreground))}
-.initials{position:absolute;top:10px;left:10px;display:grid;place-items:center;min-width:32px;height:32px;padding:0 6px;border-radius:999px;background:hsl(var(--cover-hue) 65% 45%);color:#fff;font-size:13px;font-weight:700}
 .titleButton{padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
 .titleButton:hover{text-decoration:underline}
 .cardActions{display:flex;align-items:center;gap:8px;min-width:0}
@@ -62,7 +61,7 @@ button.cover:hover img{transform:scale(1.02)}
 .categoryList{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .categoryList li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:6px 0;border-bottom:1px solid var(--border)}
 @media(max-width:600px){.actions>:is(a,button){flex:1 1 auto}}
-@media(max-width:480px){.card[data-view="list"]{grid-template-columns:64px minmax(0,1fr)}.card[data-view="list"] .body{padding:8px}.card[data-view="list"] .cardActions{flex-wrap:wrap}}
+
 .preview{display:grid;gap:12px;min-width:0}
 .previewMedia{display:grid;place-items:center;min-width:0;overflow:hidden;border-radius:12px;background:var(--muted)}
 .previewMedia :is(img,video){display:block;width:100%;height:auto;max-height:60dvh;object-fit:contain}
@@ -87,3 +86,22 @@ button.cover:hover img{transform:scale(1.02)}
 .menuItemText small{white-space:normal;color:var(--muted-foreground);font-size:12px;line-height:1.35}
 /* Owner review of spec 96: the progress view that replaces the form while a material is saved. */
 .savingView{display:grid;gap:14px;padding:4px 0}.savingSteps{display:grid;gap:10px;margin:0;padding:0;list-style:none}.savingSteps li{display:flex;align-items:center;gap:10px;font-size:14px}.savingSteps li[data-done]{color:var(--muted-foreground)}.savingSteps li[data-done] svg{color:var(--success)}
+/* Owner request: search and filters stay pinned under the app header (58px desktop, 56px phone bar) while the material scrolls. */
+.stickyBar{position:sticky;top:58px;z-index:6;display:flex;flex-wrap:wrap;align-items:end;gap:10px 12px;margin:calc(-1 * var(--crm-panel-padding)) calc(-1 * var(--crm-panel-padding)) 0;padding:var(--crm-panel-padding) var(--crm-panel-padding) 12px;background:var(--card);border-bottom:1px solid var(--surface-border);border-radius:var(--crm-panel-radius) var(--crm-panel-radius) 0 0}
+.stickyBar>.filters{flex:1 1 520px}.viewToggle{flex:none}
+@media(min-width:768px){.kindSections>.kindSection:first-child{border-top:0;padding-top:0}}
+/* Phones: the whole bar would cover half the screen, so only the search box stays pinned; the other filters scroll away with the list. */
+@media(max-width:767px){.stickyBar,.stickyBar>.filters{display:contents}.stickyBar .searchField{position:sticky;top:calc(56px + env(safe-area-inset-top,0px));z-index:6;margin:-8px calc(-1 * var(--crm-panel-padding)) 0;padding:8px var(--crm-panel-padding);background:var(--card);border-bottom:1px solid var(--surface-border)}}
+/* Owner request: list rows use the width. Small thumbnail, text in the middle, actions on the right. */
+.info{display:grid;align-content:start;gap:8px;min-width:0}
+.card[data-view="list"]{grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto;align-items:center;border-radius:10px}
+.card[data-view="list"] .cover{width:64px;height:64px;aspect-ratio:auto;margin-left:10px;border:0;border-radius:8px}
+.card[data-view="list"] .cover[data-format="pdf"]>img{inset:4px;width:calc(100% - 8px);height:calc(100% - 8px)}
+.card[data-view="list"] .placeholder{gap:0}.card[data-view="list"] .placeholder>span{display:none}
+.card[data-view="list"] .body{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 16px;padding:10px 12px}
+.card[data-view="list"] .info{gap:4px}
+.card[data-view="list"] .body h3{font-size:15px}
+.card[data-view="list"] .description{-webkit-line-clamp:1}
+.card[data-view="list"] .cardActions>:first-child:is(a,button){flex:none}
+.card[data-view="list"] .body>:not(.info):not(.cardActions){grid-column:1/-1}
+@media(max-width:560px){.card[data-view="list"] .cover{width:48px;height:48px;margin-left:8px}.card[data-view="list"] .body{grid-template-columns:minmax(0,1fr);padding:8px 10px}}

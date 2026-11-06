@@ -15,17 +15,15 @@ export const STORAGE_REASON='Almacenamiento no configurado: el archivo no se pue
 const formatIcons:Record<SalesMaterialFormat,typeof FileText>={image:Image,pdf:FileText,video:Video,audio:Music,office:Presentation,link:Link2};
 /** Stable hue (0-359) of a category, so its placeholder keeps the same color everywhere. */
 export const categoryHue=(id:string):number=>{let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))%360;return h;};
-/** Up to two initials of a category name («Precios 2027» → «P2», «Folletos» → «F»). */
-export const categoryInitials=(name:string):string=>name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]!.toUpperCase()).join('');
 /**
  * Cover of a card: the stored cover (manual or automatic, or a small image itself) or, when there is none or storage is off,
- * a drawn placeholder with the format icon and the color and initials of the first category (spec 95).
+ * a drawn placeholder with the format icon on the color of the first category (spec 95).
  */
 export function SalesMaterialCover({material,storageConfigured}:{material:SalesMaterial;storageConfigured:boolean}){
  const format=salesMaterialFormat({mimeType:material.currentVersion?.mimeType??null});const Icon=formatIcons[format];const category=material.categories[0];
  if(material.hasCover&&storageConfigured)return <img src={salesMaterialCoverUrl({materialId:material.id,revision:material.revision})} alt="" loading="lazy"/>;
  return <span className={styles.placeholder} data-testid="cover-placeholder" style={category?{['--cover-hue' as string]:categoryHue(category.id)}:undefined} data-category={category?'true':undefined}>
-  <Icon size={32} aria-hidden="true"/><span>{SALES_MATERIAL_FORMAT_LABELS[format]}</span>{category&&<span className={styles.initials} aria-hidden="true">{categoryInitials(category.name)}</span>}
+  <Icon size={32} aria-hidden="true"/><span>{SALES_MATERIAL_FORMAT_LABELS[format]}</span>
  </span>;
 }
 type CardProps={material:SalesMaterial;admin:boolean;selected:boolean;anchor:boolean;busy:boolean;storageConfigured:boolean;view?:'grid'|'list';onEdit:(mode:SalesMaterialFormMode)=>void;onArchive:(material:SalesMaterial)=>void;onPreview:(material:SalesMaterial)=>void};
@@ -43,12 +41,15 @@ export function SalesMaterialCard({material,admin,selected,anchor,busy,storageCo
   {previewable?<button type="button" className={styles.cover} data-format={format} tabIndex={-1} aria-hidden="true" onClick={()=>onPreview(material)}><SalesMaterialCover material={material} storageConfigured={storageConfigured}/></button>
    :<div className={styles.cover} data-format={format}><SalesMaterialCover material={material} storageConfigured={storageConfigured}/></div>}
   <div className={styles.body}>
+   {/* `info` keeps the text apart from the actions: stacked on cards, side by side in list rows. */}
+   <div className={styles.info}>
    <h3>{previewable?<button type="button" className={styles.titleButton} aria-label={'Vista previa de «'+material.title+'»'} onClick={()=>onPreview(material)}>{material.title}</button>:material.title}</h3>
    <div className={styles.badges}><Badge variant={material.kind==='deliverable'?'success':'warning'}>{material.kind==='deliverable'?'Entregable':'Interno'}</Badge><Badge variant="secondary">{SALES_MATERIAL_FORMAT_LABELS[format]}</Badge>{archived&&<Badge variant="destructive">Archivado</Badge>}{material.categories.map(c=><Badge key={c.id} variant="outline">{c.name}</Badge>)}{(material.verticals??[]).map(v=><Badge key={'v:'+v} variant="secondary" aria-label={'Vertical '+v}>{v}</Badge>)}</div>
    {material.description&&<p className={styles.description}>{material.description}</p>}
    {admin&&!!material.internalNote&&<p className={styles.internalNote}><strong>Nota interna</strong>{' · '}{material.internalNote}</p>}
    {current&&<p className={styles.meta}>{current.url?'Enlace externo':`${current.fileName??'Archivo'}${current.byteSize?' · '+formatBytes({bytes:current.byteSize}):''}`} · versión {current.version}</p>}
    {material.kind==='internal'&&<p className={styles.meta}>Solo para vendedores: no se manda a clientes.</p>}
+   </div>
    <div className={styles.cardActions}>
     {current&&(current.url?<Button asChild size="sm"><a href={salesMaterialFileUrl({versionId:current.id})} target="_blank" rel="noopener noreferrer">Abrir enlace</a></Button>
      :storageConfigured?<Button asChild size="sm"><a href={salesMaterialFileUrl({versionId:current.id})} target="_blank" rel="noopener noreferrer">Abrir</a></Button>:<Button size="sm" disabled disabledReason={STORAGE_REASON}>Abrir</Button>)}
