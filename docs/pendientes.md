@@ -437,5 +437,18 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 - Antes de desplegar con materiales activos, cargar los títulos únicos documentados en `decisiones.md`.
 ## Spec 107 — negocios vinculados con el mismo vendedor
 
-- PR A (migración 064, lecturas y redistribución por grupos) en PR a `staging`. Siguen los bloques 2 (vincular/desvincular desde la ficha), 3 (reasignación manual que mueve el grupo), 5 (desactivar usuario, fusión, Papelera) y 6 (runbook de los 5 pares existentes, con aprobación del propietario).
+- PR A (migración 064, lecturas y redistribución por grupos) ya está en `staging`. PR B está implementado y validado localmente en `feat/spec-107-link-ui`; falta preparar el PR a `staging` mediante el flujo de ramas. Los bloques 5 (desactivar usuario, fusión, Papelera) y 6 (runbook de los 5 pares existentes, con aprobación del propietario) siguen pendientes y no se cargaron datos reales.
 - Si el MCP ya tiene el rol `crm_mcp_reader` creado, aplicar el `GRANT` manual del runbook de la spec.
+
+### Spec 107 PR B · revisión de hallazgos · 06/11/2026
+
+- Segunda pasada: corregidos los hallazgos 1–7. Referral a Leandro conserva el dueño original en guardados sin cambio; reasignación explícita propaga el dueño efectivo. Se fijaron el orden de locks del quick edit, expansión bulk con semillas activas, lectura post-lock al desvincular, conflicto 409 para membresía cambiada y avisos/selecciones UI basados en vendedor efectivo.
+- Regresiones: `scripts/test-commercial.ts` (referral, tarea, grupo, quick edit, bulk con miembro archivado y unlinks secuenciales), `CommercialEditor.forms.spec.tsx` (draft efectivo y name-only save), `BusinessSellerGroupSection.spec.tsx` (igualación y picker con referral) y `sellerGroupNotice.spec.ts` (sin miembros activos). PostgreSQL descartable, nueva semilla por suite: `test:commercial`, `test:permissions` (613 checks), `test:business-reassignment`, `test:user-admin`, `test:work`, `test:pipeline`; `npm run typecheck`; Vitest dirigido a tres archivos (16 pruebas), todo PASS.
+- Próximo paso: revisar cambios y preparar PR a `staging`. El unlink simultáneo no se reprodujo con dos transacciones concurrentes; se probó la secuencia de desvinculación contra el grupo más reciente y se cubrió el singleton final.
+
+### Spec 107 PR B · tercera revisión · 06/11/2026
+
+- Corregida la carrera de `linkAccounts` comparando simétricamente la membresía antes/después del lock y calculando vendedores desde las filas bloqueadas. Los miembros activos sin responsable adoptan el vendedor del grupo; si todos están sin responsable, se debe elegir un vendedor activo. El aviso del editor queda oculto si el negocio actual está archivado, eliminado o fusionado.
+- `unrefer` con un nuevo responsable aplica D4 al grupo activo en orden de lock antes de bloquear la gestión, con journal y tareas de recontacto. Restaurar al dueño original no altera los demás miembros. Unificado `fromEmail` de recontacto con el vendedor efectivo en filas derivadas.
+- Validación con una semilla nueva por integración: `test:commercial`, `test:permissions` (613), `test:pipeline`, `test:business-reassignment`, `test:user-admin`, `test:work`; `npm run typecheck`; cuatro specs focalizados (21), todo PASS. El primer intento de `test:pipeline` reveló dos defectos del fixture; corregidos y repetidos con semilla fresca.
+- Próximo paso: revisar cambios y preparar el PR a `staging`.
