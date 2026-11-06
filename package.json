@@ -23,6 +23,7 @@
     "db:import": "node scripts/import-data.mjs",
     "db:validate": "node scripts/validate-data.mjs",
     "test:commercial": "node --env-file-if-exists=.env.test scripts/test-commercial-migration.mjs && node --env-file-if-exists=.env.test scripts/test-journal-metadata-migration.mjs && node --env-file-if-exists=.env.test --import tsx scripts/test-commercial.ts && node --env-file-if-exists=.env.test --import tsx scripts/test-business-history.ts && node --env-file-if-exists=.env.test --import tsx scripts/test-global-history.ts && node --env-file-if-exists=.env.test scripts/test-business-recovery.mjs && node --env-file-if-exists=.env.test scripts/test-recovery-postgres.mjs",
+    "test:classifications": "node --env-file-if-exists=.env.test --import tsx scripts/test-classifications.ts",
     "test:browser": "playwright test",
     "test:work": "node --env-file-if-exists=.env.test scripts/test-work-migration.mjs && node --env-file-if-exists=.env.test --import tsx scripts/test-work.ts",
     "test:pipeline": "node --env-file-if-exists=.env.test scripts/test-pipeline-migration.mjs && node --env-file-if-exists=.env.test --import tsx scripts/test-pipeline.ts",
