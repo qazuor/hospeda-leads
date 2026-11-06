@@ -16,7 +16,7 @@ try{
   await tx.unsafe(`CREATE ROLE crm_mcp_reader LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`);
   const database=decodeURIComponent(url.pathname.slice(1));
   await tx`GRANT CONNECT ON DATABASE ${tx(database)} TO crm_mcp_reader`;
-  await tx.unsafe('GRANT USAGE ON SCHEMA public TO crm_mcp_reader; GRANT SELECT ON public.crm_accounts,public.crm_contacts,public.leads,public.crm_verticals,public.crm_subtypes,public.crm_commercial_journal,public.crm_account_seller_groups,public.crm_account_seller_group_members TO crm_mcp_reader');
+  await tx.unsafe('GRANT USAGE ON SCHEMA public TO crm_mcp_reader; GRANT SELECT ON public.crm_accounts,public.crm_contacts,public.leads,public.crm_verticals,public.crm_subtypes,public.crm_commercial_journal,public.crm_account_seller_groups,public.crm_account_seller_group_members,public.crm_account_classifications TO crm_mcp_reader');
  });
  console.log(JSON.stringify({created:true,role,configurationFile:file,secretsPrinted:false}));
 }catch(error){
