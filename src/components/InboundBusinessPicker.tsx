@@ -14,6 +14,13 @@ export const businessOptionLabel=({id,nombre,ciudad}:{id:string|number;nombre:st
 export type AssignChoice={accountId:string;leadId:string|null;contactId:string|null;saveAddress?:boolean};
 const lower=(v:string|null|undefined)=>v?.trim().toLowerCase()??'';
 
+/** Shared searchable business choice control used by inbox association and linked-business administration. */
+export function InboundBusinessSearchPicker({value,onChange,disabled,excludeIds=[]}:{value:string;onChange:(id:string)=>void;disabled:boolean;excludeIds?:string[]}){
+ const [term,setTerm]=useState('');
+ const businesses=useQuery({queryKey:['inbound-business-picker',term],queryFn:()=>getCommercialList(term,'',1),enabled:term.trim().length>=2});
+ return <div><label>Buscar negocio<Input value={term} disabled={disabled} onChange={event=>setTerm(event.target.value)} placeholder="Escribí al menos dos caracteres"/></label>{businesses.isPending&&<p role="status">Buscando negocios…</p>}{businesses.error&&<QueryErrorNotice error={businesses.error} onRetry={businesses.refetch} busy={businesses.isFetching}/>}{businesses.data?.rows.filter(b=>!b.mergedIntoId&&!excludeIds.includes(String(b.id))).map(b=><button key={b.id} type="button" disabled={disabled} aria-pressed={value===String(b.id)} onClick={()=>onChange(String(b.id))}>{businessOptionLabel(b)}</button>)}</div>;
+}
+
 /**
  * Manual association («Otro negocio», or the only path without a suggestion): search, business, optional open management and person, and the D4 box.
  * Its state is its own, so a choice never leaks to another card (spec 103 B3).

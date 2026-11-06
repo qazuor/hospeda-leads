@@ -23,6 +23,7 @@ Consultar archivos reales: este mapa orienta y no reemplaza la lectura de contra
 | User script WhatsApp F3 | `src/endpoints/userscript.ts`, `src/helpers/userscriptPure.ts`, pantalla `/userscript`, migración `039_userscript.sql`, estático público `dist/userscripts/` |
 | Recursos/versiones/descarga | `src/endpoints/resources.ts`, miniaturas/visor y biblioteca |
 | Calidad e importación | `src/endpoints/dataQuality.ts`, `businessImport.ts` y schemas |
+| Clasificaciones de negocios | Tabla `crm_account_classifications`; reglas/escritura única en `src/helpers/accountClassification.ts`; parser CSV en `src/helpers/classificationImport.ts`; carga de verticales adicionales vía `scripts/load-account-classifications.mjs` (dry run por defecto) |
 | Búsqueda global de entidades | `src/endpoints/search.ts`, `search.schema.ts`, paleta del header |
 | Historial global | `src/endpoints/lead_journal_GET.ts`, `src/helpers/globalHistoryServer.ts`, `auditChanges.ts`, `src/pages/history.tsx` |
 | DB/mapeo de identificadores | `src/helpers/db.tsx`, `src/helpers/schema.tsx` |
@@ -97,6 +98,7 @@ Kysely transforma snake_case a camelCase mediante el plugin existente. Hay overr
 | 034 | Índices GIN de trigramas de `leads` (nombre, opportunity_name, service_interest, contact_name, origen) y `crm_accounts.origin`, sobre la misma expresión que 032. Los usan Ctrl+K «Gestiones» y el `q=` del listado de negocios, que buscan cada tabla por separado con `idSetSearchSql` (`searchSql.ts`; fuentes del listado en `businessSearchSql`, `businessTable.ts`) |
 | 037 | Registro de emails entrantes y estado de revisión |
 | 038 | Transporte SMTP para respuestas en hilo y vínculo con el email entrante |
+| 066 | Tabla `crm_account_classifications`, backfill desde el par anterior del negocio; helper único `accountClassification.ts` |
 
 El migrador lleva checksums. Aplicar migraciones no ejecuta la limpieza ni recupera campos históricos automáticamente.
 

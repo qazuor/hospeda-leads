@@ -1,0 +1,93 @@
+import assert from 'node:assert/strict';
+import superjson from 'superjson';
+import {db} from '../src/helpers/db';
+import {get as commercialGet,post as commercial} from '../src/endpoints/commercial';
+import {handle as quick} from '../src/endpoints/leads_quick_POST';
+import {setServerSession} from '../src/helpers/getSetServerSession';
+import {handle as listBusinesses} from '../src/endpoints/leads_GET';
+import {basePreferences,preferencesFromSavedView} from '../src/helpers/businessListPreferences';
+import type {AccountClassification} from '../src/helpers/accountClassification';
+assert.equal(process.env.CRM_TEST_DATABASE,'1','Use disposable DB');
+const stamp=Date.now();
+const admin=await db.selectFrom('users').selectAll().where('email','=','admin@example.com').executeTakeFirstOrThrow();
+const seller=await db.insertInto('users').values({email:`classification-seller-${stamp}@example.com`,displayName:'Classification seller',role:'user'}).returningAll().executeTakeFirstOrThrow();
+const session={id:`classification-${stamp}`,createdAt:Date.now(),lastAccessed:Date.now()};
+await db.insertInto('sessions').values({id:session.id,userId:admin.id,expiresAt:new Date(Date.now()+3600000)}).execute();
+const sellerSession={...session,id:`classification-seller-${stamp}`};await db.insertInto('sessions').values({id:sellerSession.id,userId:seller.id,expiresAt:new Date(Date.now()+3600000)}).execute();
+const response=new Response(),sellerResponse=new Response();await setServerSession(response,session);await setServerSession(sellerResponse,sellerSession);const cookie=response.headers.get('set-cookie')!.split(';')[0],sellerCookie=sellerResponse.headers.get('set-cookie')!.split(';')[0];
+const request=(body:unknown,who=cookie)=>new Request('http://localhost/_api/commercial',{method:'POST',headers:{cookie:who},body:superjson.stringify(body)});
+async function write(body:unknown,status=200,error?:string,who=cookie){const r=await commercial(request(body,who)),data=superjson.parse<{id:string;error?:string}>(await r.text());assert.equal(r.status,status,data.error);if(error)assert.equal(data.error,error);return data;}
+async function quickWrite(body:unknown,status=200,who=cookie){const r=await quick(request(body,who)),data=superjson.parse<{error?:string}>(await r.text());assert.equal(r.status,status,data.error);}
+async function catalog(name:string){await db.insertInto('crmVerticals').values({name,active:true}).execute();await db.insertInto('crmSubtypes').values({name:'sub '+name,typeName:name,active:true}).execute();return {tipo:name,subtipo:'sub '+name};}
+try{
+ const a=await catalog('Class A '+stamp),b=await catalog('Class B '+stamp),c=await catalog('Class C '+stamp),more=await Promise.all(Array.from({length:6},(_,i)=>catalog(`Class ${i+4} ${stamp}`))),bad={tipo:'Unknown '+stamp,subtipo:null};
+ const sameVertical={tipo:a.tipo,subtipo:'second '+a.tipo},sharedSubtype='shared '+stamp;await db.insertInto('crmSubtypes').values([{name:sameVertical.subtipo,typeName:a.tipo,active:true},{name:sharedSubtype,typeName:a.tipo,active:true},{name:sharedSubtype,typeName:b.tipo,active:true}]).execute();
+ const saved=await write({action:'account_save',nombre:'Classification '+stamp,classifications:[a,b,sameVertical,{tipo:a.tipo,subtipo:sharedSubtype},{tipo:b.tipo,subtipo:sharedSubtype}]});
+ const unclassified=await write({action:'account_save',nombre:'Unclassified '+stamp});
+ const businessList=async(params:Record<string,string>)=>{const response=await listBusinesses(new Request('http://localhost/_api/leads?'+new URLSearchParams({entity:'business',pageSize:'100',sortBy:'id',sortDir:'desc',...params}),{headers:{cookie}}));assert.equal(response.status,200);return superjson.parse<{rows:Array<{accountId:string;accountTipos:string[];accountSubtipos:string[];opportunityValues:Record<string,string[]>}>;tipos?:string[] }>(await response.text());};
+ const included=await businessList({tipos:JSON.stringify([b.tipo])});assert(included.rows.some(row=>row.accountId===saved.id),'A multi-vertical business matches any included vertical');assert(!included.rows.some(row=>row.accountId===unclassified?.id),'A business without the included vertical is excluded');
+ const projected=(await businessList({tipos:JSON.stringify([a.tipo])})).rows.find(row=>row.accountId===saved.id)!;assert.equal(projected.accountTipos.filter(value=>value===a.tipo).length,1,JSON.stringify(projected.accountTipos));assert.equal(projected.accountTipos.filter(value=>value===b.tipo).length,1,JSON.stringify(projected.accountTipos));assert.equal(projected.opportunityValues.tipo.filter(value=>value===a.tipo).length,1,JSON.stringify(projected.opportunityValues));assert.equal(projected.accountSubtipos.filter(value=>value===sameVertical.subtipo).length,1,JSON.stringify(projected.accountSubtipos));assert.equal(projected.accountSubtipos.filter(value=>value===sharedSubtype).length,1,JSON.stringify(projected.accountSubtipos));
+ const detail=superjson.parse<{account:{classifications:Array<{tipo:string;subtipo:string|null}>}}>(await(await commercialGet(new Request(`http://localhost/_api/commercial?accountId=${saved.id}`,{headers:{cookie}}))).text());assert.deepEqual(detail.account.classifications.map(x=>x.tipo),[a.tipo,a.tipo,a.tipo,b.tipo,b.tipo].sort((x,y)=>x.localeCompare(y)),'Commercial detail keeps catalog/type ordering');
+ const restoredView=preferencesFromSavedView(basePreferences(),{inline:{typeFilter:{include:[b.tipo]}}});
+ assert.deepEqual(restoredView?.legacyFilters?.tipos,[b.tipo],'Legacy saved view vertical filter is restored without migration');
+ assert((await businessList({tipos:JSON.stringify(restoredView?.legacyFilters?.tipos??[])})).rows.some(row=>row.accountId===saved.id),'Saved view vertical filter returns the multi-vertical business');
+ assert(!(await businessList({excludeTipos:JSON.stringify([b.tipo])})).rows.some(row=>row.accountId===saved.id),'Excluding a vertical removes a business that has that vertical');
+ assert((await businessList({excludeTipos:JSON.stringify([b.tipo])})).rows.some(row=>row.accountId!==saved.id),'Excluding Y keeps a business with only X');
+ assert((await businessList({filterGroups:JSON.stringify([{rules:[{field:'tipo',operator:'eq',value:b.tipo}]}])})).rows.some(row=>row.accountId===saved.id),'Advanced exact category rule matches a secondary vertical');
+ const unsupported=await listBusinesses(new Request('http://localhost/_api/leads?'+new URLSearchParams({entity:'business',filterGroups:JSON.stringify([{rules:[{field:'tipo',operator:'contains',value:'Class'}]}])}),{headers:{cookie}}));assert.equal(unsupported.status,400,'Category operators beyond eq/neq/empty/not_empty are rejected by the request schema');
+ assert(!(await businessList({filterGroups:JSON.stringify([{rules:[{field:'tipo',operator:'neq',value:b.tipo}]}])})).rows.some(row=>row.accountId===saved.id),'Advanced neq excludes a business matching any pair');
+ const projectedId=String(-Number(saved.id));
+ for(const [operator,value,expected] of [['empty','',false],['not_empty','',true],['eq',a.tipo,true],['neq',a.tipo,false],['eq','__EMPTY__',false],['neq','__EMPTY__',true]] as const){const rows=(await businessList({filterGroups:JSON.stringify([{rules:[{field:'id',operator:'eq',value:projectedId}]},{rules:[{field:'tipo',operator,value}]}])})).rows;assert.equal(rows.some(row=>row.accountId===saved.id),expected,`tipo ${operator} ${value}`);}
+ for(const [operator,value,expected] of [['empty','',false],['not_empty','',true],['eq',a.subtipo,true],['neq',a.subtipo,false],['eq','__EMPTY__',false],['neq','__EMPTY__',true]] as const){const rows=(await businessList({filterGroups:JSON.stringify([{rules:[{field:'id',operator:'eq',value:projectedId}]},{rules:[{field:'subtipo',operator,value}]}])})).rows;assert.equal(rows.some(row=>row.accountId===saved.id),expected,`subtipo ${operator} ${value}`);}
+ assert((await businessList({tipos:JSON.stringify([a.tipo,b.tipo])})).rows.some(row=>row.accountId===saved.id),'Multi-value include binds and matches with ANY');
+ assert(!(await businessList({excludeSubtipos:JSON.stringify([a.subtipo,sameVertical.subtipo])})).rows.some(row=>row.accountId===saved.id),'Multi-value exclude binds and excludes with ANY');
+ const emptyRows=await businessList({q:'Unclassified '+stamp,tipos:JSON.stringify(['__EMPTY__'])});assert(emptyRows.rows.some(row=>row.accountId===unclassified.id),'Empty vertical means no classification pairs');
+ assert(!(await businessList({q:'Classification '+stamp,tipos:JSON.stringify(['__EMPTY__'])})).rows.some(row=>row.accountId===saved.id),'Exclude empty removes classified businesses');
+ const optionResponse=await listBusinesses(new Request('http://localhost/_api/leads?'+new URLSearchParams({entity:'business',filterOptions:'include'}),{headers:{cookie}}));const options=superjson.parse<{filters:{tipos:string[]}}>(await optionResponse.text());assert(options.filters.tipos.includes(a.tipo)&&options.filters.tipos.includes(b.tipo),'Filter options include classification verticals');
+ const rows=()=>db.selectFrom('crmAccountClassifications').selectAll().where('accountId','=',saved.id).orderBy('id').execute();
+ const initial=await rows(),keep=initial.find(x=>x.tipo===b.tipo)!;
+ await write({action:'account_save',id:saved.id,nombre:'Classification '+stamp,classifications:[b,c]});
+ const after=await rows();assert.equal(after.find(x=>x.tipo===b.tipo)?.id,keep.id);assert.equal(after.find(x=>x.tipo===b.tipo)?.createdBy,keep.createdBy);
+ assert.deepEqual(after.map(x=>x.tipo).sort(),[b.tipo,c.tipo].sort());
+ const account=await db.selectFrom('crmAccounts').select(['tipo','subtipo']).where('id','=',saved.id).executeTakeFirstOrThrow();assert.deepEqual(account,{tipo:b.tipo,subtipo:b.subtipo});
+ assert(await db.selectFrom('crmCommercialJournal').select('id').where('accountId','=',saved.id).where('action','=','account_classifications_changed').executeTakeFirst());
+ const eight=[a,b,c,...more.slice(0,5)].map(pair=>({tipo:pair.tipo,subtipo:null} as AccountClassification));
+ const limited=await write({action:'account_save',nombre:'Classification limit '+stamp,classifications:[a]});
+ await write({action:'account_save',id:limited.id,nombre:'Classification limit '+stamp,classifications:eight});
+ await write({action:'account_save',id:limited.id,nombre:'Classification limit '+stamp,classifications:[...eight,{tipo:more[5]!.tipo,subtipo:null}]},400,'Un negocio puede tener como máximo 8 verticales.');
+ await write({action:'account_save',id:saved.id,nombre:'Classification '+stamp,classifications:[bad]},400);
+ const beforeRejected=await rows();
+ await write({action:'account_save',id:saved.id,nombre:'Classification '+stamp,classifications:[b],tipo:b.tipo},400);
+ assert.deepEqual(await rows(),beforeRejected,'Rejected classification request leaves rows unchanged');
+ // Legacy clients edit only the displayed pair and retain secondary classifications.
+ await write({action:'account_save',id:saved.id,nombre:'Classification '+stamp,tipo:a.tipo,subtipo:a.subtipo});
+ assert.deepEqual((await rows()).map(x=>x.tipo).sort(),[a.tipo,c.tipo].sort());
+ await db.updateTable('crmVerticals').set({active:false}).where('name','=',a.tipo).execute();
+ await write({action:'account_save',id:saved.id,nombre:'Classification renamed '+stamp,ciudad:'Paraná'});
+ assert.deepEqual((await rows()).map(x=>x.tipo).sort(),[a.tipo,c.tipo].sort(),'Existing inactive classification survives unrelated edit');
+ const inactive=await catalog('Inactive new '+stamp);await db.updateTable('crmVerticals').set({active:false}).where('name','=',inactive.tipo).execute();
+ const beforeInactive=await rows();await write({action:'account_save',id:saved.id,nombre:'Classification '+stamp,classifications:[a,inactive]},400,'Vertical no disponible en Configuración.');assert.deepEqual(await rows(),beforeInactive,'Rejected new inactive pair leaves rows unchanged');
+ await db.updateTable('crmVerticals').set({active:true}).where('name','=',a.tipo).execute();
+ const inline=await write({action:'account_save',nombre:'Inline '+stamp,classifications:[a,b]});
+ const inlineRowsBefore=await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',inline.id).execute();
+ await quickWrite({id:inline.id,accountId:inline.id,field:'tipo',value:c.tipo,classifications:[a,c],expectedClassifications:[a,b]},403,sellerCookie);
+ await db.updateTable('crmAccounts').set({doNotContact:true,assignedUserEmail:seller.email}).where('id','=',inline.id).execute();
+ await quickWrite({id:inline.id,accountId:inline.id,field:'tipo',value:c.tipo,classifications:[a,c],expectedClassifications:[a,b]},403,sellerCookie);
+ assert.deepEqual(await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',inline.id).execute(),inlineRowsBefore,'Unauthorized inline writes leave rows unchanged');
+ await db.updateTable('crmAccounts').set({doNotContact:false}).where('id','=',inline.id).execute();
+ await quickWrite({id:inline.id,accountId:inline.id,field:'tipo',value:c.tipo,classifications:[a,c],expectedClassifications:[a,b]});
+ let inlineRows=await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',inline.id).orderBy('id').execute();assert.deepEqual(inlineRows.map(x=>x.tipo).sort(),[a.tipo,c.tipo].sort());
+ await quickWrite({id:inline.id,accountId:inline.id,field:'tipo',value:b.tipo,expectedClassification:{tipo:a.tipo,subtipo:a.subtipo}});
+ inlineRows=await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',inline.id).orderBy('id').execute();assert.deepEqual(inlineRows.map(x=>x.tipo).sort(),[b.tipo,c.tipo].sort(),'Inline scalar compatibility keeps the secondary pair');
+ await quickWrite({id:inline.id,accountId:inline.id,field:'tipo',value:a.tipo,classifications:[a,b],expectedClassifications:[a,c]},409);
+ inlineRows=await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',inline.id).orderBy('id').execute();assert.deepEqual(inlineRows.map(x=>x.tipo).sort(),[b.tipo,c.tipo].sort());
+ await write({action:'account_save',id:saved.id,nombre:'Classification '+stamp,classifications:[a,b]},403,undefined,sellerCookie);
+ assert.deepEqual((await rows()).map(row=>row.tipo).sort(),[a.tipo,c.tipo].sort(),'Unauthorized seller list write leaves rows unchanged');
+ const restricted=await write({action:'account_save',nombre:'No contact classification '+stamp,assignedUserEmail:seller.email,classifications:[a]});await db.updateTable('crmAccounts').set({doNotContact:true}).where('id','=',restricted.id).execute();
+ const restrictedRows=()=>db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',restricted.id).execute();
+ await write({action:'account_save',id:restricted.id,nombre:'No contact classification '+stamp,classifications:[b]},403,undefined,sellerCookie);
+ assert.deepEqual(await restrictedRows(),[{tipo:a.tipo,subtipo:a.subtipo}],'No contactar seller write leaves rows unchanged');
+ const mergedSource=await write({action:'account_save',nombre:'Merged classification source '+stamp,classifications:[a]});const mergedDest=await write({action:'account_save',nombre:'Merged classification destination '+stamp,classifications:[b]});await db.updateTable('crmAccounts').set({mergedIntoId:mergedDest.id,mergedAt:new Date()}).where('id','=',mergedSource.id).execute();
+ const mergedRows=await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',mergedSource.id).execute();await write({action:'account_save',id:mergedSource.id,nombre:'Mutated merged '+stamp,classifications:[b]},403);assert.deepEqual(await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',mergedSource.id).execute(),mergedRows,'Merged business save rejection leaves classifications unchanged');
+ console.log('Account classifications: diff identity, validation, legacy scalar, display/journal, and inline optimistic conflict passed');
+}finally{await db.destroy();}

@@ -14,10 +14,10 @@
 
 `node scripts/business-import.mjs config` obtiene las verticales y subtipos activos, el límite de filas (máximo 30) y el límite de datos configurado. Solo se exponen clasificaciones y datos relacionados con importaciones; no se descarga la base completa.
 
-Preparar un JSON con `source`, `sourceUrl` y `obtainedAt` opcionales, y `rows` con los campos de [BUSINESS_IMPORT.md](BUSINESS_IMPORT.md), excepto `asignadoA`. Cada campo de fila es texto. No incluir `mode`: siempre es negocio.
+Preparar un JSON con `source`, `sourceUrl` y `obtainedAt` opcionales, y `rows` con los campos de [BUSINESS_IMPORT.md](BUSINESS_IMPORT.md), excepto `asignadoA`. Cada campo de fila es texto. Para clasificación, `verticales` usa `V/S; V` (primera `/` separa vertical/subtipo) y admite hasta 8 pares; no combinarlo con `tipo`. La API también acepta `clasificaciones: [{tipo, subtipo}]` en los contratos JSON que lo exponen, con el mismo máximo de 8. No incluir `mode`: siempre es negocio.
 
 ```json
-{"source":"Relevamiento de fuentes públicas","rows":[{"nombre":"Nombre comercial verificado","ciudad":"Colón","provincia":"Entre Ríos","tipo":"Gastronomía","subtipo":"Restaurante","direccion":"Dirección verificada","discoverySource":"Sitio oficial","verificationUrls":"https://sitio-del-negocio.example/local","verifiedOn":"2026-10-05","businessNotes":"Nota y limitaciones del relevamiento"}]}
+{"source":"Relevamiento de fuentes públicas","rows":[{"nombre":"Nombre comercial verificado","ciudad":"Colón","provincia":"Entre Ríos","verticales":"Gastronomía/Restaurante; Alojamiento/Hotel","direccion":"Dirección verificada","discoverySource":"Sitio oficial","verificationUrls":"https://sitio-del-negocio.example/local","verifiedOn":"2026-10-05","businessNotes":"Nota y limitaciones del relevamiento"}]}
 ```
 
 El ejemplo es un contrato ilustrativo: no cargarlo como negocio real. La API valida estructura, clasificación y duplicados; el investigador sigue siendo responsable de comprobar existencia, ubicación y funcionamiento. No inventar datos ausentes.

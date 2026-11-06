@@ -43,6 +43,15 @@ try{
  await call(expired,commercialGet,'commercial?accountId=00000000-0000-0000-0000-000000000000',undefined,401);
  const accountId=(await call(owner,commercialPost,'commercial',{action:'account_save',nombre:'Permission business '+suffix,email:'business@example.com'})).id;
  const ownOther=(await call(other,commercialPost,'commercial',{action:'account_save',nombre:'Colleague business '+suffix})).id;
+ await call(admin,commercialPost,'commercial',{action:'account_link',accountIds:[accountId,ownOther],sellerEmail:owner.user.email});
+ await db.updateTable('crmAccounts').set({assignedUserEmail:other.user.email,archivedAt:new Date(),status:'archived'}).where('id','=',ownOther).execute();
+ await call(owner,commercialGet,'commercial?accountId='+accountId);
+ const redactedGroup=await call(owner,commercialGet,'commercial?accountId='+accountId);
+ assert.equal(redactedGroup.sellerGroup.members.find((member:any)=>member.id===ownOther)?.name,'negocio de otro vendedor','Unreadable linked business is redacted');
+ await call(owner,commercialPost,'commercial',{action:'account_link',accountIds:[accountId,ownOther]},403);
+ await call(owner,commercialPost,'commercial',{action:'account_unlink',accountId},403);
+ await db.deleteFrom('crmAccountSellerGroups').where('id','in',db.selectFrom('crmAccountSellerGroupMembers').select('groupId').where('accountId','in',[accountId,ownOther])).execute();
+ await db.updateTable('crmAccounts').set({archivedAt:null,status:'new'}).where('id','=',ownOther).execute();
  const leadId=(await call(owner,commercialPost,'commercial',{action:'opportunity_save',accountId,confirmReviewed:true,opportunityName:'Existing management',estado:'Cargado'})).id;
  const contactId=(await call(owner,commercialPost,'commercial',{action:'contact_save',accountId,name:'Known person',isPrimary:true,email:'person@example.com'})).id;
  const colleagueLead=(await call(other,commercialPost,'commercial',{action:'opportunity_save',accountId:ownOther,confirmReviewed:true,opportunityName:'Colleague management',estado:'Cargado'})).id;
@@ -186,13 +195,19 @@ try{
   assert.match((await call(opener,commercialPost,'commercial',{...contactBody,ciudad:'Colón'},403)).error,/Podés corregir teléfono, email y WhatsApp/);
   assert.equal(JSON.stringify([await account8a(),await contacts8a()]),snapshotBefore,'a rejected mixed save changed nothing');
   assert.equal((await audits8a()).length,0);
+  await call(owner,commercialPost,'commercial',{action:'account_save',id:biz,nombre:'Contact data business '+suffix,ciudad:'Paraná',classifications:[{tipo:verticalA,subtipo:null}]});
+  const sameClassifications=[{tipo:verticalA,subtipo:null}],classificationBefore=await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',biz).execute();
+  await call(opener,commercialPost,'commercial',{...contactBody,tipo:verticalA,subtipo:null});
+  await call(opener,commercialPost,'commercial',{...contactBody,classifications:sameClassifications});
+  await call(opener,commercialPost,'commercial',{...contactBody,classifications:[{tipo:verticalB,subtipo:null}]},403);
+  assert.deepEqual(await db.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',biz).execute(),classificationBefore,'Unchanged echoed classifications are allowed; a changed list leaves rows unchanged');
   // Allowed: phone, email, WhatsApp, with the unchanged name echoed back; omitted fields stay untouched.
   await call(opener,commercialPost,'commercial',contactBody);
   const edited=await account8a();
   assert.equal(edited.telefono,'+54 9 3447 200001');assert.equal(edited.email,'new8a@example.com');assert.equal((edited as any).whatsapp,'+54 9 3447 200002');
   assert.equal(edited.nombre,'Contact data business '+suffix);assert.equal(edited.ciudad,'Paraná');assert.equal(edited.assignedUserEmail,owner.user.email);
-  const rows8a=await audits8a();assert.equal(rows8a.length,1);assert.equal(rows8a[0].actorEmail,opener.user.email);
-  const meta8a=rows8a[0].metadata as any;assert.equal(meta8a.scope,'open_management');assert.deepEqual(meta8a.leadIds.map(String),[String(openLead8a)]);assert.equal(meta8a.before.telefono,'+54 9 3447 100001');assert.equal(meta8a.after.telefono,'+54 9 3447 200001');
+  const rows8a=await audits8a();assert.equal(rows8a.length,3);assert(rows8a.every(row=>row.actorEmail===opener.user.email));
+  const meta8a=rows8a.map(row=>row.metadata as any).find(metadata=>metadata.scope==='open_management');assert(meta8a);assert.deepEqual(meta8a.leadIds.map(String),[String(openLead8a)]);assert.equal(meta8a.after.telefono,'+54 9 3447 200001');
   await call(opener,commercialPost,'commercial',{action:'account_save',id:biz,nombre:'Contact data business '+suffix,whatsapp:null});
   assert.equal((await account8a() as any).whatsapp,null);assert.equal((await account8a()).telefono,'+54 9 3447 200001');
   // Owner keeps the regular audit action and full edit.

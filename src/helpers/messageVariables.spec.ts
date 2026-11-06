@@ -53,6 +53,12 @@ describe("message variables", () => {
     expect(values.telefono_hospeda).toBe("3442 470650");
   });
 
+  it("points link_planes at the plans page of every main vertical, not the publish page", () => {
+    const linkFor = (type: string) => resolveMessageVariables({ __seed: "catalog", channel: "whatsapp", type }, defaultMessageVariableSettings(), new Date("2026-10-19T11:00:00.000Z")).link_planes;
+    expect(linkFor("Gastronomía")).toBe("https://hospeda.com.ar/es/planes/comer-y-salir/");
+    expect(linkFor("Experiencias")).toBe("https://hospeda.com.ar/es/planes/experiencias/");
+  });
+
   it("does not re-add defaults to a previously saved catalog", () => {
     const saved = defaultMessageVariableSettings().filter(variable => variable.key !== "despedida").map(variable => variable.key === "saludo" ? { ...variable, active: false } : variable);
     const merged = withDefaultMessageVariables(saved);
@@ -93,6 +99,12 @@ describe("message variables", () => {
     ]}];
     expect(resolveMessageVariables({type:'Experiencia',commercialProfile:'Independiente',channel:'social',__seed:'x'},defs).texto).toBe('Lista');
     expect(resolveMessageVariables({type:'Alojamiento',commercialProfile:'Referente',channel:'email',__seed:'x'},defs).texto).toBe('Más específica');
+  });
+
+  it('matches a business type against any business subtype and intersects vertical lists',()=>{
+    const defs:MessageVariableDefinition[]=[{key:'texto',label:'Texto',description:'',source:{kind:'text',key:''},active:true,alternatives:[{id:'match',text:'Sí',conditions:{verticals:['Gastronomía'],businessType:'Restaurante'}}]}];
+    expect(resolveMessageVariables({verticals:['Alojamiento','Gastronomía'],subtypes:['Hotel','Restaurante']},defs).texto).toBe('Sí');
+    expect(resolveMessageVariables({verticals:['Alojamiento'],subtypes:['Hotel','Restaurante']},defs).texto).toBe('');
   });
 
   it('normalizes stored legacy single vertical and profile conditions into lists',()=>{

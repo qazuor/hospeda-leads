@@ -193,13 +193,31 @@ export async function handle(request:Request){
         await setWorkActor(trx,user);
         // Lock the affected businesses first (before any write, which would also hold the live-version row), in id order: the leads active-account guard takes FOR SHARE on each business while
         // updating its leads, so locking leads first would invert the business-then-management order used by every other writer.
-        let affected=trx.selectFrom("leads").select("accountId").distinct().where("subtipo","=",target.name);
-        if(target.typeName)affected=affected.where("tipo","=",target.typeName);
-        await lockAccounts(trx,(await affected.execute()).map(r=>r.accountId));
+        // Merged businesses are immutable (active-account guard), so only active rows of crm_accounts are renamed; their classification rows still follow the catalog.
+        const affected=async()=>{
+          let leadRows=trx.selectFrom("leads").select("accountId").distinct().where("subtipo","=",target.name);
+          if(target.typeName)leadRows=leadRows.where("tipo","=",target.typeName);
+          let accountRows=trx.selectFrom("crmAccounts").select("id").where("subtipo","=",target.name).where("mergedIntoId","is",null);
+          if(target.typeName)accountRows=accountRows.where("tipo","=",target.typeName);
+          let classificationRows=trx.selectFrom("crmAccountClassifications").select("accountId").distinct().where("subtipo","=",target.name);
+          if(target.typeName)classificationRows=classificationRows.where("tipo","=",target.typeName);
+          return new Set([...(await leadRows.execute()).map(r=>String(r.accountId)),...(await accountRows.execute()).map(r=>String(r.id)),...(await classificationRows.execute()).map(r=>String(r.accountId))]);
+        };
+        // Re-read after locking: a business that gained the subtype meanwhile is locked too before any write touches it.
+        const locked=new Set<string>();
+        for(let round=0;round<3;round++){const ids=[...await affected()].filter(id=>!locked.has(id));if(!ids.length)break;await lockAccounts(trx,ids);ids.forEach(id=>locked.add(id));}
         await trx.updateTable("crmSubtypes").set({name:nextName,active:true}).where("id","=",target.id).execute();
         let leads=trx.updateTable("leads").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name);
         if(target.typeName)leads=leads.where("tipo","=",target.typeName);
         await leads.execute();
+        let accounts=trx.updateTable("crmAccounts").set({subtipo:nextName,updatedAt:new Date()}).where("subtipo","=",target.name).where("mergedIntoId","is",null);
+        if(target.typeName)accounts=accounts.where("tipo","=",target.typeName);
+        await accounts.execute();
+        // A business that already has the new pair keeps that row; its old duplicate is dropped instead of violating the unique pair.
+        await sql`DELETE FROM crm_account_classifications c WHERE c.subtipo=${target.name} AND (${target.typeName}::text IS NULL OR c.tipo=${target.typeName}) AND EXISTS (SELECT 1 FROM crm_account_classifications d WHERE d.account_id=c.account_id AND d.tipo=c.tipo AND d.subtipo=${nextName})`.execute(trx);
+        let classifications=trx.updateTable("crmAccountClassifications").set({subtipo:nextName}).where("subtipo","=",target.name);
+        if(target.typeName)classifications=classifications.where("tipo","=",target.typeName);
+        await classifications.execute();
       });
     }
 

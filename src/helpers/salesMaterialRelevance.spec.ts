@@ -17,6 +17,11 @@ describe('salesMaterialVerticalMatch',()=>{
   expect(salesMaterialVerticalMatch({verticals:['Alojamiento'],vertical:null})).toBeNull();
   expect(salesMaterialVerticalMatch({verticals:['Alojamiento'],vertical:'  '})).toBeNull();
  });
+ it('matches any context vertical while management context stays a singleton',()=>{
+  expect(salesMaterialVerticalMatch({verticals:['Gastronomía'],contextVerticals:['Alojamiento','Gastronomía']})).toBe('specific');
+  expect(salesMaterialVerticalMatch({verticals:['Gastronomía'],contextVerticals:['Alojamiento']})).toBe('other');
+  expect(salesMaterialVerticalMatch({verticals:['Gastronomía'],contextVerticals:[]})).toBeNull();
+ });
 });
 
 describe('salesMaterialRelevance',()=>{
@@ -33,5 +38,9 @@ describe('salesMaterialRelevance',()=>{
  it('returns everything (as other) when nothing applies: the picker shows it all',()=>{
   const result=salesMaterialRelevance({materials:[m('o1',['Gastronomía'])],vertical:'Alojamiento'});
   expect(result).toEqual([{id:'o1',verticals:['Gastronomía'],verticalMatch:'other'}]);
+ });
+ it('marks both verticals as specific for a two-vertical business',()=>{
+  const list=[m('hotel',['Alojamiento']),m('restaurant',['Gastronomía']),m('other',['Experiencias'])];
+  expect(salesMaterialRelevance({materials:list,contextVerticals:['Alojamiento','Gastronomía']}).map(x=>[x.id,x.verticalMatch])).toEqual([['hotel','specific'],['restaurant','specific'],['other','other']]);
  });
 });

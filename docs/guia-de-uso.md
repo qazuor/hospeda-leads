@@ -125,7 +125,7 @@ Entendé las palabras de la aplicación y elegí dónde comenzar.
 
 **Cuándo usarlo:** Cuando ves campos que no sabés cómo completar.
 
-1. Vertical indica el rubro del negocio; Subtipo lo describe con más detalle. Usá las opciones del equipo y completá solo lo que conozcas.
+1. Un negocio puede tener varias verticales y un subtipo por cada una. Editalas desde la ficha, al crear un negocio con «Crear negocio» o tocando el badge de Vertical en la lista o en una tarjeta. En la ficha y al crear un negocio, usá «Agregar otra vertical» cuando ofrezca más de un servicio. En una gestión nueva con varias verticales, elegí sobre cuál vas a trabajar. Usá las opciones del equipo y completá solo lo que conozcas.
 2. Perfil comercial ayuda a elegir mensajes modelo adecuados. No es la Etapa de la gestión ni la diferencia entre cliente y potencial cliente.
 3. Prioridad indica qué merece atención antes. La aplicación puede mostrar una prioridad sugerida y explicar por qué; no reemplaza la prioridad que elegís vos.
 4. Origen y Fuente de referencia explican de dónde salió el dato. Guardá la fuente real, no una suposición.

@@ -1,3 +1,7 @@
+## Spec 106 PR D — UI para varias verticales
+
+Bloque 4 implementado localmente en `feat/spec-106-ui`: ficha y alta rápida editan clasificaciones, insignia inline en lista/tarjetas restaura el acceso al editor y resuelve 409 sin reenvío automático, lista compacta muestra par y «+N», detalle muestra pares completos, y D6 envía la vertical elegida. Guía y e2e actualizados. Ronda 6: typecheck PASS; Vitest `src/components src/pages` PASS (888); seis specs focalizadas PASS (42). No se ejecutaron navegador, build ni integración; el esquema acepta lista vacía sin cambios. Próximo paso: revisar el resultado y preparar el PR a `staging` según el flujo habitual.
+
 ## Material de venta: buscador fijo y lista compacta — PR a `staging`
 
 Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono real que el buscador fijo no tape el header y que la fila de lista se lea bien. La búsqueda global sigue sin buscar en la nota interna.
@@ -5,6 +9,10 @@ Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono r
 > Promoción `staging` → `main`: última el 05/11/2026 (#350: #344–#349, migraciones 060–063, script 1.8.6, con respaldo previo de la base). Antes, el 02/11/2026 (#334, script 1.8.1). Las anteriores fueron el 01/11/2026 (#330) y el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
 
 # Pendientes y próximo trabajo
+
+- **Spec 106 completa en código (bloques 0–6):** loader ronda 4: regresión de actualización concurrente, salida por negocio y mismatch explícito; pendiente revisión/PR a `staging` y CI. Después, promoción/deploy solo cuando lo pida el propietario; el runbook §13 (carga de las 14 verticales) queda a cargo del operador y requiere aprobación explícita del propietario. Si la copia tipo/subtipo ya difiere, el ensayo falla incluso en seco; el operador guarda las verticales desde la ficha del negocio y repite. Validación de ronda 4: `/tmp/claude-1000/-home-qazuor-projects-WEBS/hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s106f4-report.md`.
+
+- **Spec 106 PR A · bloques 0 y 1:** implementación local en `feat/spec-106-multi-vertical` (regresión/fix de renombre, migración 066, helper y pruebas). Typecheck, Vitest focalizado e integraciones de migración, comunicación-bloqueos, comercial, calidad, work, MCP y permisos pasaron con seed descartable. Próximo paso: revisión y PR; después seguir con bloques 2 y 3.
 
 - **Presencia de usuarios (`feat/online-users`, sin PR):** typecheck y 81 pruebas focalizadas pasan; ejecutar `npm run test:presence` en PostgreSQL descartable después de migrar y sembrar, luego CI antes del PR. El userscript 1.8.6 aporta actividad visible de WhatsApp e Instagram.
 
@@ -435,3 +443,34 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 
 - Implementado y probado en PostgreSQL descartable. Falta: PR a `staging`, que el propietario cargue los títulos en producción y recién después la promoción a `main`.
 - Antes de desplegar con materiales activos, cargar los títulos únicos documentados en `decisiones.md`.
+## Spec 107 — negocios vinculados con el mismo vendedor
+
+- PR A/B y PR C (bloques 5 y 6: fusión, ciclo de vida, warning de desactivación, loader y documentación) quedan implementados y validados localmente en esta rama; no se cargaron datos reales. Único pendiente de spec 107: que el operador ejecute el runbook de §14 con aprobación explícita del propietario y respaldo de producción.
+- Si el MCP ya tiene el rol `crm_mcp_reader` creado, aplicar el `GRANT` manual del runbook de la spec.
+
+### Spec 107 PR B · revisión de hallazgos · 06/11/2026
+
+- Segunda pasada: corregidos los hallazgos 1–7. Referral a Leandro conserva el dueño original en guardados sin cambio; reasignación explícita propaga el dueño efectivo. Se fijaron el orden de locks del quick edit, expansión bulk con semillas activas, lectura post-lock al desvincular, conflicto 409 para membresía cambiada y avisos/selecciones UI basados en vendedor efectivo.
+- Regresiones: `scripts/test-commercial.ts` (referral, tarea, grupo, quick edit, bulk con miembro archivado y unlinks secuenciales), `CommercialEditor.forms.spec.tsx` (draft efectivo y name-only save), `BusinessSellerGroupSection.spec.tsx` (igualación y picker con referral) y `sellerGroupNotice.spec.ts` (sin miembros activos). PostgreSQL descartable, nueva semilla por suite: `test:commercial`, `test:permissions` (613 checks), `test:business-reassignment`, `test:user-admin`, `test:work`, `test:pipeline`; `npm run typecheck`; Vitest dirigido a tres archivos (16 pruebas), todo PASS.
+- Próximo paso: revisar cambios y preparar PR a `staging`. El unlink simultáneo no se reprodujo con dos transacciones concurrentes; se probó la secuencia de desvinculación contra el grupo más reciente y se cubrió el singleton final.
+
+### Spec 107 PR B · tercera revisión · 06/11/2026
+
+- Corregida la carrera de `linkAccounts` comparando simétricamente la membresía antes/después del lock y calculando vendedores desde las filas bloqueadas. Los miembros activos sin responsable adoptan el vendedor del grupo; si todos están sin responsable, se debe elegir un vendedor activo. El aviso del editor queda oculto si el negocio actual está archivado, eliminado o fusionado.
+- `unrefer` con un nuevo responsable aplica D4 al grupo activo en orden de lock antes de bloquear la gestión, con journal y tareas de recontacto. Restaurar al dueño original no altera los demás miembros. Unificado `fromEmail` de recontacto con el vendedor efectivo en filas derivadas.
+- Validación con una semilla nueva por integración: `test:commercial`, `test:permissions` (613), `test:pipeline`, `test:business-reassignment`, `test:user-admin`, `test:work`; `npm run typecheck`; cuatro specs focalizados (21), todo PASS. El primer intento de `test:pipeline` reveló dos defectos del fixture; corregidos y repetidos con semilla fresca.
+- Próximo paso: revisar cambios y preparar el PR a `staging`.
+
+### Spec 106 PR B
+
+- Integrados ficha, compatibilidad legacy de insignia, importación y merge con `setAccountClassifications`.
+- La ruta de insignia acepta la lista y `expectedClassifications`; la UI también edita varias verticales. Se cubrieron las regresiones de escritores en los bloques siguientes.
+- Validación ejecutada: typecheck; `accountClassification.spec.ts`; `test-commercial.ts`, `test-data-quality.ts`, `test-business-import.ts`, `test-business-import-api.ts` sobre la DB desechable indicada, reseed antes de cada suite.
+
+### Spec 106 PR C · lectores y filtros
+
+- La lista de Negocios, detalle comercial y MCP leen las clasificaciones completas; los escalares siguen siendo el par de visualización. Los filtros simples/avanzados y las opciones de catálogo aplican D7; las vistas guardadas conservan sus claves existentes y no requieren migración.
+- Ronda 2 de revisión resuelta localmente: listas deduplicadas, MCP overview con bucket null y total distinto, reglas de categoría validadas y cobertura ampliada. Typecheck, Vitest endpoints (162) y suites clasificación/comercial/MCP/permisos/búsqueda pasan con seed fresco. Ver detalle en `docs/estado-desarrollo.md` y `/tmp/.../s106c2-report.md`.
+- Bloques 4 (UI) y 5 (mensajes/material/email/historial) implementados localmente; ver el registro actualizado de bloque 6 al inicio de este documento.
+
+- **Spec 106, bloque 5:** implementado: compatibilidad de plantillas y variables D9, relevancia de material por todas las verticales, `contextVerticals` en CRM y userscript, etiqueta email D10 e historial de pares bajo «Verticales». El próximo paso común de spec 106 está registrado al inicio de este documento.

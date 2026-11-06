@@ -4,7 +4,7 @@ En Negocios → Herramientas adicionales → Importar CSV, seleccionar **Solo ne
 
 Cada alta crea exclusivamente un `crm_accounts`, con condición `prospect`. No crea ventas (`leads`), personas, tareas ni actividades. Sin `asignadoA` queda sin responsable; solo admin puede importar una asignación explícita. No hay etapa de venta hasta crear una propuesta real.
 
-Campos: `nombre`, `ciudad`, `tipo` (vertical activa), `subtipo` (activo para esa vertical), `provincia`, `direccion`, `telefono`, `whatsapp`, `email`, `sitioWeb`, `urlGmap`, `perfilInstagram`, `perfilFacebook`, `perfilAirbnb`, `perfilBooking`, `perfilTurismoEntreRios`, `businessNotes`, `discoverySource`, `verificationUrls`, `verifiedOn`, `asignadoA`.
+Campos: `nombre`, `ciudad`, `tipo` (vertical activa), `subtipo` (activo para esa vertical), `verticales` (hasta 8 pares `Vertical/Subtipo` separados por `;`; se separa vertical y subtipo por la primera `/`, y una vertical sin subtipo se escribe `Vertical`), `provincia`, `direccion`, `telefono`, `whatsapp`, `email`, `sitioWeb`, `urlGmap`, `perfilInstagram`, `perfilFacebook`, `perfilAirbnb`, `perfilBooking`, `perfilTurismoEntreRios`, `businessNotes`, `discoverySource`, `verificationUrls`, `verifiedOn`, `asignadoA`. En `verticales`, un nombre de vertical no puede contener `/` y ningún nombre puede contener `;`. `tipo` y `verticales` no se combinan en la misma fila.
 
 WhatsApp se carga solo cuando el negocio lo identifica explícitamente. `verificationUrls` admite URLs HTTP(S) separadas por espacios o líneas. `verifiedOn` usa AAAA-MM-DD y no admite futuro. Registrar dudas en `businessNotes`; no inferir datos ausentes. Fuente del lote y fuente de descubrimiento individual se conservan por separado.
 

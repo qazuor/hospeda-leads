@@ -89,15 +89,24 @@ export async function handle(request: Request) {
     const includeAssignedUsers=input.assignedUsers.length?input.assignedUsers:(input.assignedUser?[input.assignedUser]:[]);
 
     const applySetFilter=(column:SetFilterColumn,include:string[],exclude:string[],allowBlank=true)=>{
+      const accountArray=input.entity==='business'&&column==='tipo'?'account_tipos':input.entity==='business'&&column==='subtipo'?'account_subtipos':null;
       const includeEmpty=include.includes("__EMPTY__");
       const includeValues=include.filter(x=>x!=="__EMPTY__");
+      const excludeEmpty=exclude.includes("__EMPTY__");
+      const excludeValues=exclude.filter(x=>x!=="__EMPTY__");
+      if(accountArray){
+        const field=column==='tipo'?'tipo':'subtipo';
+        const empty=field==='tipo'?sql<boolean>`NOT EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id)`:sql<boolean>`NOT EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id AND c.subtipo IS NOT NULL)`;
+        if(includeValues.length||includeEmpty)query=query.where(sql<boolean>`(${includeValues.length?sql`EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id AND c.${sql.ref(field)}=ANY(${includeValues}::text[]))`:sql`false`} OR ${includeEmpty?empty:sql`false`})`);
+        if(excludeValues.length)query=query.where(sql<boolean>`NOT EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id AND c.${sql.ref(field)}=ANY(${excludeValues}::text[]))`);
+        if(excludeEmpty)query=query.where(field==='tipo'?sql<boolean>`EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id)`:sql<boolean>`EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id AND c.subtipo IS NOT NULL)`);
+        return;
+      }
       if(includeValues.length||includeEmpty)query=query.where(eb=>eb.or([
         ...(includeValues.length?[eb(column,"in",includeValues)]:[]),
         ...(includeEmpty?[eb(column,"is",null)]:[]),
         ...(includeEmpty&&allowBlank?[eb(column,"=","")]:[])
       ]));
-      const excludeEmpty=exclude.includes("__EMPTY__");
-      const excludeValues=exclude.filter(x=>x!=="__EMPTY__");
       if(excludeValues.length)query=query.where(eb=>eb.or([eb(column,"is",null),eb(column,"not in",excludeValues)]));
       if(excludeEmpty){
         query=query.where(column,"is not",null);
@@ -228,6 +237,16 @@ export async function handle(request: Request) {
           if(isCategoryField(rule.field)){
             // businessStatus only reaches here from the business projection, which does project business_status.
             const field=rule.field as CategoryColumn;
+            const isBusinessClassification=input.entity==='business'&&(field==='tipo'||field==='subtipo');
+            if(isBusinessClassification){
+              const classificationField=field==='tipo'?'tipo':'subtipo';
+              const empty=classificationField==='tipo'?sql<boolean>`NOT EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id)`:sql<boolean>`NOT EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id AND c.subtipo IS NOT NULL)`;
+              if(rule.operator==='empty')return empty;
+              if(rule.operator==='not_empty')return eb.not(empty);
+              if(rule.operator==='eq')return value==='__EMPTY__'?empty:sql<boolean>`EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id AND c.${sql.ref(classificationField)}=${value})`;
+              if(rule.operator==='neq')return value==='__EMPTY__'?eb.not(empty):sql<boolean>`NOT EXISTS(SELECT 1 FROM crm_account_classifications c WHERE c.account_id=leads.account_id AND c.${sql.ref(classificationField)}=${value})`;
+              // Category rule schemas allow only eq/neq/empty/not_empty, so no other operator reaches this branch.
+            }
             const userValues=USER_FILTER_FIELDS.has(rule.field)&&value===CURRENT_USER_FILTER_VALUE?[user.email,user.displayName].filter((item,index,all):item is string=>!!item&&all.indexOf(item)===index):null;
             if(rule.operator==="empty")return eb.or([eb(field,"is",null),eb(field,"=","")]);
             if(rule.operator==="not_empty")return eb.and([eb(field,"is not",null),eb(field,"!=","")]);
@@ -319,13 +338,15 @@ export async function handle(request: Request) {
         row.isClient=account.isClient;
         row.doNotContact=account.doNotContact;
         row.referredToLeandro=account.referredToLeandro;
+        const classified=row as typeof row&{accountTipos:string[];accountSubtipos:string[]};
+        row.accountTipos=classified.accountTipos??[];row.accountSubtipos=classified.accountSubtipos??[];
         row.opportunityValues=Object.fromEntries(["tipo","subtipo","commercialProfile","estado","suscripcion","prioridad","quienCargo","medioContactoPreferido","fechaCreacion","fechaUltimoContacto","fechaProximaAccion","resultadoUltimoContacto","contactName","origen","fuenteReferencia","clientePotencialRecurrente","archivoAdjunto","creadoPor"].map(field=>[field,[...new Set(related.map(o=>{const v=o[field as keyof typeof o];return field==='estado'&&o.managementType?managementLabel(o.managementType,String(v)):v instanceof Date?v.toISOString():v==null?"":String(v)}).filter(Boolean))]]));
-        for(const f of ['tipo','subtipo'] as const)row.opportunityValues[f]=account[f]?[account[f]!]:[];
+        row.opportunityValues.tipo=row.accountTipos;row.opportunityValues.subtipo=row.accountSubtipos;
       }
     }
     const distinct=async(col:"ciudad"|"estado"|"tipo"|"asignadoA"|"suscripcion"|"origen"|"quienCargo"|"medioContactoPreferido"|"creadoPor")=>(await source().select(col).$if(!includeDeleted,q=>q.where("deletedAt","is",null)).where(col,"is not",null).distinct().orderBy(col).execute()).map(x=>x[col]).filter((x):x is string=>!!x);
     const [ciudades,estados,tipos,asignados,suscripciones,origenes,quienesCargaron,mediosContacto,creadosPor,businessStatuses]=input.filterOptions==="include"?await Promise.all([
-      distinct("ciudad"),distinct("estado"),distinct("tipo"),distinct("asignadoA"),distinct("suscripcion"),
+      distinct("ciudad"),distinct("estado"),input.entity==='business'?db.selectFrom('crmAccountClassifications').select('tipo').distinct().where('accountId','in',source().select('accountId').$if(!includeDeleted,q=>q.where('deletedAt','is',null))).orderBy('tipo').execute().then(rows=>rows.map(row=>row.tipo)):distinct("tipo"),distinct("asignadoA"),distinct("suscripcion"),
       distinct("origen"),distinct("quienCargo"),distinct("medioContactoPreferido"),distinct("creadoPor"),
       db.selectFrom('crmAccounts').select('status').distinct().where('status','is not',null).orderBy('status').execute().then(rows=>rows.map(row=>row.status))
     ]):[[],[],[],[],[],[],[],[],[],[]];

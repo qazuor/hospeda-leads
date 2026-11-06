@@ -5,10 +5,11 @@ import {DO_NOT_CONTACT_READ_ONLY} from '../helpers/doNotContactPermission';
 import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import superjson from 'superjson';
-import {sql,type Transaction} from 'kysely';
+import {sql,type Selectable,type Transaction} from 'kysely';
 import {z} from 'zod';
 import {db} from '../helpers/db';
 import type {DB} from '../helpers/schema';
+import type {CrmAccounts} from '../helpers/schema';
 import {getServerUserSession} from '../helpers/getServerUserSession';
 import {NotAuthenticatedError} from '../helpers/getSetServerSession';
 import {setWorkActor} from '../helpers/workAudit';
@@ -17,6 +18,8 @@ import {suggestPriority} from '../helpers/priorityRules';
 import {closeMarksClient,validClosingAgreement} from '../helpers/closingAgreement';
 import {pipelineMutation,priorityRule,type PipelineStage,type PipelineCatalog,type PipelineReason,type PipelineInsight,type PipelineEvent,type PipelineObjection,type ReactivationRow} from './pipeline.schema';
 import {isValidReactivationStage,mayReopenManagement} from '../helpers/reactivation';
+import {expandToSellerGroups,loadSellerGroups,lockSellerGroupAccounts,isActiveSellerGroupMember,groupSellerState,sellerGroupMembershipChanged} from '../helpers/accountSellerGroups';
+import {updateBusinessResponsibleForLockedAccounts} from '../helpers/updateBusinessFields';
 import {day} from './work.schema';
 class Forbidden extends Error {}
 class Conflict extends Error {}
@@ -36,11 +39,11 @@ export async function get(request:Request){
   let insights:PipelineInsight[]=[],events:PipelineEvent[]=[],objections:PipelineObjection[]=[];
   if(ids.length){
    for(const id of ids)await assertLeadAccess(db,id,user);
-   const {rows}=await sql<PipelineInsight&{estado:string|null;classification:string;fechaProximaAccion:Date|null;fechaUltimoContacto:Date|null;estimatedCloseDate:Date|null;managementDeletedAt:Date|null;businessArchivedAt:Date|null;businessDeletedAt:Date|null;businessMergedIntoId:string|null}>`SELECT l.id,l.estado,l.management_type,a.status business_status,a.assigned_user_email account_assigned_user_email,a.referred_to_leandro,a.referred_original_owner_email,l.prioridad manual_priority,l.assigned_user_email,l.stage_since,l.pipeline_revision,a.do_not_contact,coalesce(s.classification,'open') classification,
+   const {rows}=await sql<PipelineInsight&{estado:string|null;classification:string;fechaProximaAccion:Date|null;fechaUltimoContacto:Date|null;estimatedCloseDate:Date|null;managementDeletedAt:Date|null;businessArchivedAt:Date|null;businessDeletedAt:Date|null;businessMergedIntoId:string|null}>`SELECT l.id,l.estado,l.management_type,a.status business_status,a.assigned_user_email account_assigned_user_email,a.referred_to_leandro,a.referred_original_owner_email,CASE WHEN ${user.role==='admin'} AND a.deleted_at IS NULL AND a.archived_at IS NULL AND a.merged_into_id IS NULL THEN coalesce((SELECT json_agg(json_build_object('id',peer.id::text,'name',peer.nombre) ORDER BY peer.id) FROM crm_account_seller_group_members own JOIN crm_account_seller_group_members related ON related.group_id=own.group_id JOIN crm_accounts peer ON peer.id=related.account_id WHERE own.account_id=a.id AND peer.id<>a.id AND peer.deleted_at IS NULL AND peer.archived_at IS NULL AND peer.merged_into_id IS NULL),'[]'::json) ELSE '[]'::json END seller_group_peers,l.prioridad manual_priority,l.assigned_user_email,l.stage_since,l.pipeline_revision,a.do_not_contact,coalesce(s.classification,'open') classification,
     l.deleted_at management_deleted_at,a.archived_at business_archived_at,a.deleted_at business_deleted_at,a.merged_into_id business_merged_into_id,
     EXISTS(SELECT 1 FROM crm_tasks t WHERE t.lead_id=l.id AND t.status='pending' AND t.deleted_at IS NULL) pending_followup,l.fecha_proxima_accion,l.fecha_ultimo_contacto,l.estimated_close_date
     FROM leads l JOIN crm_accounts a ON a.id=l.account_id LEFT JOIN crm_stages s ON s.name=l.estado WHERE l.id IN (${sql.join(ids)}) AND l.deleted_at IS NULL`.execute(db);
-   insights=rows.map(r=>{const {managementDeletedAt,businessArchivedAt,businessDeletedAt,businessMergedIntoId,classification,fechaProximaAccion,fechaUltimoContacto,estimatedCloseDate,...insight}=r;return {...insight,canModify:canModifyManagement(user,{assignedUserEmail:r.assignedUserEmail,deletedAt:managementDeletedAt},{assignedUserEmail:null,archivedAt:businessArchivedAt,deletedAt:businessDeletedAt,mergedIntoId:businessMergedIntoId,doNotContact:r.doNotContact}),suggestion:suggestPriority(rules,{stage:r.estado,classification,pending:r.pendingFollowup,nextDay:fechaProximaAccion?calendarDay(fechaProximaAccion):null,lastContactDay:fechaUltimoContacto?calendarDay(fechaUltimoContacto):null,closeDay:estimatedCloseDate?calendarDay(estimatedCloseDate):null},localDay())}});
+   insights=rows.map(r=>{const {managementDeletedAt,businessArchivedAt,businessDeletedAt,businessMergedIntoId,classification,fechaProximaAccion,fechaUltimoContacto,estimatedCloseDate,sellerGroupPeers,...insight}=r;return {...insight,sellerGroupPeers:typeof sellerGroupPeers==='string'?JSON.parse(sellerGroupPeers):sellerGroupPeers??[],canModify:canModifyManagement(user,{assignedUserEmail:r.assignedUserEmail,deletedAt:managementDeletedAt},{assignedUserEmail:null,archivedAt:businessArchivedAt,deletedAt:businessDeletedAt,mergedIntoId:businessMergedIntoId,doNotContact:r.doNotContact}),suggestion:suggestPriority(rules,{stage:r.estado,classification,pending:r.pendingFollowup,nextDay:fechaProximaAccion?calendarDay(fechaProximaAccion):null,lastContactDay:fechaUltimoContacto?calendarDay(fechaUltimoContacto):null,closeDay:estimatedCloseDate?calendarDay(estimatedCloseDate):null},localDay())}});
    if(p.leadId){
     events=(await sql<PipelineEvent>`SELECT * FROM crm_pipeline_events WHERE lead_id=${p.leadId} ORDER BY id DESC LIMIT 200`.execute(db)).rows.map(e=>({...e,managementReasonId:e.managementReasonId??null,managementNote:e.managementNote??null,recontactDate:e.recontactDate?calendarDay(e.recontactDate):null}));
     objections=(await sql<PipelineObjection>`SELECT * FROM crm_objections WHERE lead_id=${p.leadId} AND deleted_at IS NULL ORDER BY id DESC`.execute(db)).rows;
@@ -103,7 +106,15 @@ export async function post(request:Request){
     return p.accountId;
    }
    const context=await trx.selectFrom('leads').select('accountId').where('id','=',p.leadId).where('deletedAt','is',null).executeTakeFirstOrThrow();
-   const account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',context.accountId).forUpdate().executeTakeFirstOrThrow();
+   let account:Selectable<CrmAccounts>,preGroup:Awaited<ReturnType<typeof loadSellerGroups>>[number]|undefined,groupIds:string[]=[],locked:Selectable<CrmAccounts>[]=[];
+   if(p.action==='unrefer'){
+    const groups=await loadSellerGroups({trx,accountIds:[String(context.accountId)]});preGroup=groups[0];
+    groupIds=preGroup?.members.filter(isActiveSellerGroupMember).map(member=>member.id)??[];
+    const lockIds=preGroup?await expandToSellerGroups({trx,accountIds:[String(context.accountId)]}):[String(context.accountId)];
+    locked=await lockSellerGroupAccounts(trx,lockIds);const found=locked.find(row=>String(row.id)===String(context.accountId));if(!found)throw new Error('El negocio ya no existe.');account=found;
+    const latest=await loadSellerGroups({trx,accountIds:[String(context.accountId)]});
+    if(sellerGroupMembershipChanged(groups,latest))throw new Conflict('El grupo de negocios cambió. Volvé a revisar antes de desactivar la derivación.');
+   }else account=await trx.selectFrom('crmAccounts').selectAll().where('id','=',context.accountId).forUpdate().executeTakeFirstOrThrow();
    const lead=await trx.selectFrom('leads').selectAll().where('id','=',p.leadId).where('deletedAt','is',null).forUpdate().executeTakeFirstOrThrow();
    const typedLead=lead as typeof lead&{managementType:string|null;referredPreviousStage:string|null;referredPreviousAssignedUserEmail:string|null};
    const stateAccount=account as typeof account&{status:string;isClient:boolean;referredToLeandro:boolean;referredOriginalOwnerEmail:string|null};
@@ -234,6 +245,15 @@ export async function post(request:Request){
     if(restoredAccountOwner)await trx.selectFrom('users').select('email').where('email','=',restoredAccountOwner).executeTakeFirstOrThrow();
     const restoredStage=(await sql<PipelineStage>`SELECT * FROM crm_stages WHERE name=${typedLead.referredPreviousStage} AND management_type=${typedLead.managementType} AND active AND classification='open'`.execute(trx)).rows[0];
     if(!restoredStage)throw new Error('La etapa previa ya no está disponible.');
+    // Only an explicit pick of a different owner moves the group (D4). The default restore never does, even when an
+    // inactive original owner normalizes to null: a member without a responsible takes the group's seller anyway.
+    if(p.assignedUserEmail!==undefined&&restoredAccountOwner!==null&&restoredAccountOwner!==stateAccount.referredOriginalOwnerEmail&&preGroup&&groupIds.includes(String(account.id))){
+     const active=locked.filter(isActiveSellerGroupMember);const groupState=groupSellerState({members:active});
+     if(groupState.state==='inconsistent'||groupState.state==='consistent'&&groupState.sellerEmail!==restoredAccountOwner){
+      const groupOwner=groupState.state==='consistent'?groupState.sellerEmail:null;
+      if(groupOwner!==restoredAccountOwner)await updateBusinessResponsibleForLockedAccounts(trx,active,restoredAccountOwner,{email:user.email,displayName:user.displayName,role:user.role});
+     }
+    }
     await sql`SELECT set_config('crm.unrefer_management','true',true)`.execute(trx);
     await sql`UPDATE leads SET estado=${restoredStage.name},assigned_user_email=${restoredManagementOwner},referred_previous_stage=NULL,referred_previous_assigned_user_email=NULL,updated_at=now() WHERE id=${lead.id}`.execute(trx);
     await sql`SELECT set_config('crm.unrefer_management','false',true)`.execute(trx);

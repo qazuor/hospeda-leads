@@ -45,7 +45,8 @@ export const advancedFilterRule=z.object({
   operator:advancedFilterOperator,
   value:z.string().optional(),
   value2:z.string().optional()
-}).refine(rule=>rule.field!=="deletedAt"||["is_true","is_false"].includes(rule.operator),{message:"El filtro de eliminados requiere sí o no"});
+}).refine(rule=>rule.field!=="deletedAt"||["is_true","is_false"].includes(rule.operator),{message:"El filtro de eliminados requiere sí o no"})
+  .refine(rule=>!['tipo','subtipo'].includes(rule.field)||['eq','neq','empty','not_empty'].includes(rule.operator),{message:"Tipo y subtipo solo admiten igualdad y vacío."});
 export const advancedFilterGroup=z.object({
   rules:z.array(advancedFilterRule).min(1).max(20)
 });
@@ -91,7 +92,7 @@ export const schema=z.object({
   anchorAccountId:z.string().regex(/^[0-9]+$/).optional(),alignAnchorPage:z.preprocess(v=>v==='true'?true:v==='false'?false:v,z.boolean()).default(false),
   page:z.coerce.number().int().min(1).default(1),pageSize:z.coerce.number().int().min(10).max(100).default(50)
 });
-export type BusinessTableMetadata={canModify?:boolean;/** Opportunity rows: the business is archived, so the management is read-only for sellers. */accountArchived?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";isClient?:boolean;businessStatus?:"new"|"reviewed"|"in_management"|"no_follow_up_scheduled"|"recontact"|"archived"|null;reviewStatus?:boolean;doNotContact?:boolean;businessRecontactAt?:string|null;referredToLeandro?:boolean;whatsapp?:string|null;contactPhone?:string|null;contactEmail?:string|null;opportunityValues?:Record<string,string[]>};
+export type BusinessTableMetadata={accountTipos?:string[];accountSubtipos?:string[];canModify?:boolean;/** Opportunity rows: the business is archived, so the management is read-only for sellers. */accountArchived?:boolean;canModifyManagement?:boolean;nextActionTitle?:string|null;opportunityId?:string|null;opportunityCount?:number;contactCount?:number;commercialStatus?:"prospect"|"client";isClient?:boolean;businessStatus?:"new"|"reviewed"|"in_management"|"no_follow_up_scheduled"|"recontact"|"archived"|null;reviewStatus?:boolean;doNotContact?:boolean;businessRecontactAt?:string|null;referredToLeandro?:boolean;whatsapp?:string|null;contactPhone?:string|null;contactEmail?:string|null;opportunityValues?:Record<string,string[]>};
 export type OutputType={rows:(Selectable<Leads>&BusinessTableMetadata)[];total:number;page:number;pageSize:number;anchorPage?:number;boardTotals?:{open:number;won:number;lost:number;total:number;groups:{estado:string|null;managementType:string|null;count:number}[]};truncated?:boolean;filters:{
   ciudades:string[];estados:string[];tipos:string[];businessStatuses:string[];asignados:string[];
   suscripciones:string[];origenes:string[];quienesCargaron:string[];mediosContacto:string[];creadosPor:string[];

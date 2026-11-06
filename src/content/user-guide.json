@@ -194,7 +194,7 @@
         "title": "Vertical, perfil, prioridad y otros datos",
         "when": "Cuando ves campos que no sabés cómo completar.",
         "steps": [
-          "Vertical indica el rubro del negocio; Subtipo lo describe con más detalle. Usá las opciones del equipo y completá solo lo que conozcas.",
+          "Un negocio puede tener varias verticales y un subtipo por cada una. Editalas desde la ficha, al crear un negocio con «Crear negocio» o tocando el badge de Vertical en la lista o en una tarjeta. En la ficha y al crear un negocio, usá «Agregar otra vertical» cuando ofrezca más de un servicio. En una gestión nueva con varias verticales, elegí sobre cuál vas a trabajar. Usá las opciones del equipo y completá solo lo que conozcas.",
           "Perfil comercial ayuda a elegir mensajes modelo adecuados. No es la Etapa de la gestión ni la diferencia entre cliente y potencial cliente.",
           "Prioridad indica qué merece atención antes. La aplicación puede mostrar una prioridad sugerida y explicar por qué; no reemplaza la prioridad que elegís vos.",
           "Origen y Fuente de referencia explican de dónde salió el dato. Guardá la fuente real, no una suposición.",
@@ -212,8 +212,7 @@
         "linkLabel": "",
         "uiLabels": [
           "Anotar lo que pasó",
-          "Agendar tarea"
-        ]
+          "Agendar tarea", "Crear negocio", "Agregar otra vertical"]
       },
       {
         "id": "screens",
@@ -1711,7 +1710,7 @@
           "La línea «Conexión» de «En este navegador» dice si el script está conectado con tu cuenta: tiene que decir «Conectado» para escribir por WhatsApp o Instagram desde la computadora. Si dice otra cosa, seguí lo que indica o tocá «Verificar de nuevo». Desde la versión 1.8.0 el CRM pide esa versión del script.",
           "Desde la versión 1.8.0, al tocar «Pegar en el chat» con un único material que sea un archivo de hasta 50 MB, WhatsApp Web muestra la vista previa del archivo y el texto del mensaje como descripción. Revisá el destinatario, el archivo y el texto, y tocá Enviar vos: el script nunca envía. JPG, PNG y WebP se preparan como foto; los demás archivos, como documento.",
           "Si el mensaje tiene varios materiales, el material es un enlace externo o el archivo supera 50 MB, se pega solo el texto con el enlace y aparece un aviso. Si falla la descarga, podés elegir «Pegar solo con el enlace». Si descartás la vista previa, WhatsApp deja el texto con el enlace en la caja de mensaje: podés enviarlo así o borrarlo.",
-          "En la lista de materiales, los que son de otras verticales quedan plegados en «De otras verticales»; tocá para desplegarlos. Si no hay materiales de la vertical del negocio ni de todas las verticales, la lista se muestra completa.",
+          "En la lista de materiales, los que no coinciden con ninguna vertical del negocio quedan plegados en «De otras verticales»; tocá para desplegarlos. Los materiales que coinciden con cualquiera de sus verticales aparecen como propios. Si no hay materiales aplicables, la lista se muestra completa.",
           "Un administrador puede activar o desactivar «Adjuntar archivos desde el script» en «Configuración». Si está apagado, WhatsApp Web recibe solo el texto con el enlace."
         ],
         "url": "/userscript",

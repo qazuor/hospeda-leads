@@ -15,4 +15,7 @@ describe('audit changes',()=>{
   expect(auditChanges({origin:'direct',before:{status:'new'},after:{status:'reviewed'}})).toEqual(['Origen: Cambio directo','Estado del negocio: new → reviewed']);
   expect(auditChanges({origin:'automatic',cause:'management_change',before:{status:'in_management'},after:{status:'no_follow_up_scheduled'}})).toEqual(['Origen: Automático · derivado de un cambio en la gestión','Estado del negocio: in_management → no_follow_up_scheduled']);
  });
+ it('formats classification history as readable vertical/subtype pairs',()=>{
+  expect(auditChanges({before:[{tipo:'Alojamiento',subtipo:'Hotel'}],after:[{tipo:'Alojamiento',subtipo:'Hotel'},{tipo:'Gastronomía',subtipo:'Restaurante'}]})).toEqual(['Verticales: Alojamiento/Hotel → Alojamiento/Hotel, Gastronomía/Restaurante']);
+ });
 });

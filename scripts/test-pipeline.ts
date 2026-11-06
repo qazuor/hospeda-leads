@@ -23,6 +23,40 @@ try{
  const a=await db.insertInto('crmAccounts').values({nombre:'Pipeline fixtures '+stamp,assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();accountId=a.id;
  const l=await db.insertInto('leads').values({nombre:a.nombre,accountId:a.id,estado:'Cargado',tipo:'Alojamiento',prioridad:'baja',assignedUserEmail:user.user.email,opportunityName:'Plan inicial'}).returningAll().executeTakeFirstOrThrow();
  const lead=()=>db.selectFrom('leads').selectAll().where('id','=',l.id).executeTakeFirstOrThrow();
+ // Spec 107 D4: unrefer to a chosen owner propagates across active group members.
+ {
+  const leandros=(await sql<{email:string}>`SELECT email FROM users WHERE lower(trim(display_name))='leandro' OR lower(trim(coalesce(full_name,'')))='leandro' OR lower(split_part(email,'@',1))='leandro' ORDER BY email`.execute(db)).rows;
+  if(!leandros.length)await db.insertInto('users').values({email:`pipeline-leandro-${stamp}@example.com`,displayName:'Leandro',role:'user'}).execute();
+  else for(const extra of leandros.slice(1))await sql`UPDATE users SET display_name=${'Pipeline extra '+stamp},full_name=${'Pipeline extra '+stamp} WHERE email=${extra.email}`.execute(db);
+  const owner=await db.insertInto('crmAccounts').values({nombre:bulkPrefix+' unrefer owner',status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const peer=await db.insertInto('crmAccounts').values({nombre:bulkPrefix+' unrefer peer',status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const group=await db.insertInto('crmAccountSellerGroups').values({createdBy:admin.user.email}).returning('id').executeTakeFirstOrThrow();
+  await db.insertInto('crmAccountSellerGroupMembers').values([{groupId:group.id,accountId:owner.id,addedBy:admin.user.email},{groupId:group.id,accountId:peer.id,addedBy:admin.user.email}]).execute();
+  const referral=await db.insertInto('leads').values({nombre:owner.nombre,accountId:owner.id,estado:'main:contact',managementType:'main',assignedUserEmail:user.user.email,opportunityName:'Group unrefer'}).returningAll().executeTakeFirstOrThrow();
+  await mutate({action:'transition',leadId:String(referral.id),revision:referral.pipelineRevision,stage:'main:leandro'},user.cookie);
+  const referred=await db.selectFrom('leads').select('pipelineRevision').where('id','=',referral.id).executeTakeFirstOrThrow();
+  await mutate({action:'unrefer',leadId:String(referral.id),revision:referred.pipelineRevision,assignedUserEmail:admin.user.email},admin.cookie);
+  assert.equal((await db.selectFrom('crmAccounts').select('assignedUserEmail').where('id','=',peer.id).executeTakeFirstOrThrow()).assignedUserEmail,admin.user.email,'Chosen unrefer owner moves the active linked business');
+  assert.equal(await db.selectFrom('crmCommercialJournal').select('id').where('accountId','=',peer.id).where('action','=','account_updated').execute().then(rows=>rows.length),1,'Group peer reassignment is journaled');
+  const originalOwner=await db.insertInto('crmAccounts').values({nombre:bulkPrefix+' original owner',status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const inconsistentPeer=await db.insertInto('crmAccounts').values({nombre:bulkPrefix+' original peer',status:'reviewed',assignedUserEmail:admin.user.email}).returningAll().executeTakeFirstOrThrow();
+  const secondGroup=await db.insertInto('crmAccountSellerGroups').values({createdBy:admin.user.email}).returning('id').executeTakeFirstOrThrow();await db.insertInto('crmAccountSellerGroupMembers').values([{groupId:secondGroup.id,accountId:originalOwner.id,addedBy:admin.user.email},{groupId:secondGroup.id,accountId:inconsistentPeer.id,addedBy:admin.user.email}]).execute();
+  const secondLead=await db.insertInto('leads').values({nombre:originalOwner.nombre,accountId:originalOwner.id,estado:'main:contact',managementType:'main',assignedUserEmail:user.user.email,opportunityName:'Original owner unrefer'}).returningAll().executeTakeFirstOrThrow();
+  await mutate({action:'transition',leadId:String(secondLead.id),revision:secondLead.pipelineRevision,stage:'main:leandro'},user.cookie);const secondReferred=await db.selectFrom('leads').select('pipelineRevision').where('id','=',secondLead.id).executeTakeFirstOrThrow();
+  await mutate({action:'unrefer',leadId:String(secondLead.id),revision:secondReferred.pipelineRevision},admin.cookie);
+  assert.equal((await db.selectFrom('crmAccounts').select('assignedUserEmail').where('id','=',inconsistentPeer.id).executeTakeFirstOrThrow()).assignedUserEmail,admin.user.email,'Restoring the original owner does not rewrite the group peer');
+  // Regression: an inactive original owner normalizes to null on the default restore; it must never clear the group.
+  const goneEmail=`pipeline-gone-${stamp}@example.com`;await db.insertInto('users').values({email:goneEmail,displayName:'Pipeline gone '+stamp,role:'user',deactivatedAt:new Date()}).execute();
+  const goneOwner=await db.insertInto('crmAccounts').values({nombre:bulkPrefix+' gone owner',status:'reviewed',assignedUserEmail:user.user.email}).returningAll().executeTakeFirstOrThrow();
+  const gonePeer=await db.insertInto('crmAccounts').values({nombre:bulkPrefix+' gone peer',status:'reviewed',assignedUserEmail:admin.user.email}).returningAll().executeTakeFirstOrThrow();
+  const goneGroup=await db.insertInto('crmAccountSellerGroups').values({createdBy:admin.user.email}).returning('id').executeTakeFirstOrThrow();await db.insertInto('crmAccountSellerGroupMembers').values([{groupId:goneGroup.id,accountId:goneOwner.id,addedBy:admin.user.email},{groupId:goneGroup.id,accountId:gonePeer.id,addedBy:admin.user.email}]).execute();
+  const goneLead=await db.insertInto('leads').values({nombre:goneOwner.nombre,accountId:goneOwner.id,estado:'main:contact',managementType:'main',assignedUserEmail:user.user.email,opportunityName:'Inactive owner unrefer'}).returningAll().executeTakeFirstOrThrow();
+  await mutate({action:'transition',leadId:String(goneLead.id),revision:goneLead.pipelineRevision,stage:'main:leandro'},user.cookie);
+  await sql`UPDATE crm_accounts SET referred_original_owner_email=${goneEmail} WHERE id=${goneOwner.id}`.execute(db);
+  const goneReferred=await db.selectFrom('leads').select('pipelineRevision').where('id','=',goneLead.id).executeTakeFirstOrThrow();
+  await mutate({action:'unrefer',leadId:String(goneLead.id),revision:goneReferred.pipelineRevision},admin.cookie);
+  assert.equal((await db.selectFrom('crmAccounts').select('assignedUserEmail').where('id','=',gonePeer.id).executeTakeFirstOrThrow()).assignedUserEmail,admin.user.email,'Default restore with an inactive original owner keeps the group peer seller');
+ }
  const d=await read('leadId='+l.id);const reason=d.lossReasons.find(r=>r.active)!;
  await mutate({action:'stage_save',name:'Etapa test '+stamp,sortOrder:5,active:true,classification:'open'},user.cookie,403);
  await mutate({action:'rules_save',rules:d.rules},user.cookie,403);

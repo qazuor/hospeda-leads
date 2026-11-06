@@ -151,8 +151,10 @@ export function resolveMessageVariables(context: Record<string, unknown>, defini
     resolved.add(key);
     const matches = variable.alternatives.flatMap((alternative, index) => {
       const c = alternative.conditions;
-      if (c.verticals?.length && !c.verticals.some(vertical=>canonicalVertical(vertical)===canonicalVertical(String(fullContext.type??"")))) return [];
-      if (c.businessType && c.businessType !== String(fullContext.subtype ?? "")) return [];
+      const contextVerticals=Array.isArray(fullContext.verticals)?fullContext.verticals.map(String):fullContext.type?[String(fullContext.type)]:[];
+      const contextSubtypes=Array.isArray(fullContext.subtypes)?fullContext.subtypes.map(String):fullContext.subtype?[String(fullContext.subtype)]:[];
+      if (c.verticals?.length && !c.verticals.some(vertical=>contextVerticals.some((item:string)=>canonicalVertical(vertical)===canonicalVertical(item)))) return [];
+      if (c.businessType && !contextSubtypes.includes(c.businessType)) return [];
       if (c.managementType && c.managementType !== String(fullContext.managementType ?? "")) return [];
       if (c.dayPeriod && c.dayPeriod !== system.__dayPeriod) return [];
       if (c.channel && c.channel !== String(fullContext.channel ?? "")) return [];

@@ -45,6 +45,11 @@ await sql.begin(async tx=>{
     VALUES('Negocio de prueba','Alojamiento','Concepción del Uruguay','lead@example.com','admin@example.com')
     RETURNING id
   `;
+  // Keep the business classifications consistent with the display copy (spec 106).
+  await tx`
+    INSERT INTO crm_account_classifications(account_id,tipo,subtipo)
+    VALUES(${business.id},'Alojamiento',NULL)
+  `;
   await tx`
     INSERT INTO leads(account_id,nombre,opportunity_name,tipo,ciudad,estado,email,commercial_profile,assigned_user_email)
     VALUES(${business.id},'Negocio de prueba','Gestión de prueba','Alojamiento','Concepción del Uruguay','Cargado','lead@example.com','Independiente','admin@example.com')

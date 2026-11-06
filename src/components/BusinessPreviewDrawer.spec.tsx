@@ -27,9 +27,9 @@ beforeAll(() => {
 beforeEach(() => { getDetail.mockReset(); auth.user = { id: 3, email: 'owner@example.com', role: 'user' }; });
 afterEach(cleanup);
 
-function renderDrawer(client = new QueryClient({ defaultOptions: { queries: { retry: false } } }), onOpenRecord: (row: BusinessPreviewRow) => void = () => {}) {
+function renderDrawer(client = new QueryClient({ defaultOptions: { queries: { retry: false } } }), onOpenRecord: (row: BusinessPreviewRow) => void = () => {}, previewRow:BusinessPreviewRow=row) {
   render(<MantineProvider><QueryClientProvider client={client}><MemoryRouter initialEntries={['/accounts']}><Routes>
-    <Route path="/accounts" element={<BusinessPreviewDrawer row={row} opened onClose={() => {}} onOpenRecord={onOpenRecord} returnFocusTo={null} users={[{ email: 'owner@example.com', displayName: 'Ana Pérez' }]}/>}/>
+    <Route path="/accounts" element={<BusinessPreviewDrawer row={previewRow} opened onClose={() => {}} onOpenRecord={onOpenRecord} returnFocusTo={null} users={[{ email: 'owner@example.com', displayName: 'Ana Pérez' }]}/>}/>
     <Route path="/accounts/:id" element={<p>business record</p>}/>
   </Routes></MemoryRouter></QueryClientProvider></MantineProvider>);
   return client;
@@ -60,6 +60,13 @@ describe('BusinessPreviewDrawer', () => {
     await screen.findByText('H7');
     expect(client.getQueryData(['commercial-detail', '7'])).toBeTruthy();
     expect(getDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows every vertical and subtype from the list row in Rubro',async()=>{
+    getDetail.mockResolvedValue(detail());
+    renderDrawer(undefined,()=>{},{...row,accountTipos:['Hotel','Gastronomía'],accountSubtipos:['Hotel boutique','Restaurante']});
+    await screen.findByText('H7');
+    for(const label of ['Hotel','Gastronomía','Hotel boutique','Restaurante'])expect(screen.getByText(label)).toBeTruthy();
   });
 
   it('offers Reintentar after an error and fetches again', async () => {

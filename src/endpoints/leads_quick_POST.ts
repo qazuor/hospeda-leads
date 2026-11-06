@@ -6,8 +6,9 @@ import superjson from "superjson";
 import { db } from "../helpers/db";
 import { getServerUserSession } from "../helpers/getServerUserSession";
 import { schema, type OutputType } from "./leads_quick_POST.schema";
-import { updateBusinessFields } from "../helpers/updateBusinessFields";
+import { BusinessFieldsConflict, updateBusinessFields } from "../helpers/updateBusinessFields";
 import { writeLeadJournal } from "../helpers/writeLeadJournal";
+import {setAccountClassifications,type AccountClassification} from '../helpers/accountClassification';
 import {errorResponse} from '../helpers/errorResponse';
 import {parseBody} from '../helpers/parseBody';
 
@@ -45,15 +46,22 @@ export async function handle(request: Request) {
         return;
       }
       if(input.scope==='business'&&(!input.accountId||!isInlineBadgeField(input.field)||inlineBadgeFields[input.field].scope!=='business'))throw new Error('Elegí un dato del negocio.');
+      if(input.classifications!==undefined){
+        if(!input.accountId||!['tipo','subtipo'].includes(input.field))throw new Error('Elegí un dato del negocio.');
+        if(input.expectedClassifications===undefined)throw new Error('Recargá la clasificación antes de editarla.');
+        const account=await assertBusinessAccess(trx,input.accountId,user,true);
+        const current=await trx.selectFrom('crmAccountClassifications').select(['tipo','subtipo']).where('accountId','=',input.accountId).orderBy('id').execute();
+        const same=(a:readonly AccountClassification[],b:readonly AccountClassification[])=>JSON.stringify([...a].sort((x,y)=>JSON.stringify(x).localeCompare(JSON.stringify(y))))===JSON.stringify([...b].sort((x,y)=>JSON.stringify(x).localeCompare(JSON.stringify(y))));
+        if(input.expectedClassifications&&!same(current,input.expectedClassifications)&&!same(current,input.classifications))throw new InlineConflict('La clasificación cambió mientras la editabas. Recargá los datos y revisá el nuevo valor.');
+        if(same(current,input.classifications))return;
+        await setAccountClassifications({trx,accountId:input.accountId,pairs:input.classifications,actor:user,reason:'inline_badge'});return;
+      }
       if(input.accountId){
-        if(input.field==='assignedUserEmail'){
-          const old=await trx.selectFrom('crmAccounts').select('assignedUserEmail').where('id','=',input.accountId).forUpdate().executeTakeFirstOrThrow();
-          await assertActiveAssignee(trx,{next:input.value,previous:old.assignedUserEmail});
-        }
         const fields=input.field==="ciudad"?{ciudad:input.value}:input.field==="assignedUserEmail"?{assignedUserEmail:input.value}:input.field==="tipo"?{tipo:input.value,subtipo:null}:input.field==="subtipo"?{subtipo:input.value}:{};
         if(Object.keys(fields).length&&(input.expectedValue!==undefined||input.field==="tipo"||input.field==="subtipo")){
-          const account=await assertBusinessAccess(trx,input.accountId,user,true);
-          const current=account[input.field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo'];
+          const orderedResponsibleLock=input.field==='assignedUserEmail';
+          const account=await assertBusinessAccess(trx,input.accountId,user,true,!orderedResponsibleLock);
+          const current=input.field==='assignedUserEmail'&&account.referredToLeandro?account.referredOriginalOwnerEmail:account[input.field as 'ciudad'|'assignedUserEmail'|'tipo'|'subtipo'];
           if(input.field==='tipo'||input.field==='subtipo'){
             const expected=input.expectedClassification;
             if(!expected)throw new Error('Recargá la clasificación antes de editarla.');
@@ -62,7 +70,7 @@ export async function handle(request: Request) {
           }
           if(input.expectedValue!==undefined&&current!==input.expectedValue&&current!==input.value)throw new InlineConflict("Este dato cambió mientras lo editabas. Recargá los datos y revisá el nuevo valor.");
         }
-        await updateBusinessFields(trx,[input.accountId],fields,user);
+        await updateBusinessFields(trx,[input.accountId],fields,user,input.field==='assignedUserEmail'?input.expectedValue:undefined);
         if(Object.keys(fields).length)return;
         const opportunities=await trx.selectFrom("leads").select("id").where("accountId","=",input.accountId).where("deletedAt","is",null).execute();
         if(opportunities.length!==1||String(opportunities[0].id)!==String(input.id))throw new Error("Abrí el negocio y elegí la gestión que querés modificar.");
@@ -87,6 +95,6 @@ export async function handle(request: Request) {
     });
     return new Response(superjson.stringify({ok:true} satisfies OutputType));
   } catch(error) {
-    return errorResponse(error,error instanceof CrmForbidden?403:error instanceof InlineConflict?409:400);
+    return errorResponse(error,error instanceof CrmForbidden?403:error instanceof InlineConflict||error instanceof BusinessFieldsConflict?409:400);
   }
 }

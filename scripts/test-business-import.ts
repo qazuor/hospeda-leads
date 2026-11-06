@@ -25,6 +25,7 @@ async function counts(){return Promise.all((['leads','crmContacts','crmTasks','c
 try{
  await db.insertInto('crmVerticals').values({name:'Gastronomía test '+stamp,active:true}).execute();
  const tipo='Gastronomía test '+stamp,subtipo='Restaurante test '+stamp;
+ const tipoC='Alojamiento test '+stamp;await db.insertInto('crmVerticals').values({name:tipoC,active:true}).execute();
  await db.insertInto('crmSubtypes').values({name:subtipo,typeName:tipo,active:true}).execute();
  const before=await counts();
  const rows=[{nombre:'Negocio gastronómico '+stamp,ciudad:'Colón',tipo,subtipo,provincia:'Entre Ríos',direccion:'Calle pública '+stamp,whatsapp:'+54344'+String(stamp).slice(-7),discoverySource:'Sitio oficial',verificationUrls:'https://example.com/menu\nhttps://example.com/local',verifiedOn:'2026-01-01',businessNotes:'Dirección verificada; no se identificó persona.'}];
@@ -38,15 +39,29 @@ try{
  const saved=superjson.parse<CommercialDetail>(await response.text());
  for(const field of ['tipo','subtipo','direccion','whatsapp','discoverySource','verificationUrls','verifiedOn','businessNotes'] as const)assert.equal(saved.account[field],rows[0][field]);
  assert.equal(saved.account.commercialStatus,'prospect');assert.equal(saved.account.assignedUserEmail,null);assert.equal(saved.opportunities.length,0);assert.equal(saved.contacts.length,0);
+ const evidenceRows=await db.selectFrom('crmDataEvidence').select('field').where('accountId','=',accountId).where('batchId','=',preview.batchId).execute();assert(evidenceRows.some(row=>row.field==='tipo'&&tipo)&&evidenceRows.some(row=>row.field==='subtipo'&&subtipo));assert(!evidenceRows.some(row=>row.field==='verticales'));
  assert.deepEqual(await call<ImportResult>(quality,body),result);assert.deepEqual(await counts(),before);
  const retry=await call<ImportReview>(quality,{action:'import_preview',mode:'business',rows,source:'Otra fuente'});assert.equal(retry.batchId,preview.batchId);assert.equal(retry.status,'completed');
  const listResponse=await listing(new Request('http://localhost/_api/leads?entity=business&tipo='+encodeURIComponent(tipo),{headers:{cookie:admin.cookie}}));
  const list=superjson.parse<{rows:Array<{accountId:string;tipo:string;subtipo:string;opportunityCount:number}>}>(await listResponse.text());
  assert(list.rows.some(r=>r.accountId===accountId&&r.tipo===tipo&&r.subtipo===subtipo&&r.opportunityCount===0));
  const duplicate=await call<ImportReview>(quality,{action:'import_preview',mode:'business',rows:[{...rows[0],businessNotes:'Otra nota'}],source:'Duplicado'});assert(duplicate.rows[0].matches.some(m=>m.id===accountId));
+ const verticalText=`${tipo}/${subtipo}; ${tipoC}`,listPreview=await call<ImportReview>(quality,{action:'import_preview',mode:'business',rows:[{nombre:'Verticales archivo '+stamp,ciudad:'Colón',verticales:verticalText}],source:'CSV verticales'});assert.deepEqual(listPreview.rows[0].errors,[]);assert.equal(listPreview.rows[0].values.verticales,verticalText,JSON.stringify(listPreview.rows[0].values));
+ const listResult=await call<ImportResult>(quality,{action:'import_confirm',batchId:listPreview.batchId,decisions:[{index:0,action:'create'}],confirm:true});assert.equal(listResult.imported,1,JSON.stringify(listResult));const listId=listResult.details[0]!.accountId!;assert(listId,JSON.stringify(listResult));
+ const importedClasses=await db.selectFrom('crmAccountClassifications').select(['accountId','tipo','subtipo']).where('accountId','=',listId).orderBy('id').execute();assert.deepEqual(importedClasses.map(({tipo,subtipo})=>({tipo,subtipo})),[{tipo,subtipo},{tipo:tipoC,subtipo:null}],`account ${listId}: ${JSON.stringify(importedClasses)}`);
+ const append=await call<ImportReview>(quality,{action:'import_preview',mode:'business',rows:[{nombre:'Verticales archivo '+stamp,ciudad:'Colón',verticales:tipoC}],source:'CSV append'}),target=append.rows[0]!.matches.find(match=>match.id===listId)!;
+ await call<ImportResult>(quality,{action:'import_confirm',batchId:append.batchId,decisions:[{index:0,action:'update',targetId:listId,revision:target.revision,acknowledge:true}],confirm:true});
+ assert.equal(await db.selectFrom('crmAccountClassifications').select('id').where('accountId','=',listId).execute().then(saved=>saved.length),2,'Import update appends without removing current pairs');
+ const extraTypes=Array.from({length:4},(_,i)=>`Append existing ${i} ${stamp}`);await db.insertInto('crmVerticals').values(extraTypes.map(name=>({name,active:true}))).execute();
+ await db.insertInto('crmAccountClassifications').values(extraTypes.map(tipo=>({accountId:listId,tipo,subtipo:null,createdBy:admin.u.email}))).execute();
+ const sixTypes=[tipo,tipoC,...extraTypes],repeatSix=await call<ImportReview>(quality,{action:'import_preview',mode:'business',rows:[{nombre:'Verticales archivo '+stamp,ciudad:'Colón',verticales:sixTypes.join(';')}],source:'CSV existing six'}),sixMatch=repeatSix.rows[0]!.matches.find(match=>match.id===listId)!;
+ await call<ImportResult>(quality,{action:'import_confirm',batchId:repeatSix.batchId,decisions:[{index:0,action:'update',targetId:listId,revision:sixMatch.revision,acknowledge:true}],confirm:true});assert.equal(await db.selectFrom('crmAccountClassifications').select('id').where('accountId','=',listId).execute().then(saved=>saved.length),6,'Importing existing pairs on a six-pair business stays within the normalized limit');
+ const invalidPair=await call<ImportReview>(quality,{action:'import_preview',mode:'business',rows:[{nombre:'Vertical inválida '+stamp,verticales:`${tipo}/No existe`}],source:'CSV invalid vertical'});assert(invalidPair.rows[0]!.errors.some(error=>error.includes('Subtipo no disponible')));
  const invalid=await call<ImportReview>(quality,{action:'import_preview',mode:'business',rows:[{nombre:'No válido '+stamp,tipo,subtipo:'inventado'},{nombre:'Sin ventas '+stamp,estado:'Cargado',notas:'Nota de venta'}],source:'Validación'});
- assert(invalid.rows.every(r=>r.errors.length));
+ assert(invalid.rows.every(r=>r.errors.length),JSON.stringify(invalid.rows));
+ const beforeInvalidConfirm=await db.selectFrom('crmAccounts').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow();
  await call(quality,{action:'import_confirm',batchId:invalid.batchId,decisions:[{index:0,action:'create'},{index:1,action:'skip'}],confirm:true},400);
+ assert.equal((await db.selectFrom('crmAccounts').select(eb=>eb.fn.countAll().as('n')).executeTakeFirstOrThrow()).n,beforeInvalidConfirm.n,'Rejected import leaves account rows unchanged');
  await call(quality,{action:'import_preview',mode:'business',rows:[{nombre:'Responsable',asignadoA:admin.u.email}],source:'Permiso'},403,user.cookie);
  // Editing new classification must not alter the independent opportunity classification.
  const lead=await db.insertInto('leads').values({nombre:saved.account.nombre,accountId,tipo:'Alojamientos',estado:'Cargado'}).returningAll().executeTakeFirstOrThrow();
