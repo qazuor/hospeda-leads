@@ -435,3 +435,7 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 
 - Implementado y probado en PostgreSQL descartable. Falta: PR a `staging`, que el propietario cargue los títulos en producción y recién después la promoción a `main`.
 - Antes de desplegar con materiales activos, cargar los títulos únicos documentados en `decisiones.md`.
+## Spec 107 — negocios vinculados con el mismo vendedor
+
+- PR A (migración 064, lecturas y redistribución por grupos) en PR a `staging`. Siguen los bloques 2 (vincular/desvincular desde la ficha), 3 (reasignación manual que mueve el grupo), 5 (desactivar usuario, fusión, Papelera) y 6 (runbook de los 5 pares existentes, con aprobación del propietario).
+- Si el MCP ya tiene el rol `crm_mcp_reader` creado, aplicar el `GRANT` manual del runbook de la spec.

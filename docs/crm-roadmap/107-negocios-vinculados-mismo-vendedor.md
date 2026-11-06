@@ -1,6 +1,6 @@
 # Spec 107 — Negocios vinculados con el mismo vendedor
 
-Estado: **aprobada por el propietario** (06/11/2026; recomendaciones aceptadas en D1 a D6). Origen: la deduplicación de producción del 05 y 06/11/2026. Algunos negocios son del mismo dueño pero **no son el mismo negocio** (no se fusionan) y el propietario quiere que **siempre tengan el mismo vendedor**. Hoy eso vive solo en una nota de texto («Mismo dueño que #X: siempre con el mismo vendedor») que ningún proceso lee. Tipo: concepto nuevo de datos (grupo de negocios con vendedor compartido) y su cumplimiento en todos los caminos que cambian el responsable del negocio. Migración: **065** (tentativa; ver sección 18). Relacionada: [spec 106](106-negocio-con-varias-verticales.md) (varias verticales por negocio). **Esta spec no depende de la 106** y se puede implementar antes o después.
+Estado: **aprobada por el propietario** (06/11/2026; recomendaciones aceptadas en D1 a D6). Origen: la deduplicación de producción del 05 y 06/11/2026. Algunos negocios son del mismo dueño pero **no son el mismo negocio** (no se fusionan) y el propietario quiere que **siempre tengan el mismo vendedor**. Hoy eso vive solo en una nota de texto («Mismo dueño que #X: siempre con el mismo vendedor») que ningún proceso lee. Tipo: concepto nuevo de datos (grupo de negocios con vendedor compartido) y su cumplimiento en todos los caminos que cambian el responsable del negocio. Migración: **064**. Relacionada: [spec 106](106-negocio-con-varias-verticales.md) (varias verticales por negocio). **Esta spec no depende de la 106** y se puede implementar antes o después.
 
 Respeta `AGENTS.md` (negocio, persona y gestión son entidades distintas; permisos en el servidor; nada escribe datos de producción; migraciones inmutables) y `docs/decisiones.md` (línea 157: compartir domicilio, teléfono o propietario **no** confirma identidad entre registros, por eso esto es un vínculo y no una fusión; línea 158: no fusionar, reclasificar ni reasignar por iniciativa de una auditoría; línea 397: siempre el camino más simple para el vendedor; línea 466: al desactivar un usuario sus negocios activos se reasignan a quien elige el administrador).
 
@@ -70,7 +70,7 @@ Mueve todos los negocios activos no archivados del usuario al mismo receptor (`s
 
 | Bloque | Qué | Necesita decisión | Migración |
 | --- | --- | --- | --- |
-| 1 | Tablas de grupo, helper de vendedor, lecturas en la ficha y MCP | D1 | **065** |
+| 1 | Tablas de grupo, helper de vendedor, lecturas en la ficha y MCP | D1 | **064** |
 | 2 | Vincular y desvincular desde la ficha | D2, D3 | No |
 | 3 | Reasignación manual, masiva y en línea respeta el grupo | D4 | No |
 | 4 | Redistribución por grupos + tests unitarios e integración | — | No |
@@ -81,7 +81,9 @@ Orden: 1 → 2 → (3, 4, 5 en paralelo) → 6. Los tests unitarios de la redist
 
 ## 5. Modelo de datos (bloque 1)
 
-### 5.1 Migración 065
+### 5.1 Migración 064
+
+Esta spec usa la migración 064; spec 106 toma la 065.
 
 ```sql
 CREATE TABLE crm_account_seller_groups (
@@ -207,12 +209,13 @@ Antes de tocar el greedy: `src/helpers/businessReassignment.spec.ts` (nuevo) fij
 - Ver el grupo: quien puede leer el negocio; los miembros que el vendedor no puede leer se muestran como «H184 · negocio de otro vendedor» sin datos (la lectura de un negocio no da nada más, `AGENTS.md`). Con la regla de grupo eso solo pasa en grupos inconsistentes.
 - Contratos **aditivos**: `account_link`, `account_unlink`, `sellerGroup` en la ficha, `groups` y `groupId` en el plan, `linked` en la vista previa masiva.
 - MCP: `GRANT SELECT` sobre las dos tablas en `scripts/provision-mcp-reader.mjs:19` y `scripts/test-mcp.ts:26`; `crm_get_business` suma `negocios_vinculados: [{id,nombre}]` (`src/server/mcp/data.ts`). El MCP no está habilitado en producción.
+- Si `crm_mcp_reader` ya estaba provisionado cuando se agregaron estas tablas, ejecutar una vez: `GRANT SELECT ON crm_account_seller_groups, crm_account_seller_group_members TO crm_mcp_reader;`. El script de provisión no vuelve a otorgar permisos a un rol existente.
 
 ## 11. Componentes y funciones
 
 | Archivo | Cambio |
 | --- | --- |
-| `migrations/065_account_seller_groups.sql` | Tablas y triggers de versión |
+| `migrations/064_account_seller_groups.sql` | Tablas y triggers de versión |
 | `src/helpers/schema.tsx` | Tipos de las dos tablas |
 | `src/helpers/accountSellerGroups.ts` (nuevo) | 5.3 |
 | `src/endpoints/commercial.ts` / `.schema.ts` | `account_link`, `account_unlink`, `sellerGroup`, cambio de responsable por grupo |
@@ -226,6 +229,8 @@ Antes de tocar el greedy: `src/helpers/businessReassignment.spec.ts` (nuevo) fij
 | `src/helpers/auditChanges.ts`, `src/helpers/globalHistoryServer.ts` | Etiquetas |
 | `src/server/mcp/data.ts`, `scripts/provision-mcp-reader.mjs` | Lectura y permisos |
 | `scripts/load-seller-groups.mjs` (nuevo) | Carga del runbook 14, en seco por defecto |
+
+Spec 107 toma la migración 064; spec 106 toma la 065.
 
 ## 12. Plan de tests
 
@@ -259,7 +264,7 @@ Solo lo ejecuta **el operador con aprobación explícita del propietario** para 
 
 ### 14.1 Pasos
 
-1. Confirmar que la 065 está aplicada y que la versión desplegada incluye los bloques 1 a 5.
+1. Confirmar que la 064 está aplicada y que la versión desplegada incluye los bloques 1 a 5.
 2. Respaldo: `pg_dump` completo a `~/backups/hospeda-crm/` con fecha.
 3. Archivo de entrada fuera de Git (p. ej. `~/backups/hospeda-crm/seller-groups-20261106.json`): `[[73,184],[1486,1556],[2065,2070],[2296,2315],[2875,2881]]`.
 4. Ensayo sobre una copia restaurada: `node scripts/load-seller-groups.mjs --file <json>` (en seco por defecto). Por par muestra nombres, estados, responsables y si ya tienen grupo; marca los que tienen vendedores distintos, están fusionados o en Papelera. No escribe nada.
@@ -271,7 +276,7 @@ Solo lo ejecuta **el operador con aprobación explícita del propietario** para 
 ## 15. Orden de implementación (PRs a `staging`)
 
 1. Tests unitarios del planificador actual (sin cambios de código).
-2. Bloque 1 (065 + helper + lectura en ficha y MCP).
+2. Bloque 1 (064 + helper + lectura en ficha y MCP).
 3. Bloque 2.
 4. Bloques 3, 4 y 5 (PRs separados).
 5. Bloque 6: `docs/mapa-tecnico.md`, `docs/decisiones.md`, `src/content/user-guide.json` y `docs/guia-de-uso.md`, `docs/estado-desarrollo.md`, `docs/pendientes.md`; script de carga.
@@ -347,5 +352,5 @@ El propietario aceptó todas las recomendaciones (D1 a D6, opción A salvo donde
 
 ## 18. Migraciones y datos
 
-- **065** (tentativa) crea las dos tablas sin datos. Si esta spec llega a `staging` antes que la [106](106-negocio-con-varias-verticales.md), toma la **064** y la 106 pasa a la 065: el número final lo fija el PR que se mergea segundo. No se edita ninguna migración aplicada.
+- **064** crea las dos tablas sin datos. Esta spec se integra primero; spec 106 toma la **065**. No se edita ninguna migración aplicada.
 - Datos de producción: solo el runbook 14, con aprobación del propietario. La migración no crea grupos ni toca notas.

@@ -1,3 +1,11 @@
+## Spec 107, PR A — grupos de vendedor en la redistribución — 06/11/2026
+
+Implementación local en `feat/spec-107-linked-businesses`: migración 064, helper y lecturas de grupos en ficha/MCP; planner de redistribución por unidades con bloqueo, fingerprint y journal; preview, integración y tests focalizados. Los vínculos se crean directamente solo en el fixture de integración; no se cargaron datos reales.
+
+Validación local: `npm run typecheck` PASS; Vitest focalizado (`businessReassignment.spec.ts`, `accountSellerGroups.spec.ts`, `BusinessReassignment.spec.tsx`) PASS (22; la caracterización del planner actual corrió antes de modificarlo). Integración en PostgreSQL descartable migrada y sembrada: `test:business-reassignment`, `test:mcp`, `test:user-admin` y `test:commercial` PASS. No se corrieron build, navegador ni la suite completa (quedan para CI). Revisión independiente: 8 hallazgos corregidos (bloqueo y lectura en sentencias separadas, anclas con vendedor inactivo como conflicto, totales de la vista previa, derivados a Leandro fijos, sin receptores sin movimientos, visibilidad de miembros con `assertAccountViewable`, limpieza del test, permisos MCP para roles ya creados).
+
+Próximo paso: PR B de la spec 107 (vincular y desvincular desde la ficha).
+
 ## Material de venta: buscador fijo y lista compacta — 05/11/2026
 
 En `feat/sales-material-list-layout`: el buscador, los filtros y el selector Tarjetas/Lista quedan fijos bajo el header al hacer scroll (en teléfonos solo el buscador, para no tapar media pantalla). En modo lista cada fila usa el ancho: miniatura de 64 px (48 px en teléfono), texto al medio y «Abrir»/«⋯» a la derecha. Se quitó el círculo con las iniciales de la categoría de la portada dibujada. Validación local: typecheck, `SalesMaterialCard.spec.tsx` + `SalesMaterialPanel.spec.tsx` (24) y `tests/browser/material-screen.e2e.ts` contra PostgreSQL descartable (2/2, 1280 y 390 px), con capturas revisadas tras hacer scroll.

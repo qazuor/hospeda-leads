@@ -7,6 +7,7 @@ import {canonicalInstagramProfile,INSTAGRAM_PROFILE_INVALID} from '../helpers/in
 import {findNewDncBlocker,findDncPhoneBusinessesForPeople,DNC_DUPLICATE_MESSAGE} from './business_duplicate_check';
 import {accountExtraFields} from '../helpers/dataNormalization';
 import {classificationErrors} from '../helpers/accountClassification';
+import {loadSellerGroups,groupSellerState} from '../helpers/accountSellerGroups';
 import {parseBody} from '../helpers/parseBody';
 import {crmError,fallbackStatus} from '../helpers/crmErrors';
 import {accountFamily,resolveAccount} from '../helpers/accountIdentity';
@@ -52,6 +53,9 @@ export async function get(request:Request){
       assertAccountViewable(user,visibleAccount);
       const family=await accountFamily(db,accountId);
       if(input.historyPage)return response(await businessHistory(family,input.historyPage,input.historyKind));
+      const [sellerGroup]=await loadSellerGroups({trx:db,accountIds:[accountId]});
+      const groupState=sellerGroup?groupSellerState({members:sellerGroup.members}):null;
+      const visibleSellerGroup=sellerGroup?{id:sellerGroup.groupId,state:groupState!.state,members:sellerGroup.members.map(member=>{let readable=true;try{assertAccountViewable(user,member);}catch{readable=false;}return readable?{id:member.id,name:member.nombre,city:member.ciudad??null,status:member.status,assignedUserEmail:member.assignedUserEmail}:{id:member.id,name:'negocio de otro vendedor' as const,city:null,status:null,assignedUserEmail:null};})}:null;
       const [account,contacts,opportunities,journal,leadJournal,managementJournal,stages]=await Promise.all([
         db.selectFrom("crmAccounts").selectAll().where("id","=",accountId).executeTakeFirstOrThrow(),
         db.selectFrom("crmContacts").selectAll().where("deletedAt","is",null).where("accountId","=",accountId).orderBy("isPrimary","desc").orderBy("name").execute(),
@@ -62,7 +66,7 @@ export async function get(request:Request){
         getOpportunityStages(db)
       ]);
       const dncPhones=await findDncPhoneBusinessesForPeople(db,contacts.map(c=>({id:c.id,phone:c.phone})),accountId);
-      return response({account,contacts:contacts.map(c=>({...c,dncPhoneBusinesses:dncPhones.get(String(c.id))??[]})),opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,users:await db.selectFrom("users").select(["email","displayName"]).execute(),senderProfiles:await senderProfilesFor(db,[account.assignedUserEmail,...opportunities.map(o=>o.assignedUserEmail)]),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
+      return response({account,contacts:contacts.map(c=>({...c,dncPhoneBusinesses:dncPhones.get(String(c.id))??[]})),opportunities,journal,leadJournal,managementJournal:managementJournal.rows,stages,sellerGroup:visibleSellerGroup,users:await db.selectFrom("users").select(["email","displayName"]).execute(),senderProfiles:await senderProfilesFor(db,[account.assignedUserEmail,...opportunities.map(o=>o.assignedUserEmail)]),canEditContactData:canEditBusinessContactData(user,account,await hasOpenManagement(db,accountId,user.email))});
     }
     if((input.archived||input.deleted)&&user.role!=="admin")throw new CrmForbidden("Solo un administrador puede consultar negocios archivados o eliminados.");
     let query=db.selectFrom("crmAccounts").where("mergedIntoId","is",null).where("deletedAt",input.deleted?"is not":"is",null);

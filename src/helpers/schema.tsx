@@ -367,7 +367,11 @@ export interface CrmAccountMerges {
  id:Generated<Int8>; sourceId:Int8; destinationId:Int8; actorEmail:string; reason:string;
  snapshot:Json; selections:Json; createdAt:Generated<Timestamp>;
 }
+export interface CrmAccountSellerGroups { id:Generated<Int8>; createdAt:Generated<Timestamp>; createdBy:string; note:string|null; }
+export interface CrmAccountSellerGroupMembers { groupId:Int8; accountId:Int8; addedAt:Generated<Timestamp>; addedBy:string; }
 export interface DB {
+ crmAccountSellerGroups:CrmAccountSellerGroups;
+ crmAccountSellerGroupMembers:CrmAccountSellerGroupMembers;
  crmAutoRegistrations:CrmAutoRegistrations;
  crmCommunicationReads:CrmCommunicationReads;
   crmUserscriptTokens:CrmUserscriptTokens;
