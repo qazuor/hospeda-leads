@@ -43,16 +43,23 @@ describe('BusinessTableRow', () => {
     expect(tooltipRenders.count).toBe(initial * 2);
     expect((screen.getByRole('checkbox', { name: 'Seleccionar Hotel Río' }) as HTMLInputElement).checked).toBe(true);
   });
-  it('renders configured member values stacked and keeps each inline editor',()=>{
-    const groupedRow={...row,tipo:'Hospedaje',subtipo:'Cabañas',commercialProfile:'Consolidado',canModify:true,canModifyManagement:true};
+  it('renders classification badges as the inline editor trigger and keeps management fields editable',()=>{
+    const groupedRow={...row,tipo:'Hospedaje',subtipo:'Cabañas',accountTipos:['Hospedaje'],accountSubtipos:['Cabañas'],commercialProfile:'Consolidado',canModify:true,canModifyManagement:true};
     const group={id:'classification',name:'Tipo',members:['tipo','subtipo','commercialProfile']};
     render(<MantineProvider><table><tbody><BusinessTableRow row={groupedRow} columns={['group:classification']} groups={[group]} pins={{}} selected={false} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen}/></tbody></table></MantineProvider>);
     expect(screen.getByTestId('editor-tipo')).toBeTruthy();expect(screen.getByTestId('editor-subtipo')).toBeTruthy();expect(screen.getByTestId('editor-commercialProfile')).toBeTruthy();
     for(const label of ['Vertical','Subtipo','Perfil comercial'])expect(screen.getByText(label).className).toBeTruthy();
   });
+  it('renders both business verticals and subtypes and shows +N in the compact list slot',()=>{
+    const multi={...row,tipo:'Hotel',subtipo:'Hotel boutique',accountTipos:['Hotel','Gastronomía'],accountSubtipos:['Hotel boutique','Restaurante'],canModify:false};
+    render(<MantineProvider><table><tbody><BusinessTableRow row={multi} columns={['tipo','subtipo']} groups={[]} pins={{}} selected={false} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen}/></tbody></table></MantineProvider>);
+    expect(screen.getByText('Hotel')).toBeTruthy();expect(screen.getAllByText('Hotel boutique')).toHaveLength(2);expect(screen.getByText('+1')).toBeTruthy();expect(screen.getByText('Restaurante')).toBeTruthy();
+    // Read-only rows show badges only: no inline editor for vertical or subtype.
+    expect(screen.queryByTestId('editor-tipo')).toBeNull();expect(screen.queryByTestId('editor-subtipo')).toBeNull();
+  });
   it('renders an empty member as a dash and keeps its inline editor available',()=>{
     const group={id:'classification',name:'Tipo',members:['tipo','subtipo','commercialProfile']};
-    render(<MantineProvider><table><tbody><BusinessTableRow row={{...row,tipo:'Hospedaje',subtipo:null,commercialProfile:null,canModify:true,canModifyManagement:true}} columns={['group:classification']} groups={[group]} pins={{}} selected={false} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen}/></tbody></table></MantineProvider>);
+    render(<MantineProvider><table><tbody><BusinessTableRow row={{...row,tipo:'Hospedaje',subtipo:null,accountTipos:['Hospedaje'],accountSubtipos:[],commercialProfile:null,canModify:true,canModifyManagement:true}} columns={['group:classification']} groups={[group]} pins={{}} selected={false} admin={false} users={undefined} onToggle={onToggle} onOpen={onOpen}/></tbody></table></MantineProvider>);
     expect(screen.getByText('Subtipo').className).toBeTruthy();expect(screen.getByTestId('editor-subtipo')).toBeTruthy();expect(screen.getByTestId('editor-commercialProfile')).toBeTruthy();
   });
   it('keeps an empty group member visible as a dash when it is not editable',()=>{

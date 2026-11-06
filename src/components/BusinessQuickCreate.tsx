@@ -22,6 +22,7 @@ import {canonicalInstagramProfile,INSTAGRAM_PROFILE_INVALID} from '../helpers/in
 import {CityInput} from './CityInput';
 import {catalogCityNotice,cityToSave} from '../helpers/catalogCity';
 import styles from './Commercial.module.css';
+import {BusinessClassificationsField,type BusinessClassification} from './BusinessClassificationsField';
 
 const empty={nombre:'',ciudad:'',telefono:'',instagram:'',email:'',tipo:'',subtipo:'',personName:'',personPhone:''};
 /** Values the dialog opens with (spec 98 §17: the phone or Instagram of a chat without a business). */
@@ -42,6 +43,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true,prefill}:{on
  const cities=(settings.data?.cities??[]).map(c=>c.name);
  const [start]=useState(()=>({...empty,telefono:prefill?.telefono?.trim()??'',instagram:prefill?.instagram?.trim()??''}));
  const [draft,setDraft]=useState({...start,assignedUserEmail:user?.email??''});
+ const [classifications,setClassifications]=useState<BusinessClassification[]>([{tipo:'',subtipo:null}]);
  const instagramInvalid=!!draft.instagram.trim()&&!canonicalInstagramProfile(draft.instagram);
  const [acknowledged,setAcknowledged]=useState('');
  const [personAcknowledged,setPersonAcknowledged]=useState('');
@@ -70,7 +72,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true,prefill}:{on
   event.preventDefault();if(submitting.current||disabledReason)return;submitting.current=true;setError('');
   const text=(v:string)=>v.trim()||null;
   try{
-   await mutation.mutateAsync({action:'account_save',nombre:draft.nombre,ciudad:cityToSave({name:draft.ciudad,cities}).city,telefono:text(draft.telefono),...(draft.instagram.trim()?{perfilInstagram:canonicalInstagramProfile(draft.instagram)}:{}),email:text(draft.email),tipo:text(draft.tipo),subtipo:text(draft.subtipo),...(admin?{assignedUserEmail:draft.assignedUserEmail||null}:{}),...(draft.personName.trim()?{primaryContact:{name:draft.personName,phone:text(draft.personPhone)}}:{}),...(personKey&&personAcknowledged===personKey?{personPhoneDncAcknowledged:true}:{})});
+   await mutation.mutateAsync({action:'account_save',nombre:draft.nombre,ciudad:cityToSave({name:draft.ciudad,cities}).city,telefono:text(draft.telefono),...(draft.instagram.trim()?{perfilInstagram:canonicalInstagramProfile(draft.instagram)}:{}),email:text(draft.email),classifications:classifications.filter(item=>item.tipo.trim()).map(item=>({...item,subtipo:item.subtipo||null})),...(admin?{assignedUserEmail:draft.assignedUserEmail||null}:{}),...(draft.personName.trim()?{primaryContact:{name:draft.personName,phone:text(draft.personPhone)}}:{}),...(personKey&&personAcknowledged===personKey?{personPhoneDncAcknowledged:true}:{})});
   }catch(e){setError(e instanceof Error?e.message:'No se pudo crear el negocio.');}finally{submitting.current=false;}
  };
  const input=(key:keyof typeof draft,label:string,props:React.InputHTMLAttributes<HTMLInputElement>={})=><label key={key}>{label}<Input {...props} disabled={mutation.isPending} value={draft[key]} onChange={set(key)}/></label>;
@@ -86,7 +88,7 @@ export function BusinessQuickCreate({onClose,onSaved,toastLink=true,prefill}:{on
     {duplicates.isError&&<small className={styles.muted}>No pudimos revisar si ya existe. Igual podés crearlo.</small>}
     {shown.length>0&&!blocker&&<label className={styles.checkbox}><Checkbox disabled={mutation.isPending} aria-describedby="quick-create-duplicates" checked={acknowledged===shownKey} onChange={e=>setAcknowledged(e.target.checked?shownKey:'')}/>Ninguno de estos es mi negocio, crear igual</label>}
    </section>}{query&&!blocker&&<PersonPhoneDncWarning matches={personPhoneDnc} acknowledged={!!personKey&&personAcknowledged===personKey} onAcknowledge={v=>setPersonAcknowledged(v?personKey:'')} disabled={mutation.isPending}/>}</div>
-   <Disclosure className={styles.optionalFields}><DisclosureSummary>Más datos (opcional)</DisclosureSummary><div className={styles.formSection}>{input('email','Email del negocio',{type:'email'})}<label>Vertical<NativeSelect disabled={mutation.isPending} value={draft.tipo} onChange={set('tipo')}><option value="">Sin clasificar</option>{(settings.data?.types??[]).map(t=><option key={t}>{t}</option>)}</NativeSelect></label><label>Subtipo<NativeSelect disabled={mutation.isPending} value={draft.subtipo} onChange={set('subtipo')}><option value="">Sin asignar</option>{(settings.data?.subtypes??[]).filter(s=>s.typeName===draft.tipo).map(s=><option key={s.name} value={s.name}>{s.name}</option>)}</NativeSelect></label>{admin&&<label>{VOCAB.businessOwner}<NativeSelect disabled={mutation.isPending} value={draft.assignedUserEmail} onChange={set('assignedUserEmail')}><option value="">Sin asignar</option>{(settings.data?.users??[]).map(u=><option key={u.email} value={u.email}>{u.displayName}</option>)}</NativeSelect></label>}</div></Disclosure>
+   <Disclosure className={styles.optionalFields}><DisclosureSummary>Más datos (opcional)</DisclosureSummary><div className={styles.formSection}>{input('email','Email del negocio',{type:'email'})}<fieldset className={styles.formSection}><legend>Verticales</legend><BusinessClassificationsField value={classifications} settings={settings.data} disabled={mutation.isPending} onChange={setClassifications}/></fieldset>{admin&&<label>{VOCAB.businessOwner}<NativeSelect disabled={mutation.isPending} value={draft.assignedUserEmail} onChange={set('assignedUserEmail')}><option value="">Sin asignar</option>{(settings.data?.users??[]).map(u=><option key={u.email} value={u.email}>{u.displayName}</option>)}</NativeSelect></label>}</div></Disclosure>
    {!admin&&<p className={styles.muted}>Vas a quedar como {VOCAB.businessOwner.toLowerCase()}.</p>}
    {(error||mutation.error)&&<p role="alert" className={styles.error}>{error||mutation.error?.message}</p>}
    <div className={styles.actions}><Button variant="ghost" disabled={mutation.isPending} disabledReason="Estamos creando el negocio. Esperá a que termine." onClick={guard.requestClose}>Cancelar</Button><Button type="submit" disabled={!!disabledReason} disabledReason={disabledReason}>{mutation.isPending?'Creando negocio…':'Crear negocio'}</Button></div>

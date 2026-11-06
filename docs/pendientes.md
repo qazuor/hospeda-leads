@@ -1,3 +1,7 @@
+## Spec 106 PR D — UI para varias verticales
+
+Bloque 4 implementado localmente en `feat/spec-106-ui`: ficha y alta rápida editan clasificaciones, insignia inline en lista/tarjetas restaura el acceso al editor y resuelve 409 sin reenvío automático, lista compacta muestra par y «+N», detalle muestra pares completos, y D6 envía la vertical elegida. Guía y e2e actualizados. Ronda 6: typecheck PASS; Vitest `src/components src/pages` PASS (888); seis specs focalizadas PASS (42). No se ejecutaron navegador, build ni integración; el esquema acepta lista vacía sin cambios. Próximo paso: revisar el resultado y preparar el PR a `staging` según el flujo habitual.
+
 ## Material de venta: buscador fijo y lista compacta — PR a `staging`
 
 Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono real que el buscador fijo no tape el header y que la fila de lista se lea bien. La búsqueda global sigue sin buscar en la nota interna.

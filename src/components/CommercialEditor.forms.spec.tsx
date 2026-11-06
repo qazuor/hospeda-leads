@@ -8,7 +8,7 @@ import type {Account,CommercialDetail,Contact} from '../endpoints/commercial.sch
 
 const mocks=vi.hoisted(()=>({save:vi.fn(),check:vi.fn(async()=>({candidates:[]})),success:vi.fn()}));
 vi.mock('../helpers/useAuth',()=>({useAuth:()=>({authState:{type:'authenticated',user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}})}));
-const catalog={types:['Alojamiento'],subtypes:[],users:[],contactPositions:['Propietario/a','Encargado/a'],contactChannels:['WhatsApp','Email'],cities:[{id:'1',name:'San José'},{id:'2',name:'Peña'}]};
+const catalog={types:['Alojamiento','Gastronomía'],subtypes:[{id:'1',typeName:'Alojamiento',name:'Hotel',active:true},{id:'2',typeName:'Gastronomía',name:'Restaurante',active:true}],users:[],contactPositions:['Propietario/a','Encargado/a'],contactChannels:['WhatsApp','Email'],cities:[{id:'1',name:'San José'},{id:'2',name:'Peña'}]};
 const settings=vi.hoisted(()=>({load:vi.fn()}));
 vi.mock('../endpoints/settings_GET.schema',()=>({getSettings:()=>settings.load()}));
 vi.mock('../endpoints/business_duplicate_check.schema',()=>({checkBusinessDuplicates:mocks.check,DNC_DUPLICATE_MESSAGE:'No contactar'}));
@@ -25,7 +25,7 @@ beforeEach(()=>{settings.load.mockReset();settings.load.mockImplementation(async
 afterEach(cleanup);
 
 const wrap=(node:React.ReactNode)=>render(<MantineProvider><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter>{node}</MemoryRouter></QueryClientProvider></MantineProvider>);
-const account={id:'7',nombre:'Hotel Sol',ciudad:'San Jose',tipo:'Alojamiento',subtipo:null,assignedUserEmail:'admin@example.com'} as unknown as Account;
+const account={id:'7',nombre:'Hotel Sol',ciudad:'San Jose',tipo:'Alojamiento',subtipo:null,classifications:[{tipo:'Alojamiento',subtipo:null}],assignedUserEmail:'admin@example.com'} as unknown as Account;
 const detail={account,contacts:[],users:[],canEditContactData:true} as unknown as CommercialDetail;
 const person=(position:string)=>({id:'3',accountId:'7',name:'Ana',position,phone:null,email:null,preferredChannel:'Whatsapp',notes:null,isPrimary:true,deletedAt:null}) as unknown as Contact;
 const help='Este valor no está en la lista actual. Elegí uno de la lista para corregirlo.';
@@ -54,12 +54,30 @@ describe('while the catalog is still loading (spec 104, 25; review LOW)',()=>{
  it('the stored vertical and cargo stay selected and nothing is flagged as off the list',async()=>{
   settings.load.mockImplementation(()=>new Promise(()=>{}));
   wrap(<CommercialEditor target={{kind:'account',item:account}} detail={detail} onClose={()=>{}}/>);
-  expect((screen.getByRole('combobox',{name:'Vertical'}) as HTMLSelectElement).value).toBe('Alojamiento');
+  expect((screen.getAllByLabelText('Vertical')[0] as HTMLSelectElement).value).toBe('Alojamiento');
   expect(screen.queryByText(/no está en la lista/)).toBeNull();
   cleanup();
   wrap(<CommercialEditor target={{kind:'contact',item:person('Propietario/a')}} detail={detail} onClose={()=>{}}/>);
   expect((screen.getByRole('combobox',{name:'Cargo'}) as HTMLSelectElement).value).toBe('Propietario/a');
   expect(screen.queryByText(/no está en la lista/)).toBeNull();
+ });
+});
+
+describe('new management vertical selection (spec 106 D6)',()=>{
+ const business=(classifications:{tipo:string;subtipo:string|null}[])=>({account:{...account,classifications,tipo:'Alojamiento'},contacts:[],users:[]} as unknown as CommercialDetail);
+ it('preloads a single business vertical without asking a question',async()=>{
+  wrap(<CommercialEditor target={{kind:'opportunity'}} detail={business([{tipo:'Alojamiento',subtipo:'Hotel'}])} onClose={()=>{}}/>);
+  expect(screen.queryByText('¿Sobre qué vertical es esta gestión?')).toBeNull();
+ });
+ it('asks which vertical and preselects the display vertical when the business has two',()=>{
+  wrap(<CommercialEditor target={{kind:'opportunity'}} detail={business([{tipo:'Gastronomía',subtipo:null},{tipo:'Alojamiento',subtipo:'Hotel'}])} onClose={()=>{}}/>);
+  const question=screen.getByLabelText('¿Sobre qué vertical es esta gestión?') as HTMLSelectElement;
+  expect(question.value).toBe('Alojamiento');
+ });
+ it('sends the selected business vertical when starting the management',async()=>{
+  wrap(<CommercialEditor target={{kind:'opportunity'}} detail={business([{tipo:'Gastronomía',subtipo:null},{tipo:'Alojamiento',subtipo:'Hotel'}])} onClose={()=>{}}/>);
+  fireEvent.change(screen.getByLabelText('¿Sobre qué vertical es esta gestión?'),{target:{value:'Gastronomía'}});fireEvent.click(screen.getByRole('button',{name:'Iniciar gestión'}));
+  await waitFor(()=>expect(mocks.save).toHaveBeenCalled());expect(mocks.save.mock.calls[0][0]).toMatchObject({action:'opportunity_save',tipo:'Gastronomía'});
  });
 });
 
@@ -84,12 +102,12 @@ describe('referral to Leandro (spec 107, review HIGH)',()=>{
 
 describe('city from the catalog (spec 104, 37)',()=>{
  it('editing a business saves «San Jose» as the catalog «San José» and says so',async()=>{
-  // Without a stored vertical, «Alojamiento» only appears once the catalog (and its cities) has loaded.
-  wrap(<CommercialEditor target={{kind:'account',item:{...account,tipo:null} as Account}} detail={detail} onClose={()=>{}}/>);
-  await screen.findByRole('option',{name:'Alojamiento'});
+  // A business without verticals saves an empty list (nothing is invented); «San José» only resolves once the catalog cities have loaded.
+  wrap(<CommercialEditor target={{kind:'account',item:{...account,tipo:null,classifications:[]} as Account}} detail={detail} onClose={()=>{}}/>);
+  await screen.findByRole('option',{name:'San José',hidden:true});
   fireEvent.click(screen.getByRole('button',{name:'Guardar cambios'}));
   await waitFor(()=>expect(mocks.save).toHaveBeenCalled());
-  expect(mocks.save.mock.calls[0][0]).toMatchObject({action:'account_save',ciudad:'San José'});
+  expect(mocks.save.mock.calls[0][0]).toMatchObject({action:'account_save',ciudad:'San José',classifications:[]});
   await waitFor(()=>expect(mocks.success).toHaveBeenCalledWith('Negocio guardado',expect.anything(),'Se guardó como «San José», la ciudad de la lista.'));
  });
  it('a new business typed «san jose» is created as «San José»; «Pena» stays as typed (ñ ≠ n)',async()=>{
