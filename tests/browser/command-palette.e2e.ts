@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import superjson from 'superjson';
+import {isPresenceRequest} from './support/presence';
 
 for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
   test(`Command palette permissions, keyboard and layout at ${width}px ${role}`, async ({ page }) => {
@@ -12,7 +13,7 @@ for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
     });
     await page.route('**/_api/**', async route => {
       const path = new URL(route.request().url()).pathname;
-      if (route.request().method() !== 'GET') writes.push(path);
+      if (route.request().method() !== 'GET' && !isPresenceRequest(route.request().url())) writes.push(path);
       const data = path.endsWith('/leads') ? { rows: [], total: 0, page: 1, pageSize: 50, filters: { ciudades: [], estados: [], tipos: [], asignados: [], suscripciones: [], origenes: [], quienesCargaron: [], mediosContacto: [], creadosPor: [] } }
         : path.endsWith('/saved_views') ? { views: [] }
         : path.endsWith('/business_list_defaults') ? { defaults: null }

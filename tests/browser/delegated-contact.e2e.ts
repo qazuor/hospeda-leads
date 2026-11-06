@@ -1,6 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 import superjson from 'superjson';
 import {localDay} from '../../src/helpers/workDates';
+import {isPresenceRequest} from './support/presence';
 async function openDelegatedTask(page:Page){
  await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));await page.route('https://fonts.googleapis.com/**',route=>route.abort());
  const task={id:'1',accountId:'1',leadId:'2',title:'Llamar por la propuesta',purpose:'commercial',typeId:'call',assignedUserEmail:'delegate@example.com',dueDate:localDay(),dueAt:null,priority:'media',status:'pending',result:null,completedAt:null,legacy:false,participants:'',contactIds:[],accountName:'Negocio de prueba',city:null,opportunityName:'Propuesta',deletedAt:null};
@@ -8,7 +9,7 @@ async function openDelegatedTask(page:Page){
  const work={tasks:[task],activities:[],types:[],accounts:[],opportunities:[],contacts:[],users:[],attention:[],journal:[],followupStages:[],newAssignmentDays:7,totalTasks:1,totalActivities:0,page:1,bucketCounts:{overdue:0,today:1,upcoming:0},cities:[],verticals:[]};
  const writes:string[]=[];
  await page.route('**/_api/**',async route=>{
-  const path=new URL(route.request().url()).pathname;if(route.request().method()==='POST')writes.push(path);
+  const path=new URL(route.request().url()).pathname;if(route.request().method()==='POST'&&!isPresenceRequest(route.request().url()))writes.push(path);
   const data=path.endsWith('/auth/session')?{user:{id:1,email:'delegate@example.com',displayName:'Delegado',role:'user'}}:path.endsWith('/work')?work:path.endsWith('/commercial')?{account,contacts:[],opportunities:[{id:'2',accountId:'1',opportunityName:'Propuesta',assignedUserEmail:'owner@example.com',estado:'Cargado',deletedAt:null}],journal:[],leadJournal:[],users:[],stages:[]}:path.endsWith('/communication')?{restrictions:[],messages:[],recentMessages:[]}:path.endsWith('/settings')?{templates:[]}:{};
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });

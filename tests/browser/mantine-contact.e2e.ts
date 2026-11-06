@@ -3,6 +3,7 @@ import superjson from 'superjson';
 import { basePreferences } from '../../src/helpers/businessListPreferences';
 import { simulateUserscript } from './helpers/userscript';
 import { reveal } from './support/contactStep';
+import {isPresenceRequest} from './support/presence';
 
 for (const width of [1280, 390]) for (const dark of [false, true]) {
   test(`Mantine contact search, focus and layout at ${width}px ${dark ? 'dark' : 'light'}`, async ({ page }) => {
@@ -23,7 +24,7 @@ for (const width of [1280, 390]) for (const dark of [false, true]) {
     ];
     await page.route('**/_api/**', async route => {
       const url = new URL(route.request().url());
-      if (route.request().method() !== 'GET') {
+      if (route.request().method() !== 'GET' && !isPresenceRequest(route.request().url())) {
         writes.push(url.pathname);
         if (url.pathname.endsWith('/communication')) manualPayloads.push(superjson.parse<any>(route.request().postData()!));
       }

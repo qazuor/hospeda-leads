@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import superjson from 'superjson';
+import {isPresenceRequest} from './support/presence';
 
 const settings={users:[],cities:[],types:[],templates:[],subtypes:[],authorizedEmails:[],opportunityStages:[]};
 for(const width of [1280,390])for(const channel of ['email','whatsapp'])test(`link dialog preserves selection, validation and focus at ${width}px ${channel}`,async({page})=>{
@@ -10,7 +11,7 @@ for(const width of [1280,390])for(const channel of ['email','whatsapp'])test(`li
  page.on('pageerror',error=>errors.push(error.message));page.on('dialog',async dialog=>{native.push(dialog.type());await dialog.dismiss()});
  await page.route('**/_api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
-  if(route.request().method()==='POST')writes.push(path);
+  if(route.request().method()==='POST'&&!isPresenceRequest(route.request().url()))writes.push(path);
   const data=path.endsWith('/auth/session')?{user:{id:1,email:'admin@example.com',displayName:'Admin',role:'admin'}}:
    path.endsWith('/settings')?settings:path.endsWith('/leads')?{rows:[],total:0,page:1,pageSize:100}:{};
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});

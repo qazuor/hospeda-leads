@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import superjson from 'superjson';
 import {twoPagePdf} from './fixtures/pdf';
+import {isPresenceRequest} from './support/presence';
 
 for (const width of [1280, 390]) test(`PDF pages, zoom, corrupt retry and permissions at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 844 });
@@ -15,7 +16,7 @@ for (const width of [1280, 390]) test(`PDF pages, zoom, corrupt retry and permis
   let downloads=0,mode='corrupt';
   await page.route('**/_api/**',async route=>{
    const url=new URL(route.request().url());let data:unknown={};
-   if(route.request().method()==='POST'){writes.push(route.request().postData());}
+   if(route.request().method()==='POST'&&!isPresenceRequest(route.request().url())){writes.push(route.request().postData());}
    if(url.pathname.endsWith('/resources/download')){downloads++;await route.fulfill({status:mode==='denied'?403:200,contentType:'application/pdf',body:mode==='corrupt'?Buffer.from('%PDF-1.7 invalid'):twoPagePdf()});return;}
    if(url.pathname.endsWith('/auth/session'))data={user:{id:3,email:'owner@example.com',displayName:'Owner',role:'user'}};
    else if(url.pathname.endsWith('/commercial'))data=url.searchParams.has('historyPage')?{events:[],total:0,page:1,pending:[],totalPending:0}:{account,opportunities,contacts:[],journal:[],leadJournal:[],stages:[],users:[]};
