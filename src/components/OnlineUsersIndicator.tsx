@@ -15,13 +15,15 @@ export function OnlineUsersIndicator({role}:{role:UserRole|null}){
   const query=useQuery({queryKey:ONLINE_USERS_QUERY_KEY,queryFn:getOnlineUsers,enabled:role==='admin',refetchInterval:30_000,refetchIntervalInBackground:false,retry:false});
   const [opened,setOpened]=React.useState(false);
   if(role!=='admin')return null;
-  const failed=query.isError;
-  const count=failed?'—':query.data?.users.length??'…';
+  // A malformed payload (proxy, mocked API) counts as an error: the header must never crash on it.
+  const users=Array.isArray(query.data?.users)?query.data.users:null;
+  const failed=query.isError||(query.isSuccess&&!users);
+  const count=failed?'—':users?.length??'…';
   return <Popover opened={opened} onChange={setOpened} position="bottom-end" withinPortal>
     <Popover.Target><button type="button" className={styles.trigger} aria-label={failed?'Estado de conexión no disponible':`${count} en línea`} aria-expanded={opened} onClick={()=>setOpened(value=>!value)}><span className={`${styles.dot} ${failed?styles.muted:''}`} aria-hidden="true"/><span>{failed?'—':`${count} en línea`}</span><UsersRound size={15} aria-hidden="true"/></button></Popover.Target>
     <Popover.Dropdown className={styles.dropdown}>
       <strong className={styles.title}>Usuarios en línea</strong>
-      {query.isPending?<Text size="sm" c="dimmed">Cargando…</Text>:failed?<Text size="sm" c="dimmed">No se pudo cargar la lista.</Text>:query.data.users.length===0?<Text size="sm" c="dimmed">Nadie en línea</Text>:<ul className={styles.list}>{query.data.users.map(person=><li key={person.id}><span className={styles.person}><strong>{person.displayName}</strong><small>{person.role==='admin'?'Administrador':'Vendedor'} <span className={styles.sources}>{person.sources.map(source=><span key={source}>{source==='crm'?'CRM':source==='whatsapp'?'WhatsApp':'Instagram'}</span>)}</span></small></span><time>{relativePresenceTime(person.lastSeenAt)}</time></li>)}</ul>}
+      {query.isPending?<Text size="sm" c="dimmed">Cargando…</Text>:failed?<Text size="sm" c="dimmed">No se pudo cargar la lista.</Text>:!users||users.length===0?<Text size="sm" c="dimmed">Nadie en línea</Text>:<ul className={styles.list}>{users.map(person=><li key={person.id}><span className={styles.person}><strong>{person.displayName}</strong><small>{person.role==='admin'?'Administrador':'Vendedor'} <span className={styles.sources}>{person.sources.map(source=><span key={source}>{source==='crm'?'CRM':source==='whatsapp'?'WhatsApp':'Instagram'}</span>)}</span></small></span><time>{relativePresenceTime(person.lastSeenAt)}</time></li>)}</ul>}
     </Popover.Dropdown>
   </Popover>;
 }
