@@ -1,3 +1,7 @@
+## Spec 106, PR D — UI para varias verticales — 06/11/2026
+
+Bloque 4 implementado localmente: ficha y alta rápida editan pares vertical/subtipo; la insignia de Vertical abre el editor desde lista y tarjetas con control optimista de concurrencia; ante 409 se recarga la lista actual y se pide guardarla explícitamente, mientras que los errores conservan el borrador y «Reintentar» conserva el payload fallido. La lista compacta muestra el par principal y «+N»; el detalle muestra pares completos. D6 preselecciona una vertical del negocio y envía la elegida. Se actualizaron specs, e2e y guía. Validación de ronda 6: `npm run typecheck` PASS; `npx vitest run src/components src/pages` PASS (888 tests); seis specs focalizadas PASS (42 tests). E2e, build e integración no ejecutados; el esquema de `leads_quick_POST` ya permite `classifications: []` y no se modificó.
+
 ## Spec 107, PR B — vinculación y reasignación manual — 06/11/2026
 
 PR B completado localmente en `feat/spec-107-link-ui`: vincular/desvincular con permisos admin y locks por id; fusión de grupos, tope de 10, grupos unitarios; reasignación del grupo en `account_save`, inline y bulk; tareas «Volver a contactar» y journal por negocio; picker compartido con Bandeja, elección de vendedor con cantidades y aviso previo; miembros privados redactedos y archivados/en Papelera/fusionados atenuados. La vista previa bulk lista los agregados como vinculados.
