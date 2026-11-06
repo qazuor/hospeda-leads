@@ -1,6 +1,10 @@
-## Nota interna de materiales de venta — implementación lista para validar (05/11/2026)
+## Material de venta: buscador fijo y lista compacta — 05/11/2026
 
-En `feat/sales-material-internal-note`, la migración 062 traslada `description` a `internal_note`; la nota se expone y busca solo para administradores. El formulario distingue «Descripción» pública y «Nota interna». La biblioteca ofrece tarjetas/lista y secciones de entregables y uso interno. No se aplicó la migración ni se ejecutó la integración de base de datos; el propietario debe correr `scripts/test-sales-material.ts` en PostgreSQL descartable.
+En `feat/sales-material-list-layout`: el buscador, los filtros y el selector Tarjetas/Lista quedan fijos bajo el header al hacer scroll (en teléfonos solo el buscador, para no tapar media pantalla). En modo lista cada fila usa el ancho: miniatura de 64 px (48 px en teléfono), texto al medio y «Abrir»/«⋯» a la derecha. Se quitó el círculo con las iniciales de la categoría de la portada dibujada. Validación local: typecheck, `SalesMaterialCard.spec.tsx` + `SalesMaterialPanel.spec.tsx` (24) y `tests/browser/material-screen.e2e.ts` contra PostgreSQL descartable (2/2, 1280 y 390 px), con capturas revisadas tras hacer scroll.
+
+## Nota interna de materiales de venta — en producción tras #350 (05/11/2026)
+
+#348: la migración 062 traslada `description` a `internal_note`; la nota se expone y busca solo para administradores. El formulario distingue «Descripción» pública y «Nota interna». La biblioteca ofrece tarjetas/lista y secciones de entregables y uso interno. `scripts/test-sales-material.ts` (con réplica de la 062) pasó en PostgreSQL descartable y en CI. Promovido a `main` en #350 junto con #344–#349, con respaldo previo `hospeda_crm-pre-promotion-20261105-221629.dump`.
 
 # Estado del CRM — corte al 2 de noviembre de 2026
 

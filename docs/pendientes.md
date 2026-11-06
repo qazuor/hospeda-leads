@@ -1,8 +1,8 @@
-## Materiales de venta: nota interna, lista y separación de uso — validar integración
+## Material de venta: buscador fijo y lista compacta — PR a `staging`
 
-La implementación está en `feat/sales-material-internal-note`; falta que el propietario ejecute `scripts/test-sales-material.ts` en PostgreSQL descartable y aplique la migración por el flujo habitual. No usar una base de producción.
+Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono real que el buscador fijo no tape el header y que la fila de lista se lea bien. La búsqueda global sigue sin buscar en la nota interna.
 
-> Promoción `staging` → `main`: última el 02/11/2026 (#334, script 1.8.1 solo con las cuentas de Hospeda, con respaldo previo de la base; ver `estado-desarrollo.md`). Las anteriores fueron el 01/11/2026 (#330) y el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
+> Promoción `staging` → `main`: última el 05/11/2026 (#350: #344–#349, migraciones 060–063, script 1.8.6, con respaldo previo de la base). Antes, el 02/11/2026 (#334, script 1.8.1). Las anteriores fueron el 01/11/2026 (#330) y el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
 
 # Pendientes y próximo trabajo
 
