@@ -22,9 +22,9 @@ export async function classificationErrors(database:Executor,tipo:string|null,su
 }
 
 export async function classificationListErrors({db,pairs,previous=[]}:{db:Executor;pairs:readonly AccountClassification[];previous?:readonly AccountClassification[]}):Promise<string[]>{
- const errors:string[]=[],old=new Set(previous.map(pair=>JSON.stringify([pair.tipo,pair.subtipo])));
- if(pairs.length>8)errors.push('Un negocio puede tener como máximo 8 verticales.');
- for(const pair of pairs){if(old.has(JSON.stringify([pair.tipo,pair.subtipo])))continue;errors.push(...await classificationErrors(db,pair.tipo,pair.subtipo));}
+ const errors:string[]=[],normalized=normalizeClassifications({pairs}),old=new Set(normalizeClassifications({pairs:previous}).map(pair=>JSON.stringify([pair.tipo,pair.subtipo])));
+ if(normalized.length>8)errors.push('Un negocio puede tener como máximo 8 verticales.');
+ for(const pair of normalized){if(old.has(JSON.stringify([pair.tipo,pair.subtipo])))continue;errors.push(...await classificationErrors(db,pair.tipo,pair.subtipo));}
  return [...new Set(errors)];
 }
 
@@ -33,14 +33,15 @@ export function displayClassification({pairs,verticalOrder}:{pairs:readonly Acco
  return [...pairs].sort((a,b)=>(order.get(a.tipo)??Number.MAX_SAFE_INTEGER)-(order.get(b.tipo)??Number.MAX_SAFE_INTEGER)||a.tipo.localeCompare(b.tipo)||Number(!!a.subtipo)-Number(!!b.subtipo)||(a.subtipo??'').localeCompare(b.subtipo??''))[0]??null;
 }
 
-export async function setAccountClassifications({trx,accountId,pairs,actor,reason}:{trx:Transaction<DB>;accountId:string;pairs:readonly AccountClassification[];actor:Actor;reason:string}):Promise<void>{
+export async function setAccountClassifications({trx,accountId,pairs,actor,reason,trustedPairs=[]}:{trx:Transaction<DB>;accountId:string;pairs:readonly AccountClassification[];actor:Actor;reason:string;trustedPairs?:readonly AccountClassification[]}):Promise<void>{
  const normalized=normalizeClassifications({pairs});if(normalized.length>8)throw new Error('Un negocio puede tener como máximo 8 verticales.');
  await trx.selectFrom('crmAccounts').select('id').where('id','=',accountId).forUpdate().executeTakeFirstOrThrow();
  const currentRows=await trx.selectFrom('crmAccountClassifications').selectAll().where('accountId','=',accountId).orderBy('id').execute();
  const previous=currentRows.map(({tipo,subtipo})=>({tipo,subtipo}));
  const same=(a:readonly AccountClassification[],b:readonly AccountClassification[])=>{const aa=normalizeClassifications({pairs:a}).map(pair=>JSON.stringify([pair.tipo,pair.subtipo])).sort(),bb=normalizeClassifications({pairs:b}).map(pair=>JSON.stringify([pair.tipo,pair.subtipo])).sort();return aa.length===bb.length&&aa.every((pair,index)=>pair===bb[index]);};
  if(same(previous,normalized))return;
- const errors=await classificationListErrors({db:trx,pairs:normalized,previous});if(errors.length)throw new Error(errors.join(' '));
+ const trusted=new Set(normalizeClassifications({pairs:trustedPairs}).map(pair=>JSON.stringify([pair.tipo,pair.subtipo]))),newPairs=normalized.filter(pair=>!previous.some(old=>old.tipo===pair.tipo&&old.subtipo===pair.subtipo)&&!trusted.has(JSON.stringify([pair.tipo,pair.subtipo])));
+ const errors=await classificationListErrors({db:trx,pairs:newPairs,previous});if(normalized.length>8)errors.push('Un negocio puede tener como máximo 8 verticales.');if(errors.length)throw new Error(errors.join(' '));
  const verticalOrder=(await trx.selectFrom('crmVerticals').select('name').orderBy('sortOrder').orderBy('name').execute()).map(row=>row.name);
  const display=displayClassification({pairs:normalized,verticalOrder});
  // Only the difference is written: unchanged pairs keep their id, author and date (spec §5.2).
