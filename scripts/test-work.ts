@@ -31,6 +31,7 @@ const EXPECTED_LIVE_TRIGGERS=[
   "CREATE TRIGGER authorized_emails_live_version AFTER INSERT OR DELETE OR UPDATE ON public.authorized_emails FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",
   "CREATE TRIGGER crm_account_seller_group_members_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_account_seller_group_members FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
   "CREATE TRIGGER crm_account_seller_groups_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_account_seller_groups FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
+  "CREATE TRIGGER crm_account_classifications_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_account_classifications FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
   "CREATE TRIGGER crm_accounts_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_accounts FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business')",
   "CREATE TRIGGER crm_activities_live AFTER INSERT OR DELETE OR UPDATE ON public.crm_activities FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business', 'work')",
   "CREATE TRIGGER crm_cities_live_version AFTER INSERT OR DELETE OR UPDATE ON public.crm_cities FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('catalog')",

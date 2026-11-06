@@ -1,6 +1,6 @@
 # Spec 106 — Un negocio con varias verticales
 
-Estado: **aprobada por el propietario** (06/11/2026; recomendaciones aceptadas en D1 a D10). Origen: la deduplicación de producción del 05 y 06/11/2026, donde el propietario fusionó negocios que son una sola propiedad con dos ofertas públicas (hotel con restaurante abierto al público, complejo termal con cabañas, estancia con experiencias) y pidió que el negocio fusionado lleve **todas** sus verticales. Tipo: cambio de modelo de datos (clasificación del negocio de un par a una lista) con impacto en formularios, lista de Negocios, filtros, importación, fusión, mensajes, material de venta, MCP e historial. Migración: **064** (tabla nueva y backfill desde las columnas actuales). Relacionada: [spec 107](107-negocios-vinculados-mismo-vendedor.md) (negocios vinculados con el mismo vendedor), que no depende de esta.
+Estado: **aprobada por el propietario** (06/11/2026; recomendaciones aceptadas en D1 a D10). Origen: la deduplicación de producción del 05 y 06/11/2026, donde el propietario fusionó negocios que son una sola propiedad con dos ofertas públicas (hotel con restaurante abierto al público, complejo termal con cabañas, estancia con experiencias) y pidió que el negocio fusionado lleve **todas** sus verticales. Tipo: cambio de modelo de datos (clasificación del negocio de un par a una lista) con impacto en formularios, lista de Negocios, filtros, importación, fusión, mensajes, material de venta, MCP e historial. Migración: **066** (tabla nueva y backfill desde las columnas actuales). Relacionada: [spec 107](107-negocios-vinculados-mismo-vendedor.md) (negocios vinculados con el mismo vendedor), que no depende de esta.
 
 Decisión del propietario que fija el diseño: **«Todas iguales»**. Un negocio tiene N pares (vertical, subtipo) y el modelo de datos no distingue principal de secundaria. Donde una pantalla o un texto necesitan un solo valor, la spec define una regla determinística de visualización (D1), que no se guarda como dato.
 
@@ -44,7 +44,7 @@ Verificado en `origin/staging` el 06/11/2026 (rama `docs/spec-106-107-verticals-
 - `leads.tipo`/`subtipo` son independientes (`001_initial.sql:77-78`) y no se sincronizan: `crm_account_projection` (`004_commercial_foundation.sql:98-103`) copia nombre, ciudad y contactos, **no** la clasificación.
 - Catálogos: `crm_verticals(name UNIQUE, sort_order, active)` (`001:34-40`) y `crm_subtypes(type_name, name, active, UNIQUE(type_name,name))` (`001:25-32`); el subtipo se ata a la vertical por texto. Ambos tienen trigger de versión en vivo (`026_live_version_domains.sql:31-32`). `settings_GET.ts:29` ordena las verticales por `sortOrder` y luego `name`; los subtipos por `name` (`:20`).
 - Validación: `classificationErrors(db,tipo,subtipo,previous?)` (`src/helpers/accountClassification.ts:4-10`): si el par no cambió respecto de `previous`, no valida (conserva valores históricos inactivos).
-- Última migración: `063_user_presence.sql`. La próxima es la **064**.
+- Al redactar el hallazgo, la última migración era `063_user_presence.sql`; para este PR, la última existente es la **065** y la nueva es la **066**.
 
 ### 3.2 Escrituras del negocio
 
@@ -76,7 +76,7 @@ Verificado en `origin/staging` el 06/11/2026 (rama `docs/spec-106-107-verticals-
 | Bloque | Qué | Necesita decisión | Migración |
 | --- | --- | --- | --- |
 | 0 | Arreglo de `editSubtype` en negocios | D8 | No |
-| 1 | Tabla `crm_account_classifications`, backfill, helper único de escritura | D1, D2 | **064** |
+| 1 | Tabla `crm_account_classifications`, backfill, helper único de escritura | D1, D2 | **066** |
 | 2 | Escrituras: ficha, insignia, importación, fusión | D3, D4 | No |
 | 3 | Lecturas: proyección, filtros, opciones, vistas, MCP | D7 | No |
 | 4 | UI: campo de clasificaciones, ficha, alta rápida, insignia, lista, gestión nueva | D5, D6 | No |
@@ -88,7 +88,7 @@ Orden: 0 es independiente. 1 antes que todo lo demás. 2 y 3 dependen de 1 y pue
 
 ## 5. Modelo de datos (bloque 1)
 
-### 5.1 Migración 064
+### 5.1 Migración 066
 
 ```sql
 CREATE TABLE crm_account_classifications (
@@ -105,10 +105,10 @@ CREATE INDEX crm_account_classifications_subtipo ON crm_account_classifications 
 CREATE TRIGGER crm_account_classifications_live_version AFTER INSERT OR UPDATE OR DELETE ON crm_account_classifications
   FOR EACH STATEMENT EXECUTE FUNCTION bump_crm_live_domain('business');
 INSERT INTO crm_account_classifications (account_id, tipo, subtipo, created_by)
-SELECT id, btrim(tipo), nullif(btrim(subtipo), ''), 'migration_064'
+SELECT id, btrim(tipo), nullif(btrim(subtipo), ''), 'migration_066'
 FROM crm_accounts WHERE nullif(btrim(tipo), '') IS NOT NULL;
-COMMENT ON COLUMN crm_accounts.tipo IS 'Display copy of crm_account_classifications (migration 064); drop in a later migration.';
-COMMENT ON COLUMN crm_accounts.subtipo IS 'Display copy of crm_account_classifications (migration 064); drop in a later migration.';
+COMMENT ON COLUMN crm_accounts.tipo IS 'Display copy of crm_account_classifications (migration 066); drop in a later migration.';
+COMMENT ON COLUMN crm_accounts.subtipo IS 'Display copy of crm_account_classifications (migration 066); drop in a later migration.';
 ```
 
 - Un par por fila. `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+, producción usa 17) impide repetir (Alojamiento, sin subtipo) y permite (Alojamiento, Camping) + (Alojamiento, Cabaña), que pide #3393.
@@ -160,7 +160,7 @@ Recomendación: las columnas `crm_accounts.tipo/subtipo` quedan como **copia del
 
 ### 6.5 Renombre de subtipos (bloque 0, D8)
 
-`editSubtype` también actualiza `crm_accounts.subtipo` (y, después de la 064, `crm_account_classifications.subtipo`) con el mismo filtro por `type_name`, bloqueando antes los negocios afectados de las tres fuentes. Sin journal por negocio (igual que en gestiones). Test de regresión primero (sección 11).
+`editSubtype` también actualiza `crm_accounts.subtipo` (y, después de la 066, `crm_account_classifications.subtipo`) con el mismo filtro por `type_name`, bloqueando antes los negocios afectados de las tres fuentes. Sin journal por negocio (igual que en gestiones). Test de regresión primero (sección 11).
 
 ## 7. Lecturas, filtros y vistas (bloque 3)
 
@@ -224,7 +224,7 @@ Recomendación: las columnas `crm_accounts.tipo/subtipo` quedan como **copia del
 
 | Archivo | Cambio |
 | --- | --- |
-| `migrations/064_account_classifications.sql` | Tabla, índices, trigger de versión, backfill, comentarios |
+| `migrations/066_account_classifications.sql` | Tabla, índices, trigger de versión, backfill, comentarios |
 | `src/helpers/schema.tsx` | Tipo `CrmAccountClassifications` |
 | `src/helpers/accountClassification.ts` | `normalizeClassifications`, `classificationListErrors`, `displayClassification`, `setAccountClassifications` |
 | `src/endpoints/commercial.ts` / `.schema.ts` | `classifications` en `account_save`; compatibilidad 6.1 |
@@ -246,7 +246,7 @@ Recomendación: las columnas `crm_accounts.tipo/subtipo` quedan como **copia del
 No se corren suites completas en local (memoria del propietario): cada PR corre los archivos de abajo y CI corre el resto.
 
 - **Unitarios (Vitest)**: `src/helpers/accountClassification.spec.ts` (nuevo: normalización, duplicados, par sin subtipo absorbido, tope 8, regla D1, pares históricos), `filterRules.spec.ts`, `businessColumnGroups.spec.ts`, `messageTemplatePolicy.spec.ts` (lista intersecta, sin vertical no excluye), `messageVariables.spec.ts`, `messageTemplateContext.spec.ts` (D9), `salesMaterialRelevance.spec.ts` (alguna coincide), `hospedaEmailLayout.spec.ts` (D10), `auditChanges.spec.ts`, `verticalColors.spec.ts`, `src/endpoints/leads_GET.sql.spec.ts` con instantáneas nuevas, `src/pages/business-list.spec.tsx` y `business-list-page.spec.tsx`, `CommercialEditor.forms.spec.tsx` (D6), `ContactTemplateDialog.*.spec.tsx`, `src/components/BusinessClassificationsField.spec.tsx` (nuevo).
-- **Integración** (base local descartable, `CRM_TEST_DATABASE=1`, confirmando antes `DATABASE_URL`): `scripts/test-account-classifications-migration.mjs` (nuevo: aplica la 064 sobre una copia con negocios con y sin par, fusionados y en Papelera, y verifica el backfill y la unicidad); `test:commercial` (columnas de la proyección, `account_save` con lista y con el par viejo sin borrar las otras); `test:quality` (importación con `verticales`, actualización que agrega, fusión con unión y tope); `test:permissions` (vendedor ajeno y «No contactar» no editan verticales); `test:sales-material-verticals`; `test:mcp` (permiso de la tabla); `scripts/test-communication-locks.ts` (bloque 0: renombre de subtipo cambia también el negocio, test de regresión escrito antes del arreglo).
+- **Integración** (base local descartable, `CRM_TEST_DATABASE=1`, confirmando antes `DATABASE_URL`): `scripts/test-account-classifications-migration.mjs` (nuevo: aplica la 066 sobre una copia con negocios con y sin par, fusionados y en Papelera, y verifica el backfill y la unicidad); `test:commercial` (columnas de la proyección, `account_save` con lista y con el par viejo sin borrar las otras); `test:quality` (importación con `verticales`, actualización que agrega, fusión con unión y tope); `test:permissions` (vendedor ajeno y «No contactar» no editan verticales); `test:sales-material-verticals`; `test:mcp` (permiso de la tabla); `scripts/test-communication-locks.ts` (bloque 0: renombre de subtipo cambia también el negocio, test de regresión escrito antes del arreglo).
 - **Navegador**: un caso en `tests/browser/*.e2e.ts` que agrega una segunda vertical desde la ficha, la ve en la lista y la encuentra con el filtro. Corre en CI.
 
 ## 13. Runbook posterior al deploy: las 14 verticales pendientes
@@ -257,7 +257,9 @@ Fuente: `~/backups/hospeda-crm/dedup2-secondary-verticals-20261106.json` en el V
 
 ### 13.1 Pasos
 
-1. Confirmar que la 064 está aplicada en producción (`schema_migrations`) y que la versión desplegada incluye los bloques 1 a 4.
+> Si el rol `crm_mcp_reader` ya existe en el entorno, `provision-mcp-reader.mjs` no le otorga permisos sobre tablas nuevas: antes de habilitar el MCP, otorgar `SELECT` sobre `crm_account_classifications` (y `crm_account_seller_groups*` de la spec 107).
+
+1. Confirmar que la 066 está aplicada en producción (`schema_migrations`) y que la versión desplegada incluye los bloques 1 a 4.
 2. Respaldo: `pg_dump` completo a `~/backups/hospeda-crm/` con fecha.
 3. Ensayo sobre una copia restaurada del respaldo: `node scripts/load-account-classifications.mjs --file <json>` (en seco por defecto). Para cada negocio muestra los pares actuales, los que se agregarían, los rechazados (vertical o subtipo inactivo o inexistente, negocio fusionado/en Papelera/inexistente, tope de 8) y no escribe nada.
 4. El propietario revisa la salida del ensayo (en especial #1172, #2314 y #3393) y aprueba.
@@ -277,7 +279,7 @@ Fuente: `~/backups/hospeda-crm/dedup2-secondary-verticals-20261106.json` en el V
 ## 15. Orden de implementación (PRs a `staging`)
 
 1. Bloque 0 (regresión primero).
-2. Bloque 1 (064 + helper + tests de migración).
+2. Bloque 1 (066 + helper + tests de migración).
 3. Bloques 2 y 3 (en paralelo, PRs separados).
 4. Bloque 4.
 5. Bloque 5.
@@ -312,7 +314,7 @@ Fuente: `~/backups/hospeda-crm/dedup2-secondary-verticals-20261106.json` en el V
    - **Opción B:** triggers en la base que sincronizan en los dos sentidos.
      - Pro: cubre también escrituras del contenedor viejo.
      - Contra: más complejo, dispara los triggers de `crm_accounts` (guardia de fusionados, versión en vivo) desde otra tabla; difícil de razonar.
-   - **Opción C:** borrarlas en la 064.
+   - **Opción C:** borrarlas en la 066.
      - Contra: rompe al contenedor viejo durante el deploy.
    - **Recomendación: A**, con la verificación de 13.1 paso 6.
 3. **D3 — Importación que actualiza un negocio existente.**
@@ -375,7 +377,7 @@ El propietario aceptó todas las recomendaciones (D1 a D10, opción A salvo dond
 
 ## 18. Migraciones y datos
 
-- **064** crea la tabla y copia el par actual de cada negocio. No inventa clasificaciones ni carga las 14 pendientes. No edita migraciones aplicadas.
+- **066** crea la tabla y copia el par actual de cada negocio. No inventa clasificaciones ni carga las 14 pendientes. No edita migraciones aplicadas.
 - Una migración posterior (número a asignar cuando se haga el bloque 7) borra `crm_accounts.tipo/subtipo`.
 - La spec 107 usa 064 y su bloque final agrega la 065; esta spec usa la 066. Si cambia el orden de integración, el PR que se mergee segundo fija el número final sin reutilizar migraciones ya aplicadas.
 - Datos de producción: solo el runbook 13, con aprobación del propietario.

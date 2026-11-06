@@ -119,15 +119,29 @@ try{
   console.log('Every communication action locks its business before checking it');}
 
  // 6. A subtype rename touching managements of a locked business waits instead of deadlocking.
- {const {id:subtypeId}=await db.insertInto('crmSubtypes').values({name:'Locks sub '+stamp,typeName:null}).returning('id').executeTakeFirstOrThrow();
+ {const subtypeName='Locks sub '+stamp,renamedSubtype=subtypeName+' renamed '+stamp;
+  const {id:subtypeId}=await db.insertInto('crmSubtypes').values({name:subtypeName,typeName:null}).returning('id').executeTakeFirstOrThrow();
+  await db.updateTable('crmAccounts').set({tipo:'Alojamiento',subtipo:subtypeName}).where('id','=',b.id).execute();
+  await db.insertInto('crmAccountClassifications').values({accountId:b.id,tipo:'Alojamiento',subtipo:subtypeName,createdBy:u.email}).execute();
+  // Regression (review of spec 106 PR A): a merged business with the subtype must not abort the rename, and a business that already has the new pair keeps one row.
+  const merged=await db.insertInto('crmAccounts').values({nombre:'Locks merged '+stamp,tipo:'Alojamiento',subtipo:subtypeName}).returning('id').executeTakeFirstOrThrow();
+  await db.insertInto('crmAccountClassifications').values({accountId:merged.id,tipo:'Alojamiento',subtipo:subtypeName,createdBy:u.email}).execute();
+  await db.updateTable('crmAccounts').set({mergedIntoId:b.id}).where('id','=',merged.id).execute();
+  const both=await db.insertInto('crmAccounts').values({nombre:'Locks both '+stamp,tipo:'Alojamiento',subtipo:subtypeName}).returning('id').executeTakeFirstOrThrow();
+  await db.insertInto('crmAccountClassifications').values([{accountId:both.id,tipo:'Alojamiento',subtipo:subtypeName,createdBy:u.email},{accountId:both.id,tipo:'Alojamiento',subtipo:renamedSubtype,createdBy:u.email}]).execute();
   // A free business's management is inserted first so an unlocked rename would update (and hold) it before waiting on B.
-  const freeLead=await db.insertInto('leads').values({accountId:a.id,nombre:a.nombre,estado:'Cargado',subtipo:'Locks sub '+stamp,assignedUserEmail:u.email}).returningAll().executeTakeFirstOrThrow();
-  const lead=await db.insertInto('leads').values({accountId:b.id,nombre:b.nombre,estado:'Cargado',subtipo:'Locks sub '+stamp,assignedUserEmail:u.email}).returningAll().executeTakeFirstOrThrow();
+  const freeLead=await db.insertInto('leads').values({accountId:a.id,nombre:a.nombre,estado:'Cargado',subtipo:subtypeName,assignedUserEmail:u.email}).returningAll().executeTakeFirstOrThrow();
+  const lead=await db.insertInto('leads').values({accountId:b.id,nombre:b.nombre,estado:'Cargado',subtipo:subtypeName,assignedUserEmail:u.email}).returningAll().executeTakeFirstOrThrow();
   const h=await hold(trx=>lockAccounts(trx,[b.id]));
-  const rename=saveSettings(new Request('http://localhost/_api/settings',{method:'POST',headers:{cookie},body:superjson.stringify({action:'editSubtype',id:String(subtypeId),name:'Locks sub renamed '+stamp})}));
+  const rename=saveSettings(new Request('http://localhost/_api/settings',{method:'POST',headers:{cookie},body:superjson.stringify({action:'editSubtype',id:String(subtypeId),name:renamedSubtype})}));
   try{assert.equal(await waiting(rename),true,'The rename must wait for the business row');
    for(const id of [freeLead.id,lead.id])assert.equal(await attempt(trx=>sql`SELECT id FROM leads WHERE id=${id} FOR UPDATE NOWAIT`.execute(trx)),'ok','The rename must lock the businesses before touching any management');}finally{h.release();await h.done;}
-  assert.equal((await rename).status,200);assert.equal((await db.selectFrom('leads').select('subtipo').where('id','=',lead.id).executeTakeFirstOrThrow()).subtipo,'Locks sub renamed '+stamp);
+  assert.equal((await rename).status,200);assert.equal((await db.selectFrom('leads').select('subtipo').where('id','=',lead.id).executeTakeFirstOrThrow()).subtipo,renamedSubtype);
+  assert.equal((await db.selectFrom('crmAccounts').select('subtipo').where('id','=',b.id).executeTakeFirstOrThrow()).subtipo,renamedSubtype,'Subtype renames must update business classifications');
+  assert.equal((await db.selectFrom('crmAccountClassifications').select('subtipo').where('accountId','=',b.id).executeTakeFirstOrThrow()).subtipo,renamedSubtype,'Subtype renames must update the classification table');
+  assert.equal((await db.selectFrom('crmAccountClassifications').select('subtipo').where('accountId','=',merged.id).executeTakeFirstOrThrow()).subtipo,renamedSubtype,'A merged business keeps following the catalog in its classifications');
+  assert.equal((await db.selectFrom('crmAccounts').select('subtipo').where('id','=',merged.id).executeTakeFirstOrThrow()).subtipo,subtypeName,'A merged business row stays immutable');
+  assert.deepEqual((await db.selectFrom('crmAccountClassifications').select('subtipo').where('accountId','=',both.id).execute()).map(r=>r.subtipo),[renamedSubtype],'A business that already had the new pair keeps a single row');
   console.log('Subtype renames wait for communications on affected businesses');}
 
  // 7. Webhook: lock timeouts are retryable (503) while invalid payloads stay 400. Run with DB_LOCK_TIMEOUT_MS=2000.

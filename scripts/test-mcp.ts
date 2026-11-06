@@ -23,10 +23,10 @@ async function exchange(body:Record<string,string>){return call('/mcp/oauth/toke
 try{
  assert.equal((await call('/mcp')).status,404);
  await sql.unsafe(`CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`);
- await sql.unsafe(`GRANT USAGE ON SCHEMA public TO ${role}; GRANT SELECT ON crm_accounts,crm_contacts,leads,crm_verticals,crm_subtypes,crm_commercial_journal,crm_account_seller_groups,crm_account_seller_group_members TO ${role}`);
+ await sql.unsafe(`GRANT USAGE ON SCHEMA public TO ${role}; GRANT SELECT ON crm_accounts,crm_contacts,leads,crm_verticals,crm_subtypes,crm_commercial_journal,crm_account_seller_groups,crm_account_seller_group_members,crm_account_classifications TO ${role}`);
  process.env.CRM_MCP_ENABLED='1';
  const reader=postgres(readonlyUrl.toString(),{max:1,prepare:false});
- try{await assert.rejects(()=>reader`UPDATE crm_accounts SET nombre=nombre WHERE false`,/permission denied/);await assert.rejects(()=>reader`SELECT * FROM user_passwords`,/permission denied/);}finally{await reader.end();}
+ try{await assert.rejects(()=>reader`UPDATE crm_accounts SET nombre=nombre WHERE false`,/permission denied/);await assert.rejects(()=>reader`SELECT * FROM user_passwords`,/permission denied/);await reader`SELECT account_id FROM crm_account_classifications LIMIT 1`;}finally{await reader.end();}
  const metadata=await(await call('/.well-known/oauth-protected-resource/mcp')).json();assert.equal(metadata.resource,resource);
  assert.equal((await call('/mcp')).status,401);
  assert.ok((await call('/mcp')).headers.get('www-authenticate')?.includes('oauth-protected-resource/mcp'));
