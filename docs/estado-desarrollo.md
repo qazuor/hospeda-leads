@@ -1,3 +1,12 @@
+## Specs 106 y 107 en producción — 06/11/2026
+
+Promoción `staging` → `main` con [#364](https://github.com/qazuor/hospeda-leads/pull/364) (merge `fd0b80b`), desplegada por Coolify: migraciones 064, 065 y 066 aplicadas, `/_api/health/ready` 200. Respaldo previo verificado en el VPS (`~/backups/hospeda-crm/pre-spec106-107-20261106-175056.dump` + sha256).
+
+- Ensayo sobre una copia restaurada del respaldo: migraciones, carga de verticales y de grupos, y segunda corrida sin cambios.
+- Producción, con aprobación del propietario: modo de prueba idéntico al ensayo y después `--apply`. Spec 106: 16 verticales en 14 negocios, 0 rechazos, 0 diferencias de copia de visualización. Spec 107: 5 grupos (#73+#184, #1486+#1556, #2065+#2070, #2296+#2315, #2875+#2881).
+- Los scripts corrieron dentro del VPS (contenedor `node:22-alpine` en la red de Coolify, con el código de `staging`), porque la imagen de producción no incluye `src/` ni `tsx`. Log y archivos de entrada en `~/backups/hospeda-crm/` (`spec106-107-load-20261106.log`, `spec106-load-verticals-20261106.json`, `spec107-load-groups-20261106.json`).
+- Decisiones del propietario confirmadas: una fusión conserva verticales desactivadas del catálogo; una gestión sin vertical usa las verticales del negocio para modelos y variables.
+
 ## Plantillas: link de planes por rubro — 06/11/2026
 
 `{{link_planes}}` para Comer y salir y Experiencias apuntaba a la página de publicación (`/publicar/...`) aunque el texto dice «Los planes, para cuando termine la prueba». Ahora apunta a `/es/planes/comer-y-salir/` y `/es/planes/experiencias/`, como Alojamientos (`/es/planes/anfitriones/`); las tres responden 200. Producción no tiene variables guardadas en `app_settings`, así que el cambio aplica con el deploy, sin datos. Validación: test de regresión en `messageVariables.spec.ts` (falló antes del cambio), Vitest de `src/content` y `messageVariables` y typecheck PASS.
