@@ -7,13 +7,15 @@ import {mcpRoutes} from '../src/server/mcp/routes';
 import {hash,access} from '../src/server/mcp/oauth';
 import {config} from '../src/server/mcp/config';
 import {closeData} from '../src/server/mcp/data';
+import {REQUIRED_MCP_TABLES} from '../src/server/mcp/requiredTables.mjs';
 import {setServerSession} from '../src/helpers/getSetServerSession';
 import {db} from '../src/helpers/db';
+import {handle as mcpDiagnostics} from '../src/endpoints/mcp_diagnostics';
 assert.equal(process.env.CRM_TEST_DATABASE,'1');
 const sql=postgres(process.env.DATABASE_URL!,{max:2,prepare:false});
 const role='crm_mcp_test_'+Date.now(),password=randomBytes(24).toString('hex');
 const origin='http://127.0.0.1:3001',resource=origin+'/mcp',redirect='https://chatgpt.com/connector_platform_oauth_redirect';
-let fixtureId:number|undefined,fixtureBusinessId:number|undefined;
+let fixtureId:number|undefined,fixtureBusinessId:number|undefined,noVerticalBusinessId:number|undefined;
 const app=mcpRoutes();
 const call=(path:string,init?:RequestInit)=>app.fetch(new Request(origin+path,init));
 const secret='test-mcp-secret-'+randomBytes(24).toString('hex');
@@ -23,14 +25,24 @@ async function exchange(body:Record<string,string>){return call('/mcp/oauth/toke
 try{
  assert.equal((await call('/mcp')).status,404);
  await sql.unsafe(`CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`);
- await sql.unsafe(`GRANT USAGE ON SCHEMA public TO ${role}; GRANT SELECT ON crm_accounts,crm_contacts,leads,crm_verticals,crm_subtypes,crm_commercial_journal,crm_account_seller_groups,crm_account_seller_group_members,crm_account_classifications TO ${role}`);
+ await sql.unsafe(`GRANT USAGE ON SCHEMA public TO ${role}; GRANT SELECT ON ${REQUIRED_MCP_TABLES.map(table=>`public.${table}`).join(',')} TO ${role}`);
  process.env.CRM_MCP_ENABLED='1';
  const reader=postgres(readonlyUrl.toString(),{max:1,prepare:false});
  try{await assert.rejects(()=>reader`UPDATE crm_accounts SET nombre=nombre WHERE false`,/permission denied/);await assert.rejects(()=>reader`SELECT * FROM user_passwords`,/permission denied/);await reader`SELECT account_id FROM crm_account_classifications LIMIT 1`;}finally{await reader.end();}
  const metadata=await(await call('/.well-known/oauth-protected-resource/mcp')).json();assert.equal(metadata.resource,resource);
- assert.equal((await call('/mcp')).status,401);
- assert.ok((await call('/mcp')).headers.get('www-authenticate')?.includes('oauth-protected-resource/mcp'));
- assert.equal((await call('/mcp',{headers:{origin:'https://evil.example'}})).status,403);
+ for(const path of ['/mcp','/.well-known/oauth-protected-resource','/mcp/oauth/token']){const rejected=await call(path,{method:path==='/mcp'?'GET':'POST',headers:{host:'foreign.example'}});assert.equal(rejected.status,403,`foreign Host rejected on ${path}`);}
+ assert.equal((await call('/mcp',{headers:{host:'user@127.0.0.1:3001'}})).status,403,'userinfo Host is rejected');
+ const preflight=await call('/mcp',{method:'OPTIONS',headers:{origin:'https://chatgpt.com','access-control-request-method':'POST'} });assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'https://chatgpt.com');assert.equal(preflight.headers.get('vary'),'Origin');
+ const blockedPreflight=await call('/mcp',{method:'OPTIONS',headers:{origin:'https://evil.example'} });assert.equal(blockedPreflight.status,403);assert.equal(blockedPreflight.headers.get('access-control-allow-origin'),null);
+ const blockedPost=await call('/mcp',{method:'POST',headers:{origin:'https://evil.example','content-type':'application/json'},body:'{}'});assert.equal(blockedPost.status,403);assert.equal(blockedPost.headers.get('access-control-allow-origin'),null);
+ assert.equal((await call('/.well-known/oauth-authorization-server',{headers:{origin:'https://evil.example'}})).status,200);
+ assert.equal((await call('/mcp/oauth/token',{method:'POST',headers:{origin:'https://evil.example','content-type':'application/x-www-form-urlencoded'},body:'grant_type=bad'})).status,401,'Missing client credentials are invalid_client (RFC 6749), never blocked by Origin');
+ const unauthorized=await call('/mcp');assert.equal(unauthorized.status,401);
+ assert.equal(unauthorized.headers.get('www-authenticate'),`Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp", scope="crm.read"`);assert.deepEqual(await unauthorized.json(),{error:'unauthorized'});
+ const malformedBasic=await call('/mcp/oauth/token',{method:'POST',headers:{authorization:'Basic Og==','content-type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token'});assert.equal(malformedBasic.status,401);assert.deepEqual(await malformedBasic.json(),{error:'invalid_client'});
+ const originalWarn=console.warn;let rejectedLog='';console.warn=(line?:unknown)=>{rejectedLog=String(line)};
+ try{assert.equal((await call('/mcp?private=query',{method:'POST',headers:{origin:'https://evil.example/path?secret=secret-email@example.com'}})).status,403);}finally{console.warn=originalWarn;}
+ assert.match(rejectedLog,/origin_not_allowed/);assert.match(rejectedLog,/evil\.example/);assert.doesNotMatch(rejectedLog,/private|secret|cookie|secret-email@example\.com|\/path/i);
  const email='mcp-test-'+Date.now()+'@example.com';
  const [u]=await sql`INSERT INTO users(email,display_name,role) VALUES(${email},'MCP test','admin') RETURNING id`;fixtureId=u.id;
  await sql`INSERT INTO authorized_emails(email,active) VALUES(${email},true)`;
@@ -49,14 +61,19 @@ try{
  const callback=new URL(approved.headers.get('location')!);assert.equal(callback.searchParams.get('state'),'test-state');assert.equal(callback.searchParams.get('iss'),origin);const code=callback.searchParams.get('code')!;
  assert.equal((await exchange({grant_type:'authorization_code',code,redirect_uri:redirect,code_verifier:verifier+'bad'})).status,400);
  const exchanged=await exchange({grant_type:'authorization_code',code,redirect_uri:redirect,code_verifier:verifier});assert.equal(exchanged.status,200);const tokens=await exchanged.json();
+ const issuedAfterCode=await sql`SELECT value FROM app_settings WHERE key='crm_mcp_last_token_issued_at'`;assert.ok(issuedAfterCode[0]?.value,'authorization_code exchange records last token issue time');
  assert.equal((await exchange({grant_type:'authorization_code',code,redirect_uri:redirect,code_verifier:verifier})).status,400);
  assert.equal(await access(config()!,tokens.access_token),u.id);
  const client=new Client({name:'crm-test',version:'1'});
  const fetcher:typeof fetch=async(input,init)=>app.fetch(new Request(input,init));
  await client.connect(new StreamableHTTPClientTransport(new URL(resource),{fetch:fetcher,requestInit:{headers:{authorization:'Bearer '+tokens.access_token}}}));
  const tools=await client.listTools();assert.equal(tools.tools.length,5);assert.ok(tools.tools.every(t=>t.annotations?.readOnlyHint&&!t.annotations?.destructiveHint));
- const first=await client.callTool({name:'crm_list_businesses',arguments:{limit:2}});assert.ok(!first.isError);const data=JSON.parse((first.content as any)[0].text);assert.equal(data.businesses.length,2);assert.ok(data.nextCursor);
- const second=await client.callTool({name:'crm_list_businesses',arguments:{limit:2,cursor:data.nextCursor}});assert.notEqual(JSON.parse((second.content as any)[0].text).businesses[0].id,data.businesses[0].id);
+ await sql.unsafe(`REVOKE SELECT ON public.crm_account_classifications FROM ${role}`);
+ const grantsFailure=await client.callTool({name:'crm_overview',arguments:{}});assert.equal(grantsFailure.isError,true);assert.match((grantsFailure.content as Array<{text:string}>)[0]!.text,/grant_missing/);
+ const diagnostic=await mcpDiagnostics(new Request(origin+'/_api/mcp/diagnostics',{headers:{cookie}}));assert.equal(diagnostic.status,200);assert.match(await diagnostic.text(),/crm_account_classifications/);
+ await sql.unsafe(`GRANT SELECT ON public.crm_account_classifications TO ${role}`);
+ const first=await client.callTool({name:'crm_list_businesses',arguments:{limit:2}});assert.ok(!first.isError);const data=JSON.parse((first.content as Array<{text:string}>)[0]!.text) as {businesses:Array<{id:string}>;nextCursor:string|null};assert.equal(data.businesses.length,2);assert.ok(data.nextCursor);
+ const second=await client.callTool({name:'crm_list_businesses',arguments:{limit:2,cursor:data.nextCursor}});assert.notEqual((JSON.parse((second.content as Array<{text:string}>)[0]!.text) as {businesses:Array<{id:string}>}).businesses[0]!.id,data.businesses[0]!.id);
  const [classificationBusiness]=await sql`INSERT INTO crm_accounts(nombre) VALUES(${`MCP classifications ${Date.now()}`}) RETURNING id`;fixtureBusinessId=classificationBusiness.id;
  const [catalog]=await sql`SELECT name FROM crm_verticals WHERE active=true ORDER BY sort_order,name LIMIT 1`;
  await sql`INSERT INTO crm_account_classifications(account_id,tipo,subtipo,created_by) VALUES(${classificationBusiness.id},${catalog.name},NULL,'test-mcp')`;
@@ -64,6 +81,7 @@ try{
  const detail=JSON.parse((classified.content as Array<{text:string}>)[0]!.text) as {business:{clasificaciones:{tipo:string;subtipo:string|null}[]}};
  assert.deepEqual(detail.business.clasificaciones,[{tipo:catalog.name,subtipo:null}],'MCP business detail exposes all classification pairs');
  const verticalList=await client.callTool({name:'crm_list_businesses',arguments:{limit:100,vertical:catalog.name}});const verticalData=JSON.parse((verticalList.content as Array<{text:string}>)[0]!.text) as {businesses:Array<{id:string}>};assert(verticalData.businesses.some(row=>row.id===String(classificationBusiness.id)),'MCP list vertical filter matches classifications');
+ const [unclassified]=await sql`INSERT INTO crm_accounts(nombre) VALUES(${`MCP no classification ${Date.now()}`}) RETURNING id`;noVerticalBusinessId=unclassified.id;
  const overviewResult=await client.callTool({name:'crm_overview',arguments:{}});const overviewData=JSON.parse((overviewResult.content as Array<{text:string}>)[0]!.text) as {counts:Array<{tipo:string|null;businesses:number}>;totalBusinesses:number};assert(overviewData.counts.some(row=>row.tipo===null),'MCP overview includes a no-vertical bucket');assert(overviewData.totalBusinesses>0,'MCP overview returns a distinct business total');assert(tools.tools.find(tool=>tool.name==='crm_overview')?.description?.includes('solap'),'MCP overview description explains overlapping per-vertical counts');
  const badId=await client.callTool({name:'crm_get_business',arguments:{id:'1; DELETE FROM crm_accounts'}});assert.equal(badId.isError,true);
  assert.equal((await client.callTool({name:'crm_overview',arguments:{}})).isError,undefined);
@@ -73,7 +91,7 @@ try{
  const unsafeClient=new Client({name:'unsafe-test',version:'1'});await unsafeClient.connect(new StreamableHTTPClientTransport(new URL(resource),{fetch:fetcher,requestInit:{headers:{authorization:'Bearer '+tokens.access_token}}}));
  assert.equal((await unsafeClient.callTool({name:'crm_overview',arguments:{}})).isError,true);await unsafeClient.close();
  await sql.unsafe(`REVOKE UPDATE ON crm_accounts FROM ${role}`);
- const refreshed=await exchange({grant_type:'refresh_token',refresh_token:tokens.refresh_token});assert.equal(refreshed.status,200);const rotated=await refreshed.json();
+ const refreshed=await exchange({grant_type:'refresh_token',refresh_token:tokens.refresh_token});assert.equal(refreshed.status,200);const rotated=await refreshed.json();const issuedAfterRefresh=await sql`SELECT value FROM app_settings WHERE key='crm_mcp_last_token_issued_at'`;assert.ok(issuedAfterRefresh[0]?.value);assert.ok(Date.parse(issuedAfterRefresh[0]!.value)>=Date.parse(issuedAfterCode[0]!.value),'refresh exchange updates last token issue time');
  assert.equal((await exchange({grant_type:'refresh_token',refresh_token:tokens.refresh_token})).status,400);
  await sql`UPDATE users SET role='user' WHERE id=${u.id}`;
  await assert.rejects(()=>access(config()!,rotated.access_token));assert.equal((await exchange({grant_type:'refresh_token',refresh_token:rotated.refresh_token})).status,400);
@@ -82,6 +100,7 @@ try{
 }finally{
  await closeData();
  if(fixtureBusinessId)await sql`DELETE FROM crm_accounts WHERE id=${fixtureBusinessId}`;
+ if(noVerticalBusinessId)await sql`DELETE FROM crm_accounts WHERE id=${noVerticalBusinessId}`;
  if(fixtureId){await sql`DELETE FROM authorized_emails WHERE email=(SELECT email FROM users WHERE id=${fixtureId})`;await sql`DELETE FROM sessions WHERE user_id=${fixtureId}`;await sql`DELETE FROM users WHERE id=${fixtureId}`;}
  await sql.unsafe(`DROP OWNED BY ${role}; DROP ROLE IF EXISTS ${role}`);
  await sql.end();await db.destroy();
