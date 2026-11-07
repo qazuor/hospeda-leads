@@ -351,8 +351,7 @@ La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-
 
 ## Pospuesto por el propietario: datos y multivertical
 
-- Resolver el acceso MCP de solo lectura. El último bloqueo reportado fue `Origin not allowed` en el recorrido OAuth; antes hubo PKCE/configuración y `invalid_request`. Se corrigieron partes del servidor, pero no se confirmó conexión de ChatGPT a producción.
-- Existe el rol lector provisionado y código MCP; no repetir el provisionado ni rotar secretos por iniciativa propia. Validar configuración/redirect/resource/origin sobre evidencia actual; consultar [MCP](crm-mcp.md).
+- Conexión de ChatGPT a MCP: el servidor está habilitado y los grants del lector se completaron el 07/11/2026; falta completar y confirmar el flujo OAuth desde ChatGPT. Consultar [MCP](crm-mcp.md) y el diagnóstico de Configuración. No repetir el provisionado ni rotar secretos por iniciativa propia.
 - Revisar negocios existentes para posibles fusiones o verticales adicionales. Una coincidencia es señal de revisión, no prueba de duplicado.
 - Acordar clasificación, gestiones conjuntas, filtros, responsables y migración de multivertical. No ejecutar fusiones ni reasignaciones a partir del plan documental.
 
@@ -440,7 +439,7 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 ## Spec 107 — negocios vinculados con el mismo vendedor
 
 - **En producción (06/11/2026)** con #364 (migraciones 064 y 065). Grupos cargados con aprobación del propietario: #73+#184, #1486+#1556, #2065+#2070, #2296+#2315 y #2875+#2881, cada uno con un único vendedor; ningún negocio cambió de vendedor.
-- Antes de habilitar el MCP en producción: si el rol `crm_mcp_reader` ya existe, otorgarle `SELECT` sobre `crm_account_classifications`, `crm_account_seller_groups` y `crm_account_seller_group_members`.
+- El 07/11/2026 se otorgó `SELECT` a `crm_mcp_reader` sobre `crm_account_classifications`, `crm_account_seller_groups` y `crm_account_seller_group_members`; no queda pendiente ese grant.
 
 ### Spec 107 PR B · revisión de hallazgos · 06/11/2026
 
