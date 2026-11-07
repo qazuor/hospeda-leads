@@ -59,6 +59,7 @@ import { handle as h18 } from "../endpoints/leads_stats_GET";
 import { handle as h19 } from "../endpoints/leads_trash_GET";
 import { handle as h20 } from "../endpoints/live_version_GET";
 import { handle as h22 } from "../endpoints/settings_GET";
+import {handle as mcpDiagnosticsGET} from '../endpoints/mcp_diagnostics';
 import { handle as h23 } from "../endpoints/settings_save_POST";
 
 import { get as commercialGET, post as commercialPOST } from "../endpoints/commercial";
@@ -184,6 +185,7 @@ app.post('/_api/business_system_view_convert',c=>businessSystemViewConvert(c.req
 app.get('/_api/business_reassignment',c=>businessReassignmentGET(c.req.raw));
 app.post('/_api/business_reassignment',c=>businessReassignmentPOST(c.req.raw));
 app.get("/_api/settings", (c) => h22(c.req.raw));
+app.get('/_api/mcp/diagnostics',c=>mcpDiagnosticsGET(c.req.raw));
 app.post("/_api/settings_save", (c) => h23(c.req.raw));
 
 // Public material page (spec 89 §7): no session, own enforced CSP. Every /m path is answered here, so it never falls through to the SPA.
