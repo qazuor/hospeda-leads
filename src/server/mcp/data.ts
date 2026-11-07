@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import type {Config} from './config';
+import {REQUIRED_MCP_TABLES} from './requiredTables.mjs';
 let pool:ReturnType<typeof postgres>|undefined;
 export const businessColumns=`a.id::text,a.nombre,a.ciudad,a.tipo,a.subtipo,a.provincia,a.direccion,a.telefono,a.whatsapp,a.email,a.sitio_web,a.url_gmap,a.perfil_instagram,a.perfil_facebook,a.perfil_airbnb,a.perfil_booking,a.perfil_turismo_entre_rios,a.business_notes,a.discovery_source,a.verification_urls,a.verified_on,a.assigned_user_email,a.commercial_status,a.do_not_contact,a.merged_into_id::text,a.archived_at,a.updated_at,coalesce((SELECT json_agg(json_build_object('tipo',c.tipo,'subtipo',c.subtipo) ORDER BY coalesce(v.sort_order,2147483647),c.tipo,c.subtipo NULLS FIRST,c.id) FROM public.crm_account_classifications c LEFT JOIN public.crm_verticals v ON v.name=c.tipo WHERE c.account_id=a.id),'[]'::json) AS clasificaciones`;
 export async function read<T>(c:Config,fn:(tx:postgres.TransactionSql)=>Promise<T>):Promise<T>{
@@ -9,10 +10,17 @@ export async function read<T>(c:Config,fn:(tx:postgres.TransactionSql)=>Promise<
   const unsafe=await tx`SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls)
    UNION ALL SELECT 1 FROM pg_tables WHERE schemaname='public' AND has_table_privilege(current_user,quote_ident(schemaname)||'.'||quote_ident(tablename),'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
    UNION ALL SELECT 1 WHERE has_schema_privilege(current_user,'public','CREATE') LIMIT 1`;
-  if(unsafe.length)throw new Error('MCP database role must have read-only privileges');
+  if(unsafe.length)throw Object.assign(new Error('Unsafe reader role'),{code:'MCP_READER_UNSAFE'});
   return await fn(tx);
  }) as Promise<T>;
 }
+export async function missingGrants(c:Config){
+ return read(c,async tx=>{
+  const rows=await tx<{tableName:string;granted:boolean}[]>`SELECT table_name AS "tableName",has_table_privilege(current_user,'public.'||quote_ident(table_name),'SELECT') AS granted FROM unnest(${tx.array([...REQUIRED_MCP_TABLES])}::text[]) AS table_name`;
+  return rows.filter(row=>!row.granted).map(row=>row.tableName);
+ });
+}
+export async function readerPing(c:Config){return read(c,async tx=>{await tx`SELECT 1`;});}
 export async function closeData(){await pool?.end();pool=undefined;}
 export async function list(c:Config,input:{cursor?:string;limit:number;search?:string;city?:string;vertical?:string;includeArchived:boolean}){
  return read(c,async tx=>{
