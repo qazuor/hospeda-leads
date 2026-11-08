@@ -5,7 +5,7 @@ import {normalizedTextMatchSql,normalizedWordMatchSql} from './searchSql';
 import {phoneNationalKeys,phoneSignificantKeys} from '../../helpers/dataNormalization';
 import {instagramProfilePattern,normalizeInstagramUsername} from '../../helpers/instagramChat';
 import {inlineBadgeFields} from '../../helpers/inlineBadgeFields';
-import {redactStaffEmails,staffDomainsFromHost} from './privacy';
+import {containsAddress,redactStaffEmails,staffDomainsFromHost} from './privacy';
 
 /** Journal fields whose values identify staff: person badges plus legacy Spanish names. Their values are never returned. */
 /** Fail closed: any history value containing an email is redacted, whatever its field (current business emails stay visible in the business record). */
@@ -53,7 +53,7 @@ export async function getManagement(c:Config,id:string,cursor:string,limit:numbe
  const staff=await tx`SELECT email FROM public.users WHERE email IS NOT NULL`;
  const staffIdentity={emails:staff.map((row:Record<string,unknown>)=>String(row.email)),domains:staffDomainsFromHost(new URL(c.origin).host)};
  const events=await tx`SELECT id,action,field_name,CASE WHEN redacted THEN NULL WHEN length(old_value)>500 THEN left(old_value,500) ELSE old_value END AS old_value,CASE WHEN redacted THEN NULL WHEN length(new_value)>500 THEN left(new_value,500) ELSE new_value END AS new_value,redacted,NOT redacted AND (length(old_value)>500 OR length(new_value)>500) AS truncated,created_at,actor_name FROM (SELECT id::text AS id,id AS sort_id,action,field_name,old_value,new_value,created_at,actor_name,(coalesce(field_name ~* '(assign|owner|seller|user|actor)',false) OR field_name=ANY(${tx.array([...journalPersonFields])}) OR coalesce(old_value,'') ~ ${journalEmailPattern} OR coalesce(new_value,'') ~ ${journalEmailPattern}) AS redacted FROM public.lead_journal WHERE lead_id=${id} AND (${cursor}='0' OR id<${cursor})) j ORDER BY sort_id DESC LIMIT ${limit+1}`;
- const items=events.slice(0,limit).map((event:Record<string,unknown>)=>({...event,old_value:redactStaffEmails(event.old_value,staffIdentity),new_value:redactStaffEmails(event.new_value,staffIdentity),untrusted:true}));return {found:true,management:managementContract(r as Record<string,unknown>),businessId:String(r.account_id),doNotContact:Boolean(r.do_not_contact),journal:{items,nextCursor:events.length>limit?String(events[limit-1]!.id):null}};
+ const items=events.slice(0,limit).map((event:Record<string,unknown>)=>({...(containsAddress(event.old_value)||containsAddress(event.new_value)?{...event,old_value:null,new_value:null,redacted:true,truncated:false}:{...event,old_value:redactStaffEmails(event.old_value,staffIdentity),new_value:redactStaffEmails(event.new_value,staffIdentity)}),untrusted:true}));return {found:true,management:managementContract(r as Record<string,unknown>),businessId:String(r.account_id),doNotContact:Boolean(r.do_not_contact),journal:{items,nextCursor:events.length>limit?String(events[limit-1]!.id):null}};
 });}
 export async function catalogs(c:Config,name:string,includeInactive=false){return read(c,async tx=>{
  const data=name==='stages'?await tx`SELECT name AS id,coalesce(display_name,name) AS label,active,management_type AS role,classification FROM public.crm_stages WHERE (${includeInactive} OR active) ORDER BY sort_order,name`

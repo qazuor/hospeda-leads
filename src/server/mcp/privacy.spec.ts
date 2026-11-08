@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {decodeAddressEntities,redactStaffEmails,staffDomainsFromHost} from './privacy';
+import {containsAddress,normalizeForPrivacy,redactStaffEmails,staffDomainsFromHost} from './privacy';
 
 const staff={emails:['staff@example.com'],domains:['hospeda.com.ar']};
 
@@ -13,14 +13,33 @@ describe('staff text privacy',()=>{
   expect(redactStaffEmails('Enviado desde ventas@hospeda.com.ar y info@mail.hospeda.com.ar',staff)).toBe('Enviado desde [equipo] y [equipo]');
  });
  it('does not treat look-alike domains as staff',()=>expect(redactStaffEmails('x@nothospeda.com.ar',staff)).toBe('x@nothospeda.com.ar'));
- it('decodes entity and percent-encoded addresses before matching',()=>{
+ it('decodes named, decimal, hex and percent encodings before matching',()=>{
   expect(redactStaffEmails('El equipo &lt;staff&#64;example.com&gt; escribió; staff%40example.com',staff)).toBe('El equipo <[equipo]> escribió; [equipo]');
+  expect(redactStaffEmails('staff&#x40;example.com y staff&#0064;example.com',staff)).toBe('[equipo] y [equipo]');
+ });
+ it('decodes nested encodings and full-width characters',()=>{
+  expect(redactStaffEmails('staff%2540example.com',staff)).toBe('[equipo]');
+  expect(redactStaffEmails('staff＠example.com',staff)).toBe('[equipo]');
+  expect(redactStaffEmails('ventas＠hospeda.com.ar',staff)).toBe('[equipo]');
+ });
+ it('redacts known staff emails embedded in surrounding characters',()=>{
+  expect(redactStaffEmails('href=mailto:staff@example.com?subject=hola',staff)).toBe('href=mailto:[equipo]?subject=hola');
+  expect(redactStaffEmails('=ventas@hospeda.com.ar=',staff)).toBe('=[equipo]=');
  });
  it('keeps trailing sentence punctuation outside the replacement',()=>expect(redactStaffEmails('Escribí a staff@example.com.',staff)).toBe('Escribí a [equipo].'));
  it('keeps null values null',()=>expect(redactStaffEmails(null,staff)).toBeNull());
  it('derives the CRM email domain from its public host',()=>{
   expect(staffDomainsFromHost('crm.hospeda.com.ar')).toEqual(['hospeda.com.ar']);
   expect(staffDomainsFromHost('127.0.0.1:3001')).toEqual([]);
-  expect(decodeAddressEntities('a&amp;b')).toBe('a&b');
+ });
+ it('normalizes repeatedly with a cap',()=>{
+  expect(normalizeForPrivacy('a&amp;b')).toBe('a&b');
+  expect(normalizeForPrivacy('a&amp;amp;amp;amp;amp;amp;amp;b').length).toBeGreaterThan(0);
+ });
+ it('detects addresses for fail-closed history only after normalization',()=>{
+  expect(containsAddress('x&#64;y.com')).toBe(true);
+  expect(containsAddress('x＠y.com')).toBe(true);
+  expect(containsAddress('sin email')).toBe(false);
+  expect(containsAddress(null)).toBe(false);
  });
 });
