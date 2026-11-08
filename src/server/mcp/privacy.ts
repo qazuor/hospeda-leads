@@ -36,7 +36,7 @@ const escapeRegExp=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 export function redactStaffEmails(value:unknown,staff:StaffIdentity):string|null{
  if(value===null||value===undefined)return null;
  let text=normalizeForPrivacy(String(value));
- for(const domain of staff.domains)if(domain)text=text.replace(new RegExp(`[a-z0-9._%+-]+@(?:[a-z0-9-]+\\.)*${escapeRegExp(domain)}(?![a-z0-9-]|\\.[a-z0-9])`,'gi'),'[equipo]');
+ for(const domain of staff.domains)if(domain)text=text.replace(new RegExp(`[^\\s<>"(),;:[\\]@]+@(?:[^\\s<>"'(),;:[\\]@./?#]+\\.)*${escapeRegExp(domain)}(?![a-z0-9-]|\\.[a-z0-9])`,'gi'),'[equipo]');
  for(const email of staff.emails)if(email)text=text.replace(new RegExp(escapeRegExp(email),'gi'),'[equipo]');
  return text;
 }

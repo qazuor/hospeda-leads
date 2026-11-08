@@ -24,12 +24,15 @@ describe('staff text privacy',()=>{
  });
  it('redacts known staff emails embedded in surrounding characters',()=>{
   expect(redactStaffEmails('href=mailto:staff@example.com?subject=hola',staff)).toBe('href=mailto:[equipo]?subject=hola');
-  expect(redactStaffEmails('=ventas@hospeda.com.ar=',staff)).toBe('=[equipo]=');
+  expect(redactStaffEmails('=ventas@hospeda.com.ar=',staff)).toBe('[equipo]=');
  });
  it('anchors staff domains even when query strings or other characters follow',()=>{
   expect(redactStaffEmails('mailto:ventas@hospeda.com.ar?subject=hola',staff)).toBe('mailto:[equipo]?subject=hola');
   expect(redactStaffEmails('ventas@hospeda.com.ar/firma',staff)).toBe('[equipo]/firma');
   expect(redactStaffEmails('x@hospeda.com.ar.evil.example',staff)).toBe('x@hospeda.com.ar.evil.example');
+  expect(redactStaffEmails("o'brien@hospeda.com.ar",staff)).toBe('[equipo]');
+  expect(redactStaffEmails('a!b#c@ventas-ar.hospeda.com.ar',staff)).toBe('[equipo]');
+  expect(redactStaffEmails('ñandú@hospeda.com.ar',staff)).toBe('[equipo]');
  });
  it('keeps trailing sentence punctuation outside the replacement',()=>expect(redactStaffEmails('Escribí a staff@example.com.',staff)).toBe('Escribí a [equipo].'));
  it('keeps null values null',()=>expect(redactStaffEmails(null,staff)).toBeNull());
