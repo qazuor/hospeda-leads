@@ -26,7 +26,6 @@ export function staffDomainsFromHost(host:string):string[]{
  return [parts.length>=3?parts.slice(1).join('.'):name];
 }
 
-const emailToken=/[^\s<>"'(),;[\]]+@[^\s<>"'(),;[\]]+/g;
 const escapeRegExp=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 
 /**
@@ -36,13 +35,8 @@ const escapeRegExp=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
  */
 export function redactStaffEmails(value:unknown,staff:StaffIdentity):string|null{
  if(value===null||value===undefined)return null;
- const domains=staff.domains.map(domain=>domain.toLowerCase());
- let text=normalizeForPrivacy(String(value)).replace(emailToken,token=>{
-  const lead=/^[^a-z0-9]*/i.exec(token)?.[0]??'';const trail=/[^a-z0-9]*$/i.exec(token)?.[0]??'';
-  const core=token.slice(lead.length,token.length-trail.length);const address=core.replace(/^mailto:/i,'').toLowerCase();
-  const domain=address.slice(address.lastIndexOf('@')+1);
-  return domains.some(staffDomain=>domain===staffDomain||domain.endsWith('.'+staffDomain))?lead+'[equipo]'+trail:token;
- });
+ let text=normalizeForPrivacy(String(value));
+ for(const domain of staff.domains)if(domain)text=text.replace(new RegExp(`[a-z0-9._%+-]+@(?:[a-z0-9-]+\\.)*${escapeRegExp(domain)}(?![a-z0-9-]|\\.[a-z0-9])`,'gi'),'[equipo]');
  for(const email of staff.emails)if(email)text=text.replace(new RegExp(escapeRegExp(email),'gi'),'[equipo]');
  return text;
 }
