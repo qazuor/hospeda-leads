@@ -4,6 +4,12 @@ import {managementContract,page} from './contracts';
 import {normalizedTextMatchSql,normalizedWordMatchSql} from './searchSql';
 import {phoneNationalKeys,phoneSignificantKeys} from '../../helpers/dataNormalization';
 import {instagramProfilePattern,normalizeInstagramUsername} from '../../helpers/instagramChat';
+import {inlineBadgeFields} from '../../helpers/inlineBadgeFields';
+
+/** Journal fields whose values identify staff: person badges plus legacy Spanish names. Their values are never returned. */
+export const journalPersonFields:readonly string[]=Object.freeze([...Object.entries(inlineBadgeFields).filter(([,meta])=>meta.category==='person').map(([key])=>key),'asignadoA','assigned_user_email']);
+/** Any journal value containing an email is redacted, whatever its field name (fail closed for staff and third-party emails). */
+const emailPattern='[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+';
 
 const digits=(v:unknown)=>String(v??'').replace(/\D/g,'');
 const phoneQuery=(q:string)=>/^\+?[\d\s().-]+$/.test(q.trim())&&digits(q).length>=6;
@@ -43,7 +49,7 @@ export async function businessManagements(c:Config,businessId:string,includeClos
 export async function getManagement(c:Config,id:string,cursor:string,limit:number){return read(c,async tx=>{
  const rows=await tx`SELECT l.id::text,l.account_id::text,l.opportunity_name,l.management_type,l.tipo,l.estado,l.created_at,s.classification,a.do_not_contact,a.merged_into_id FROM public.leads l JOIN public.crm_accounts a ON a.id=l.account_id LEFT JOIN public.crm_stages s ON s.name=l.estado WHERE l.id=${id} AND l.deleted_at IS NULL AND a.deleted_at IS NULL`;
  if(!rows.length)return {found:false};const r=rows[0]!;if(r.merged_into_id)return {found:false,reason:'merged',mergedIntoId:String(r.merged_into_id)};
- const events=await tx`SELECT id::text,action,field_name,CASE WHEN field_name ~* '(assign|owner|seller|user|actor)' THEN NULL WHEN length(old_value)>500 THEN left(old_value,500) ELSE old_value END AS old_value,CASE WHEN field_name ~* '(assign|owner|seller|user|actor)' THEN NULL WHEN length(new_value)>500 THEN left(new_value,500) ELSE new_value END AS new_value,coalesce(field_name ~* '(assign|owner|seller|user|actor)',false) AS redacted,(field_name IS NULL OR field_name !~* '(assign|owner|seller|user|actor)') AND (length(old_value)>500 OR length(new_value)>500) AS truncated,created_at,actor_name FROM public.lead_journal WHERE lead_id=${id} AND (${cursor}='0' OR id<${cursor}) ORDER BY id DESC LIMIT ${limit+1}`;
+ const events=await tx`SELECT id,action,field_name,CASE WHEN redacted THEN NULL WHEN length(old_value)>500 THEN left(old_value,500) ELSE old_value END AS old_value,CASE WHEN redacted THEN NULL WHEN length(new_value)>500 THEN left(new_value,500) ELSE new_value END AS new_value,redacted,NOT redacted AND (length(old_value)>500 OR length(new_value)>500) AS truncated,created_at,actor_name FROM (SELECT id::text AS id,id AS sort_id,action,field_name,old_value,new_value,created_at,actor_name,(coalesce(field_name ~* '(assign|owner|seller|user|actor)',false) OR field_name=ANY(${tx.array([...journalPersonFields])}) OR coalesce(old_value,'') ~ ${emailPattern} OR coalesce(new_value,'') ~ ${emailPattern}) AS redacted FROM public.lead_journal WHERE lead_id=${id} AND (${cursor}='0' OR id<${cursor})) j ORDER BY sort_id DESC LIMIT ${limit+1}`;
  const items=events.slice(0,limit).map((event:Record<string,unknown>)=>({...event,untrusted:true}));return {found:true,management:managementContract(r as Record<string,unknown>),businessId:String(r.account_id),doNotContact:Boolean(r.do_not_contact),journal:{items,nextCursor:events.length>limit?String(events[limit-1]!.id):null}};
 });}
 export async function catalogs(c:Config,name:string,includeInactive=false){return read(c,async tx=>{
