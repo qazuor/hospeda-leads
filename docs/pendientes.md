@@ -6,7 +6,7 @@ Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono r
 
 # Pendientes y próximo trabajo
 
-- **Spec 108, PR B + C reagrupados:** herramientas MCP de lectura implementadas en `feat/spec-108-read-tools`; `npm run typecheck`, `npx vitest run src/server`, seed y `npm run test:mcp` pasan en base descartable. Pendiente revisión y PR a `staging`. Instalar con grants de manifiesto: lectura en tablas requeridas y sólo `(id, display_name, role, deactivated_at)` sobre `users`. Informe: `/tmp/claude-1000/-home-qazuor-projects-WEBS/hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s108b2-report.md`.
+- **Spec 108, PR C:** tercera ronda local en `feat/spec-108-agenda-comms`; hallazgos 1–11 cubiertos. Typecheck, Vitest dirigido (120 pruebas) y `test:mcp` con seed fresco pasan. No hubo cambios de GRANT. Próximo paso: revisar cambios y preparar PR a `staging`.
 
 - **Spec 106 en producción (06/11/2026):** promovida con #364; migración 066 aplicada (3533 negocios con su par en `crm_account_classifications`). Runbook §13 ejecutado con aprobación del propietario: 16 verticales agregadas a 14 negocios, 0 rechazos, 0 diferencias de copia de visualización. Pendiente menor: en la lista, con dos verticales, no se ve qué subtipo corresponde a cada vertical (ficha y vista rápida sí lo muestran).
 
@@ -473,4 +473,9 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 ### Spec 108 PR B · tercera revisión
 
 - Código y pruebas de lectura MCP completados localmente en `feat/spec-108-read-tools`. Verificación: typecheck, 109 pruebas de `src/server` y `test:mcp` PASS tras seed fresco de base descartable.
-- Pendiente: revisión y preparación de PR a `staging`. El operador debe aplicar los grants exactos del runbook con autorización; no se modificó producción. Los nombres de responsables se omiten mientras resolverlos exija conceder `users.email`.
+- Estado de grants: `users.email` ya está autorizado y registrado en el runbook; no agregar columnas de teléfonos u otros emails sensibles. Próximo paso: revisar e integrar PRs relacionados según su estado.
+
+### Spec 108 PR C · tercera revisión
+
+- Hallazgos 1–11 abordados en el worktree local. `users.email` ya estaba concedido; no hay cambios de GRANT ni consultas a teléfonos de usuarios.
+- Validación final: typecheck, Vitest dirigido (17 archivos/120 pruebas), seed fresco y `test:mcp` PASS. Informe: `/tmp/claude-1000/-home-qazuor-projects-WEBS/hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s108c3-report.md`. Próximo paso: revisar cambios y preparar PR a `staging`.
