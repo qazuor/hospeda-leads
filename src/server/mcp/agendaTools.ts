@@ -2,7 +2,7 @@ import type {Config} from './config';
 import {read} from './data';
 import {page} from './contracts';
 import {localDay} from '../../helpers/workDates';
-import {redactStaffEmails} from './privacy';
+import {redactStaffEmails,staffDomainsFromHost} from './privacy';
 
 const n=(v:unknown)=>Number(v??0);
 export const clipCommunicationText=(value:unknown)=>{const text=String(value??'');return {text:text.slice(0,4000),truncated:text.length>4000};};
@@ -30,7 +30,7 @@ export async function businessCommunication(c:Config,input:{businessId:string;cu
  const [business]=await tx`SELECT merged_into_id,do_not_contact FROM public.crm_accounts WHERE id=${input.businessId} AND deleted_at IS NULL`;
   if(!business)return {found:false};if(business.merged_into_id)return {found:false,reason:'merged',mergedIntoId:String(business.merged_into_id)};
   const staff=await tx`SELECT email FROM public.users WHERE email IS NOT NULL`;
-  const staffEmails=staff.map((row:Record<string,unknown>)=>String(row.email));
+  const staffIdentity={emails:staff.map((row:Record<string,unknown>)=>String(row.email)),domains:staffDomainsFromHost(new URL(c.origin).host)};
   const offset=Number(input.cursor),since=input.since??null;
   const rows=await tx`SELECT * FROM (
    SELECT m.id::text AS id,m.channel,CASE WHEN m.status IN ('manual_sent','accepted','delivery_confirmed','replied') THEN 'outgoing' ELSE NULL END::text AS direction,m.status,CASE WHEN m.status IN ('manual_sent','accepted','delivery_confirmed','replied') THEN coalesce(m.last_interaction_at,m.created_at) ELSE m.created_at END AS date,u.display_name AS actor_name,m.contact_id::text AS contact_id,m.lead_id::text AS management_id,coalesce(m.text_body,m.body,'') AS text,'[]'::text AS attachments,0 AS kind
@@ -42,7 +42,7 @@ export async function businessCommunication(c:Config,input:{businessId:string;cu
    SELECT i.id::text,i.channel,'incoming'::text,i.status,i.received_at,NULL::text,i.contact_id::text,i.lead_id::text,concat_ws(E'\n',i.subject,i.text_body),CASE WHEN jsonb_typeof(i.attachments)='array' THEN coalesce((SELECT jsonb_agg(jsonb_build_object('filename',x.value->>'filename','mimeType',x.value->>'mimeType','contentType',x.value->>'contentType')) FROM jsonb_array_elements(i.attachments) AS x(value)),'[]'::jsonb)::text ELSE '[]'::text END,2
     FROM public.crm_inbound_messages i WHERE i.account_id=${input.businessId} AND i.status<>'voided' AND (${since}::date IS NULL OR (i.received_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date>=${since}::date)
   ) events ORDER BY date DESC,kind,id OFFSET ${offset} LIMIT ${input.limit+1}`;
-  const candidates=rows.map((r:Record<string,unknown>)=>{const full=redactStaffEmails(r.text,staffEmails),body=clipCommunicationText(full);return {id:r.id,channel:r.channel,direction:r.direction,status:r.status,date:r.date,actorName:r.actor_name??null,...(r.contact_id?{contactId:String(r.contact_id)}:{}),managementId:r.management_id===null?null:String(r.management_id),text:body.text,untrusted:true,truncated:body.truncated,attachments:attachmentNames(r.attachments)};});
+  const candidates=rows.map((r:Record<string,unknown>)=>{const full=redactStaffEmails(r.text,staffIdentity)??'',body=clipCommunicationText(full);return {id:r.id,channel:r.channel,direction:r.direction,status:r.status,date:r.date,actorName:r.actor_name??null,...(r.contact_id?{contactId:String(r.contact_id)}:{}),managementId:r.management_id===null?null:String(r.management_id),text:body.text,untrusted:true,truncated:body.truncated,attachments:attachmentNames(r.attachments)};});
   const items:typeof candidates=[];let size=0;for(const item of candidates.slice(0,input.limit)){const itemSize=Buffer.byteLength(JSON.stringify(item));if(items.length&&size+itemSize>60_000)break;items.push(item);size+=itemSize;}
   const hasMore=rows.length>items.length,limitedBySize=items.length<Math.min(input.limit,candidates.length);return {found:true,doNotContact:Boolean(business.do_not_contact),items,nextCursor:hasMore?String(offset+items.length):null,truncated:limitedBySize};
  });
