@@ -18,7 +18,9 @@ try{
   const database=decodeURIComponent(url.pathname.slice(1));
   await tx`GRANT CONNECT ON DATABASE ${tx(database)} TO crm_mcp_reader`;
   await tx.unsafe('GRANT USAGE ON SCHEMA public TO crm_mcp_reader');
-  await tx.unsafe(`GRANT SELECT ON ${REQUIRED_MCP_TABLES.map(table=>`public.${table}`).join(',')} TO crm_mcp_reader`);
+  const tables=REQUIRED_MCP_TABLES.filter(item=>typeof item==='string');
+  if(tables.length)await tx.unsafe(`GRANT SELECT ON ${tables.map(table=>`public.${table}`).join(',')} TO crm_mcp_reader`);
+  for(const item of REQUIRED_MCP_TABLES.filter(item=>typeof item!=='string'))await tx.unsafe(`GRANT SELECT (${item.columns.join(',')}) ON public.${item.table} TO crm_mcp_reader`);
  });
  console.log(JSON.stringify({created:true,role,configurationFile:file,secretsPrinted:false}));
 }catch(error){
