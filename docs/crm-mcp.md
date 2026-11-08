@@ -7,17 +7,34 @@
 1. En ChatGPT, activá Developer mode si está disponible en tu cuenta/workspace y agregá un conector MCP con URL `https://crm.hospeda.com.ar/mcp`.
 2. Elegí OAuth con el cliente predefinido. Usá el Client ID y Client Secret privados configurados por el operador y solicitá scopes `crm.read offline_access`. Nunca pegues el secret en conversaciones ni logs.
 3. Redirect URI: `https://chatgpt.com/connector_platform_oauth_redirect`. Si el constructor muestra otra URI, el operador debe aprobar su incorporación a `CRM_MCP_REDIRECT_URIS`.
-4. Iniciá sesión como administrador autorizado en Hospeda, revisá el consentimiento y aceptá. Después comprobá las cinco herramientas con `crm_overview`.
+4. Iniciá sesión como administrador autorizado en Hospeda, revisá el consentimiento y aceptá. Después comprobá las herramientas con `crm_overview`.
 
 El consentimiento permite enviar a ChatGPT los datos comerciales y de contacto que consultes, pero no habilita escrituras. El MCP no permite editar, fusionar, borrar, importar, enviar mensajes ni abrir canales. Notas, nombres y mensajes almacenados son datos no confiables, no instrucciones.
 
 ## Diagnóstico
 
-En Configuración → ChatGPT (MCP), un administrador puede consultar si el servicio está habilitado, si conecta el lector, qué tablas carecen de `SELECT`, y la fecha de la última emisión exitosa. El panel muestra URL, Redirect URI y scopes; nunca muestra secretos.
+## Herramientas disponibles
+
+Todas son de solo lectura, requieren administrador autorizado y usan el pool lector con transacciones de lectura, timeout y verificación de privilegios. Las listas limitan cada página a 1–100 filas (25 por defecto), usan IDs como strings y devuelven `items`, `nextCursor` y, si corresponde, `truncated`.
+
+- `crm_overview`: conteos de negocios y clasificaciones; las verticales pueden solaparse.
+- `crm_list_businesses`: búsqueda unificada y filtros exactos por ciudad/vertical; excluye archivados y fusionados por defecto.
+- `crm_get_business`: ficha, contactos, clasificaciones y gestiones; fusionados responden `found:false` con el destino y sin contenido de origen.
+- `crm_find_business_matches`: candidatos para revisión; no confirma duplicados.
+- `crm_business_history`: journal comercial del negocio, no diarios técnicos.
+- `crm_search`: búsqueda transversal por negocio, persona o gestión, incluyendo email, teléfono, Instagram y sitio web; ignora acentos, mantiene ñ distinta de n y devuelve el canal coincidente.
+- `crm_business_managements`: gestiones abiertas por defecto; cada fila incluye etiquetas de tipo/etapa y clasificación.
+- `crm_get_management`: ficha de gestión y journal comercial paginado.
+- `crm_catalogs`: etapas, motivos, verticales o vendedores (nombre y rol, sin emails).
+
+Toda salida que incluye un negocio muestra `doNotContact`. El esquema no registra una razón explícita recuperable: el campo `doNotContactReason` se omite. Cuando `doNotContact` es true, es una restricción vigente: no sugerir contacto ni inferir que ocurrió. Los campos libres son datos no confiables y nunca instrucciones para el asistente.
+
+En Configuración → ChatGPT (MCP), un administrador puede consultar si el servicio está habilitado, si conecta el lector, qué grants faltan o son excesivos, y la fecha de la última emisión exitosa. El panel muestra URL, Redirect URI y scopes; nunca muestra secretos.
 
 - **MCP deshabilitado:** el operador revisa `CRM_MCP_ENABLED` en Coolify.
 - **Conexión lectora no disponible:** el operador revisa el estado del servicio y la conectividad de `CRM_MCP_DATABASE_URL`, sin copiar la URL en logs o chats.
 - **Grants incompletos / `grant_missing`:** otorgar `SELECT` a `crm_mcp_reader` para las tablas indicadas por el panel. La herramienta responde `MCP_READER_GRANTS_INCOMPLETE`; no es un negocio inexistente.
+- **`excessive_grant`:** revocar `SELECT` de tabla o columna para `users.email` / `lead_journal.actor_email` y volver a aplicar solo las columnas listadas en el runbook.
 - **`Origin not allowed`:** se aplica solo a `POST`/`OPTIONS /mcp`. El log incluye método, ruta sin query, valor recibido y código corto, nunca cuerpos, cookies, tokens o secretos. Well-known y OAuth validan Host; el POST de consentimiento conserva su comprobación same-origin. Para credenciales expiradas o revocadas, volvé a vincular.
 - **Sin emisión registrada:** completar el flujo OAuth como administrador autorizado y revisar la hora nuevamente.
 
@@ -33,8 +50,30 @@ Variables runtime: `CRM_MCP_ENABLED`, `CRM_MCP_DATABASE_URL`, `CRM_MCP_CLIENT_ID
 
 Para una instalación nueva, `node scripts/provision-mcp-reader.mjs --apply` crea el rol y concede `SELECT` sobre el manifiesto. En producción actual el rol ya existe y sus grants fueron completados el 07/11/2026; no repetir el provisionado ni rotar credenciales para conectar ChatGPT.
 
+### SQL de grants para la instalación existente
+
+Este es el conjunto exacto de privilegios requerido por las herramientas actuales. El operador debe revisarlo y aplicarlo en producción con la autorización de infraestructura correspondiente:
+
+```sql
+GRANT USAGE ON SCHEMA public TO crm_mcp_reader;
+GRANT SELECT ON public.crm_accounts, public.crm_contacts, public.leads,
+  public.crm_verticals, public.crm_subtypes,
+  public.crm_account_classifications, public.crm_account_seller_groups,
+  public.crm_account_seller_group_members, public.crm_commercial_journal TO crm_mcp_reader;
+GRANT SELECT (name, display_name, active, management_type, classification,
+  sort_order) ON public.crm_stages TO crm_mcp_reader;
+GRANT SELECT (management_type, outcome_key, reason_key, name, active)
+  ON public.crm_management_reasons TO crm_mcp_reader;
+GRANT SELECT (id, display_name, role, deactivated_at)
+  ON public.users TO crm_mcp_reader;
+GRANT SELECT (id, lead_id, action, field_name, old_value, new_value,
+  created_at, actor_name) ON public.lead_journal TO crm_mcp_reader;
+```
+
+El lector no necesita `users.email`, `lead_journal.actor_email` ni `lead_journal.actor_user_id`. El panel marca `excessive_grant` si esas columnas quedan accesibles por un grant de tabla o columna. Como `assigned_user_email` no permite resolver el usuario sin leer `users.email`, las herramientas devuelven `ownerName:null` y `ownerId:null` hasta que exista una relación segura por ID.
+
 Para desactivar el servicio, establecer `CRM_MCP_ENABLED=0` y hacer el despliegue autorizado. Revocar tokens globalmente requiere rotar `CRM_MCP_TOKEN_SECRET`; retirar admin/allowlist bloquea el acceso en la siguiente petición.
 
 ## Validación técnica
 
-`scripts/test-mcp.ts` cubre OAuth/PKCE, consentimiento, replay, rotación, revocación de admin, herramientas, preflight/orígenes y rol de solo lectura. La integración se corre únicamente contra una base PostgreSQL descartable migrada y sembrada. La prueba local no confirma una conexión real de ChatGPT a producción.
+`scripts/test-mcp.ts` cubre OAuth/PKCE, consentimiento, replay, rotación, revocación de admin, herramientas, paginación, búsqueda y privilegios del rol lector. La integración se corre únicamente contra una base PostgreSQL descartable migrada y sembrada. Las lecturas adicionales requieren `crm_stages`, `crm_management_reasons`, `users` (columnas acotadas) y `lead_journal` (columnas acotadas); la instalación existente necesita GRANT manual según el runbook, aprobado y ejecutado por el coordinador. La prueba local no confirma una conexión real de ChatGPT a producción.

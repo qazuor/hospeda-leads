@@ -6,6 +6,8 @@ Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono r
 
 # Pendientes y próximo trabajo
 
+- **Spec 108, PR B + C reagrupados:** herramientas MCP de lectura implementadas en `feat/spec-108-read-tools`; `npm run typecheck`, `npx vitest run src/server`, seed y `npm run test:mcp` pasan en base descartable. Pendiente revisión y PR a `staging`. Instalar con grants de manifiesto: lectura en tablas requeridas y sólo `(id, display_name, role, deactivated_at)` sobre `users`. Informe: `/tmp/claude-1000/-home-qazuor-projects-WEBS/hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s108b2-report.md`.
+
 - **Spec 106 en producción (06/11/2026):** promovida con #364; migración 066 aplicada (3533 negocios con su par en `crm_account_classifications`). Runbook §13 ejecutado con aprobación del propietario: 16 verticales agregadas a 14 negocios, 0 rechazos, 0 diferencias de copia de visualización. Pendiente menor: en la lista, con dos verticales, no se ve qué subtipo corresponde a cada vertical (ficha y vista rápida sí lo muestran).
 
 - **Presencia de usuarios (`feat/online-users`, sin PR):** typecheck y 81 pruebas focalizadas pasan; ejecutar `npm run test:presence` en PostgreSQL descartable después de migrar y sembrar, luego CI antes del PR. El userscript 1.8.6 aporta actividad visible de WhatsApp e Instagram.
@@ -467,3 +469,8 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 - Bloques 4 (UI) y 5 (mensajes/material/email/historial) implementados localmente; ver el registro actualizado de bloque 6 al inicio de este documento.
 
 - **Spec 106, bloque 5:** implementado: compatibilidad de plantillas y variables D9, relevancia de material por todas las verticales, `contextVerticals` en CRM y userscript, etiqueta email D10 e historial de pares bajo «Verticales». El próximo paso común de spec 106 está registrado al inicio de este documento.
+
+### Spec 108 PR B · tercera revisión
+
+- Código y pruebas de lectura MCP completados localmente en `feat/spec-108-read-tools`. Verificación: typecheck, 109 pruebas de `src/server` y `test:mcp` PASS tras seed fresco de base descartable.
+- Pendiente: revisión y preparación de PR a `staging`. El operador debe aplicar los grants exactos del runbook con autorización; no se modificó producción. Los nombres de responsables se omiten mientras resolverlos exija conceder `users.email`.
