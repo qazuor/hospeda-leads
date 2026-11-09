@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import {randomBytes} from 'node:crypto';
+import {REQUIRED_MCP_TABLES} from '../src/server/mcp/requiredTables.mjs';
 import {mkdtempSync,writeFileSync} from 'node:fs';
 if(!process.env.DATABASE_URL)throw new Error('Falta DATABASE_URL.');
 if(process.argv.slice(2).some(a=>a!=='--apply')||!process.argv.includes('--apply'))throw new Error('Creación explícita: node scripts/provision-mcp-reader.mjs --apply');
@@ -16,7 +17,10 @@ try{
   await tx.unsafe(`CREATE ROLE crm_mcp_reader LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`);
   const database=decodeURIComponent(url.pathname.slice(1));
   await tx`GRANT CONNECT ON DATABASE ${tx(database)} TO crm_mcp_reader`;
-  await tx.unsafe('GRANT USAGE ON SCHEMA public TO crm_mcp_reader; GRANT SELECT ON public.crm_accounts,public.crm_contacts,public.leads,public.crm_verticals,public.crm_subtypes,public.crm_commercial_journal,public.crm_account_seller_groups,public.crm_account_seller_group_members,public.crm_account_classifications TO crm_mcp_reader');
+  await tx.unsafe('GRANT USAGE ON SCHEMA public TO crm_mcp_reader');
+  const tables=REQUIRED_MCP_TABLES.filter(item=>typeof item==='string');
+  if(tables.length)await tx.unsafe(`GRANT SELECT ON ${tables.map(table=>`public.${table}`).join(',')} TO crm_mcp_reader`);
+  for(const item of REQUIRED_MCP_TABLES.filter(item=>typeof item!=='string'))await tx.unsafe(`GRANT SELECT (${item.columns.join(',')}) ON public.${item.table} TO crm_mcp_reader`);
  });
  console.log(JSON.stringify({created:true,role,configurationFile:file,secretsPrinted:false}));
 }catch(error){

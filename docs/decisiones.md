@@ -1,5 +1,10 @@
 # Decisiones estables del CRM
 
+## Privacidad de correos del personal en MCP — 07/11/2026
+
+- El rol lector de MCP puede leer `users.email` para resolver responsables y actores a `users.id`/`display_name`, mediante igualdad exacta de email, respetando la clave foránea. Los correos del personal nunca aparecen en la salida de ninguna herramienta MCP; si no hay coincidencia, el ID/nombre de responsable o actor queda `null`.
+- `users.email` es una columna permitida, no una concesión excesiva. Siguen prohibidas las columnas sensibles no requeridas, incluidos `lead_journal.actor_email` y `actor_user_id`.
+
 ## Presencia de usuarios en el CRM — 05/11/2026
 
 - «En línea» significa que el usuario tiene el CRM abierto en una pestaña visible y el servidor recibió su heartbeat en los últimos 120 segundos. El cliente envía cada 60 segundos solo visible, al cargar si ya está visible y al volver a primer plano, con un límite de un envío cada 20 segundos.
@@ -423,7 +428,7 @@ Cada usuario configura por separado las vistas fijadas de Negocios y Gestiones. 
 ## Deploy: `main` se despliega solo (30/10/2026, propietario)
 
 - Coolify auto-despliega producción en cada push a `main` (confirmado cuando el merge del #288 desplegó solo). Un merge `staging` → `main` **es** un deploy de producción: solo con la orden explícita del propietario, con las variables de entorno cargadas en Coolify y un respaldo de la base hecho antes. Los merges a `staging` no despliegan nada. `deploy-vps.yml` sigue siendo solo `workflow_dispatch` y no se dispara.
-- El servidor MCP está habilitado en producción (`CRM_MCP_ENABLED=1`, confirmado en el smoke del 30/10/2026). Se desactiva con `CRM_MCP_ENABLED=0` y redeploy.
+- El servidor MCP está habilitado en producción (`CRM_MCP_ENABLED=1`, confirmado en el smoke del 30/10/2026). El 07/11/2026 se completaron los grants faltantes de `crm_mcp_reader` para clasificaciones y grupos vinculados. Se desactiva con `CRM_MCP_ENABLED=0` y redeploy.
 
 ## «Requiere acción» compacto (spec 100) — 30/10/2026 (propietario: A1–A5; D1–D8 confirmadas por el propietario el 31/10/2026)
 
@@ -476,3 +481,10 @@ Los negocios vinculados siguen siendo registros separados y mantienen un vendedo
 ## Spec 106 — varias verticales por negocio — 06/11/2026
 
 El propietario eligió «todas iguales»: se guardan pares sin principal/secundaria, con máximo 8. D1 fija la visualización por orden del catálogo (`sort_order`, nombre), verticales ausentes al final, después nombre y subtipo vacío primero; D2 mantiene `crm_accounts.tipo/subtipo` como copia del par mostrado hasta una migración posterior. Para crear una gestión nueva (D6), si el negocio tiene varias verticales se pregunta cuál aplica y se preselecciona la mostrada. D7 conserva la semántica de filtros por campo: incluir encuentra cualquier par coincidente y excluir elimina el negocio si tiene cualquiera de los pares excluidos. D9 usa todas las verticales para `{type}`/`{subtype}` sin gestión, unidas en orden D1; con gestión usa su par. D10 usa «HOSPEDA» sin vertical para negocios multivertical sin gestión. Una fusión lleva la unión de las clasificaciones al destino y conserva las del origen fusionado para historia, incluidas las verticales desactivadas; no se revalidan pares heredados que no cambian.
+
+### Spec 108 PR C — semántica de lectura MCP — 08/11/2026
+
+- Las fechas de métricas convierten instantes con `America/Argentina/Buenos_Aires`; los negocios archivados no cuentan. La métrica por etapa incluye solo etapas abiertas como `leads_stats_GET`; `(sin vertical)` representa negocios sin clasificación.
+- En comunicación, solo `manual_sent`, `accepted`, `delivery_confirmed` y `replied` emiten `direction:'outgoing'` y usan la fecha de interacción disponible. Otros estados conservan `status`, `direction:null` y fecha de creación. Borradores, mensajes cancelados y mensajes entrantes anulados se excluyen.
+- Texto libre sustituye emails existentes de `users.email` por `[equipo]`; emails de clientes permanecen visibles bajo D3. No se conceden columnas telefónicas de usuarios. `users.email` ya está en el GRANT aprobado.
+- Los joins de responsables usan igualdad exacta con `users.email`, según las claves foráneas. La respuesta de comunicación se limita a unos 60 KB de texto y continúa con cursor offset; el recorrido de tareas también usa offset y puede cambiar si se modifica la lista entre páginas.

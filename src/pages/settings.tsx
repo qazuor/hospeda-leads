@@ -33,9 +33,10 @@ import { postSettingsSave } from "../endpoints/settings_save_POST.schema";
 import {CrmApiError} from '../helpers/apiClient';
 import styles from "./settings.module.css";
 import {plural} from '../content/vocabulary';
+import {McpDiagnostics} from '../components/McpDiagnostics';
 
-type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"variables"|"materialCategories"|"system";
-const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","variables","materialCategories","system"];
+type Section="businesses"|"users"|"reassignment"|"classifications"|"process"|"communication"|"templates"|"variables"|"materialCategories"|"system"|"mcp";
+const SECTIONS:Section[]=["businesses","users","reassignment","classifications","process","communication","templates","variables","materialCategories","system","mcp"];
 
 export default function SettingsPage(){
   const {authState}=useAuth();
@@ -98,6 +99,7 @@ export default function SettingsPage(){
     {key:"variables" as const,label:"Variables de texto",icon:Variable},
     {key:"materialCategories" as const,label:"Categorías de material",icon:FileText},
     {key:"system" as const,label:"Sistema",icon:SlidersHorizontal},
+    ...(authState.type==='authenticated'&&authState.user.role==='admin'?[{key:'mcp' as const,label:'ChatGPT (MCP)',icon:Radio}]:[]),
   ];
 
   // The library section was replaced by «Material de venta» (spec 89); old links land on the new page.
@@ -170,6 +172,7 @@ export default function SettingsPage(){
         <article className={styles.card}><div className={styles.cardTitle}><Radio/><div><h2>Actualización en tiempo real</h2><p>Controla si el CRM detecta cambios de otros usuarios automáticamente.</p></div></div><div className={styles.systemControl}><LiveModeSwitch/></div></article>
         <article className={styles.card}><div className={styles.cardTitle}><SlidersHorizontal/><div><h2>Apariencia</h2><p>Elegí tema claro, oscuro o el definido por el sistema operativo.</p></div></div><div className={styles.systemControl}><ThemeModeSwitch/></div></article>
       </section>}
+      {section==="mcp"&&authState.type==='authenticated'&&authState.user.role==='admin'&&<section className={styles.content}><McpDiagnostics/></section>}
 
       <Dialog open={inviteOpen} onOpenChange={open=>{if(!save.isPending)setInviteOpen(open)}}><DialogContent className={styles.userDialog}><DialogHeader><DialogTitle>Agregar usuario</DialogTitle><DialogDescription>Solo necesitamos su email. La persona completa el resto desde la invitación.</DialogDescription></DialogHeader><label className={styles.dialogField}><span>Email real</span><Input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="persona@ejemplo.com" autoFocus/></label><DialogFooter><Button variant="outline" disabled={save.isPending} disabledReason="La operación está en curso. Esperá a que termine para continuar." onClick={()=>setInviteOpen(false)}>Cancelar</Button><Button onClick={inviteUser} disabled={save.isPending||!inviteEmail.trim()} disabledReason={(save.isPending) ? "La operación está en curso. Esperá a que termine para continuar." : "Escribí el email de la persona."}><MailPlus size={16}/>{save.isPending?"Enviando…":"Enviar invitación"}</Button></DialogFooter></DialogContent></Dialog>
 

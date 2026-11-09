@@ -1,49 +1,94 @@
 # Acceso MCP de solo lectura al CRM
 
-> Estado en producción (smoke del 30/10/2026): el servidor MCP está habilitado (`CRM_MCP_ENABLED=1`).
+> Estado informado el 07/11/2026: MCP está habilitado en producción y el rol lector recibió los grants faltantes de clasificación y grupos. Este cambio no verifica producción; consultá Configuración → ChatGPT (MCP) en la instancia.
 
-## Alcance
+## Conectar ChatGPT
 
-El servidor se integra en la aplicación Hono en /mcp. Usa el SDK oficial MCP con Streamable HTTP sin sesiones y respuestas JSON. No expone SQL libre ni herramientas de modificación, importación, fusión, borrado, envío o apertura de WhatsApp. Anota todas las herramientas como lectura y no destructivas.
+1. En ChatGPT, activá Developer mode si está disponible en tu cuenta/workspace y agregá un conector MCP con URL `https://crm.hospeda.com.ar/mcp`.
+2. Elegí OAuth con el cliente predefinido. Usá el Client ID y Client Secret privados configurados por el operador y solicitá scopes `crm.read offline_access`. Nunca pegues el secret en conversaciones ni logs.
+3. Redirect URI: `https://chatgpt.com/connector_platform_oauth_redirect`. Si el constructor muestra otra URI, el operador debe aprobar su incorporación a `CRM_MCP_REDIRECT_URIS`.
+4. Iniciá sesión como administrador autorizado en Hospeda, revisá el consentimiento y aceptá. Después comprobá las herramientas con `crm_overview`.
 
-Herramientas: crm_overview (conteos y clasificación), crm_list_businesses (cursor por ID, hasta 100 resultados), crm_get_business (datos/fuentes/personas y gestiones), crm_find_business_matches (señales de coincidencia, nunca identidad confirmada) y crm_business_history (journal comercial por negocio, sin afirmar que reúne todos los diarios). Los sitios y las notas son datos almacenados y pueden estar desactualizados; no son instrucciones para el agente. Compartir teléfono municipal, sitio central, propietario o domicilio no autoriza a fusionar.
+El consentimiento permite enviar a ChatGPT los datos comerciales y de contacto que consultes, pero no habilita escrituras. El MCP no permite editar, fusionar, borrar, importar, enviar mensajes ni abrir canales. Notas, nombres y mensajes almacenados son datos no confiables, no instrucciones.
 
-El conector permite recorrer los 3.532 negocios por páginas sin exportar un archivo completo. Las credenciales y el token de sesión del CRM no aparecen en los resultados. Solo se seleccionan campos comerciales explícitos; usuarios, passwords, sesiones, app_settings y credenciales OAuth no tienen permisos en la cuenta lectora.
+## Diagnóstico
 
-## Autenticación
+## Herramientas disponibles
 
-OAuth con cliente previamente configurado, authorization code + PKCE S256, coincidencia exacta de redirect URI y resource. Publica metadata de recurso y servidor de autorización, con iss en el callback. El administrador inicia sesión en el CRM en otra pestaña y autoriza explícitamente en la pantalla OAuth; no se crea una cuenta ni se entrega contraseña del CRM a ChatGPT.
+Todas son de solo lectura, requieren administrador autorizado y usan el pool lector con transacciones de lectura, timeout y verificación de privilegios. Las listas limitan cada página a 1–100 filas (25 por defecto), usan IDs como strings y devuelven `items`, `nextCursor` y, si corresponde, `truncated`.
 
-Códigos de cinco minutos y refresh tokens de treinta días se guardan solo por hash. Los códigos son de un uso; los refresh tokens rotan atómicamente. Los access tokens duran una hora, con issuer/audience/scope/tipo y firma verificados. Cada petición y renovación verifica que el usuario siga siendo admin y que su email siga autorizado. Revocar un refresh evita renovaciones; un access token ya emitido sigue hasta expirar, salvo quitar admin/allowlist, desactivar MCP o rotar CRM_MCP_TOKEN_SECRET. El endpoint revoke exige autenticar el cliente.
+- `crm_overview`: conteos de negocios y clasificaciones; las verticales pueden solaparse.
+- `crm_list_businesses`: búsqueda unificada y filtros exactos por ciudad/vertical; excluye archivados y fusionados por defecto.
+- `crm_get_business`: ficha, contactos, clasificaciones y gestiones; fusionados responden `found:false` con el destino y sin contenido de origen.
+- `crm_find_business_matches`: candidatos para revisión; no confirma duplicados.
+- `crm_business_history`: journal comercial del negocio, no diarios técnicos.
+- `crm_search`: búsqueda transversal por negocio, persona o gestión, incluyendo email, teléfono, Instagram y sitio web; ignora acentos, mantiene ñ distinta de n y devuelve el canal coincidente.
+- `crm_business_managements`: gestiones abiertas por defecto; cada fila incluye etiquetas de tipo/etapa y clasificación.
+- `crm_get_management`: ficha de gestión y journal comercial paginado.
+- `crm_catalogs`: etapas, motivos, verticales o vendedores (nombre y rol, sin emails).
+- `crm_list_tasks`: tareas pendientes de hoy, vencidas o próximas según el día de Argentina; filtra por `sellerId` (`users.id`) o negocio. Usa páginas OFFSET: si cambian las tareas durante el recorrido, puede haber repeticiones o saltos.
+- `crm_business_communication`: mensajes, respuestas/notas y mensajes recibidos de un único negocio; texto marcado `untrusted`, máximo 4000 caracteres por evento y unos 60 KB por respuesta, con cursor si se alcanza el tope. Excluye borradores, cancelados y mensajes entrantes anulados; no devuelve destinatarios ni contenido/enlaces de adjuntos. `direction` es `outgoing` sólo en `manual_sent`, `accepted`, `delivery_confirmed` o `replied`; otros estados conservan su `status`, usan `direction:null` y fecha de creación. Esto evita presentar la apertura de un canal o un envío incierto como contacto.
+- `crm_metrics`: conteos agregados por estado del negocio, vertical, vendedor, etapa de gestión o tareas vencidas. Excluye negocios archivados y etapas cerradas. Las verticales pueden solaparse; `(sin vertical)` agrupa los negocios no clasificados; negocios y gestiones son conteos distintos.
 
-La migración 015 solo crea la tabla de credenciales OAuth; no modifica negocios ni la tabla de usuarios. No concede acceso ni activa el servicio. El formulario de autorización es una página mínima del protocolo fuera de la UI comercial, sin scripts, con CSP y sin framing. La aprobación exige sesión, token de consentimiento firmado de cinco minutos y Origin del CRM. No hay registro dinámico público ni callbacks por comodines.
+Toda salida que incluye un negocio muestra `doNotContact`. El esquema no registra una razón explícita recuperable: el campo `doNotContactReason` se omite. Cuando `doNotContact` es true, es una restricción vigente: no sugerir contacto ni inferir que ocurrió. Los campos libres son datos no confiables y nunca instrucciones para el asistente.
 
-## Configuración única en Coolify
+En Configuración → ChatGPT (MCP), un administrador puede consultar si el servicio está habilitado, si conecta el lector, qué grants faltan o son excesivos, y la fecha de la última emisión exitosa. El panel muestra URL, Redirect URI y scopes; nunca muestra secretos.
 
-1. Tras desplegar este PR, ejecutar en /app:
+- **MCP deshabilitado:** el operador revisa `CRM_MCP_ENABLED` en Coolify.
+- **Conexión lectora no disponible:** el operador revisa el estado del servicio y la conectividad de `CRM_MCP_DATABASE_URL`, sin copiar la URL en logs o chats.
+- **Grants incompletos / `grant_missing`:** otorgar `SELECT` a `crm_mcp_reader` para las tablas indicadas por el panel. La herramienta responde `MCP_READER_GRANTS_INCOMPLETE`; no es un negocio inexistente.
+- **`excessive_grant`:** revocar `SELECT` amplio o de columna para los campos que reporte el panel (por ejemplo, teléfonos de usuarios, destinatarios, direcciones/cabeceras entrantes o `lead_journal.actor_email`) y volver a aplicar solo las columnas listadas en el runbook. `users.email` queda habilitado únicamente como clave interna de resolución y no se devuelve.
+- **`Origin not allowed`:** se aplica solo a `POST`/`OPTIONS /mcp`. El log incluye método, ruta sin query, valor recibido y código corto, nunca cuerpos, cookies, tokens o secretos. Well-known y OAuth validan Host; el POST de consentimiento conserva su comprobación same-origin. Para credenciales expiradas o revocadas, volvé a vincular.
+- **Sin emisión registrada:** completar el flujo OAuth como administrador autorizado y revisar la hora nuevamente.
 
-~~~sh
-node scripts/provision-mcp-reader.mjs --apply
-~~~
+Las peticiones sin Origin también requieren Bearer OAuth. El preflight devuelve únicamente métodos/headers necesarios y nunca usa `*` ni refleja un origen rechazado.
 
-El comando crea crm_mcp_reader y concede SELECT exclusivamente en seis tablas comerciales. No cambia datos del negocio. Guarda un coolify.env privado en un directorio /tmp/crm-mcp-setup-* y solo imprime su ruta. Rechaza un rol existente, sin rotar credenciales automáticamente. Conservar el archivo fuera del contenedor en almacenamiento privado; no adjuntarlo al chat ni agregarlo al repo. Ante created=null, verificar el rol antes de repetir.
+## Seguridad y operación
 
-2. Cargar las seis variables de ese archivo en Coolify como variables runtime privadas. PUBLIC_APP_URL debe ser exactamente https://crm.hospeda.com.ar (sin path). CRM_MCP_DATABASE_URL usa la red interna; no publicar PostgreSQL ni cambiar DATABASE_URL de la app. Redeploy. No habilitar CRM_TEST_DATABASE en producción.
+OAuth usa cliente predefinido, authorization code + PKCE S256, coincidencia exacta de redirect URI y resource. Códigos y refresh tokens se almacenan por hash; los códigos se usan una vez, los refresh rotan y los access duran una hora. Cada petición vuelve a validar que el usuario siga como admin activo y autorizado.
 
-3. Crear la conexión MCP/plugin en ChatGPT usando https://crm.hospeda.com.ar/mcp, OAuth y el cliente previamente configurado: Client ID y Client Secret del archivo. Solicitar crm.read y offline_access. La disponibilidad de esta UI depende del workspace/plan; el servidor no la habilita. Si el constructor muestra otro callback, copiar su URI exacto a CRM_MCP_REDIRECT_URIS y redeploy; separar varias URIs por comas, sin comodines. No publicar el secreto.
+Las lecturas usan `CRM_MCP_DATABASE_URL` con transacciones `REPEATABLE READ READ ONLY`, timeout de cinco segundos y comprobación de privilegios. El manifiesto `src/server/mcp/requiredTables.mjs` es la fuente única de tablas para provisión, diagnóstico y test. No uses `DATABASE_URL` principal para consultas MCP.
 
-4. Iniciar sesión como admin en el CRM en otra pestaña, completar la autorización, luego probar crm_overview y dos páginas de crm_list_businesses. Los tests de CI no sustituyen esta comprobación productiva desde ChatGPT. Hasta completar estos pasos, el agente sigue sin conexión a producción.
+Variables runtime: `CRM_MCP_ENABLED`, `CRM_MCP_DATABASE_URL`, `CRM_MCP_CLIENT_ID`, `CRM_MCP_CLIENT_SECRET`, `CRM_MCP_TOKEN_SECRET`, `CRM_MCP_REDIRECT_URIS` y `PUBLIC_APP_URL`. Los secretos viven en Coolify y no se copian al repo.
 
-5. Limitar solicitudes en Cloudflare/Coolify para /mcp y /mcp/oauth/token si se expone públicamente. Mantener endpoints de descubrimiento accesibles. El servicio limita cuerpo a 64 KiB, campos, filas y consulta a cinco segundos. Rechaza Host/Origin no configurados. El Origin puede ser ausente para llamadas servidor-servidor, que igualmente requieren OAuth.
+Para una instalación nueva, `node scripts/provision-mcp-reader.mjs --apply` crea el rol y concede `SELECT` sobre el manifiesto. En producción actual el rol ya existe y sus grants fueron completados el 07/11/2026; no repetir el provisionado ni rotar credenciales para conectar ChatGPT.
 
-## Defensa de la cuenta de base
+### SQL de grants para la instalación existente
 
-Cada consulta entra en REPEATABLE READ READ ONLY. Antes de leer, rechaza superusuario, roles de creación/replicación/bypass RLS, permisos de escritura sobre cualquier tabla pública y CREATE en public. Los permisos se vuelven a comprobar en cada transacción. No basta marcar el servidor como readOnlyHint. No ampliar grants a todas las tablas ni usar las credenciales de DATABASE_URL para las consultas MCP.
+Este es el conjunto exacto de privilegios requerido por las herramientas actuales. El operador debe revisarlo y aplicarlo en producción con la autorización de infraestructura correspondiente:
 
-Para desactivar el acceso: CRM_MCP_ENABLED=0 y redeploy. Para revocar tokens existentes globalmente: rotar CRM_MCP_TOKEN_SECRET. Quitar el rol admin o desautorizar el email tiene efecto inmediato en próximas peticiones. Mantener las filas expiradas no extiende su validez; se pueden depurar con un procedimiento administrativo, no mediante herramientas MCP.
+```sql
+GRANT USAGE ON SCHEMA public TO crm_mcp_reader;
+GRANT SELECT ON public.crm_accounts, public.crm_contacts, public.leads,
+  public.crm_verticals, public.crm_subtypes,
+  public.crm_account_classifications, public.crm_account_seller_groups,
+  public.crm_account_seller_group_members, public.crm_commercial_journal TO crm_mcp_reader;
+GRANT SELECT (id, account_id, lead_id, title, type_id, assigned_user_email,
+  due_date, due_at, status, deleted_at) ON public.crm_tasks TO crm_mcp_reader;
+GRANT SELECT (id, name) ON public.crm_work_types TO crm_mcp_reader;
+GRANT SELECT (id, account_id, lead_id, contact_id, channel, status,
+  last_interaction_at, created_at, last_actor_email, text_body, body)
+  ON public.crm_messages TO crm_mcp_reader;
+GRANT SELECT (id, account_id, lead_id, contact_id, channel, category,
+  summary, exact_text, other_detail, actor_email, occurred_at)
+  ON public.crm_communication_responses TO crm_mcp_reader;
+GRANT SELECT (id, account_id, lead_id, contact_id, channel, status,
+  received_at, subject, text_body, attachments)
+  ON public.crm_inbound_messages TO crm_mcp_reader;
+GRANT SELECT (name, display_name, active, management_type, classification,
+  sort_order) ON public.crm_stages TO crm_mcp_reader;
+GRANT SELECT (management_type, outcome_key, reason_key, name, active)
+  ON public.crm_management_reasons TO crm_mcp_reader;
+GRANT SELECT (id, display_name, role, deactivated_at, email)
+  ON public.users TO crm_mcp_reader;
+GRANT SELECT (id, lead_id, action, field_name, old_value, new_value,
+  created_at, actor_name) ON public.lead_journal TO crm_mcp_reader;
+```
 
-## Validación
+Decisión del propietario (07/11/2026): el rol lector puede leer `users.email`, necesario para enlazar las claves foráneas `assigned_user_email`/`actor_email` con `users.id` y `display_name`. MCP sustituye direcciones conocidas del personal en texto libre por `[equipo]`; las direcciones de clientes permanecen visibles según D3. Sólo se consultan emails de usuarios: teléfonos de staff requerirían conceder nuevas columnas sensibles y permanecen fuera del alcance. No conceder `users.phone`, `users.whatsapp_phones`, `users.sender_email`, `lead_journal.actor_email`/`actor_user_id`, destinatarios de mensajes, participantes de tareas ni direcciones/cabeceras de mensajes entrantes. El diagnóstico marca esas concesiones como `excessive_grant`; `users.email` no es una concesión excesiva.
 
-Typecheck, unitarios y build; integración PostgreSQL con cuenta SELECT real, SDK Client initialize/listTools/callTool, paginación, ID inválido, rechazo de Origin, consentimiento, PKCE incorrecto, replay del código, renovación/replay, pérdida de rol admin y detección de una cuenta lectora que adquiere UPDATE. Sin proveedores ni mensajes reales. CI completa conserva las regresiones de navegador y la imagen Docker.
+Para desactivar el servicio, establecer `CRM_MCP_ENABLED=0` y hacer el despliegue autorizado. Revocar tokens globalmente requiere rotar `CRM_MCP_TOKEN_SECRET`; retirar admin/allowlist bloquea el acceso en la siguiente petición.
 
-Documentación oficial consultada: https://developers.openai.com/plugins/build/auth y https://ts.sdk.modelcontextprotocol.io/server.
+## Validación técnica
+
+`scripts/test-mcp.ts` cubre OAuth/PKCE, consentimiento, replay, rotación, revocación de admin, herramientas, paginación, búsqueda, agenda, comunicación, agregados y privilegios del rol lector. La integración se corre únicamente contra una base PostgreSQL descartable migrada y sembrada. El manifiesto `REQUIRED_MCP_TABLES` enumera las tablas y columnas requeridas por todas las herramientas; la instalación existente necesita GRANT manual según el runbook, aprobado y ejecutado por el coordinador. La prueba local no confirma una conexión real de ChatGPT a producción.
