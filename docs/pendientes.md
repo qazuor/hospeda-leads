@@ -2,11 +2,11 @@
 
 Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono real que el buscador fijo no tape el header y que la fila de lista se lea bien. La búsqueda global sigue sin buscar en la nota interna.
 
-> Promoción `staging` → `main`: última el 06/11/2026 (#364: specs 106 y 107, migraciones 064–066, con respaldo previo de la base y ensayo sobre una copia). Antes, el 05/11/2026 (#350: #344–#349, migraciones 060–063, script 1.8.6, con respaldo previo de la base). Antes, el 02/11/2026 (#334, script 1.8.1). Las anteriores fueron el 01/11/2026 (#330) y el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
+> Promoción `staging` → `main`: última el 08/11/2026 (#370: spec 108 fase 1, MCP para ChatGPT de solo lectura, sin migraciones, con respaldo previo de la base). Antes, el 06/11/2026 (#364: specs 106 y 107, migraciones 064–066, con respaldo previo de la base y ensayo sobre una copia). Antes, el 05/11/2026 (#350: #344–#349, migraciones 060–063, script 1.8.6, con respaldo previo de la base). Antes, el 02/11/2026 (#334, script 1.8.1). Las anteriores fueron el 01/11/2026 (#330) y el 30/10/2026 (#288). El runbook sigue siendo el procedimiento reutilizable, en [`runbook-promocion-produccion.md`](runbook-promocion-produccion.md).
 
 # Pendientes y próximo trabajo
 
-- **Spec 108, PR C:** tercera ronda local en `feat/spec-108-agenda-comms`; hallazgos 1–11 cubiertos. Typecheck, Vitest dirigido (120 pruebas) y `test:mcp` con seed fresco pasan. No hubo cambios de GRANT. Próximo paso: revisar cambios y preparar PR a `staging`.
+- **Spec 108 en producción (08/11/2026):** fase 1 (12 herramientas de lectura) promovida con #370 y desplegada por Coolify; GRANTs por columna del lector aplicados con aprobación del propietario (log `~/backups/hospeda-crm/spec108-grants-20261108.log`, respaldo `pre-spec108-20261108-181544.dump`). Próximo paso: el propietario conecta ChatGPT y confirma el panel de diagnóstico en Configuración. Después: spec de fase 2 (escritura con confirmación, nunca envía). Menor: teléfonos del equipo dentro de texto libre no se ocultan.
 
 - **Spec 106 en producción (06/11/2026):** promovida con #364; migración 066 aplicada (3533 negocios con su par en `crm_account_classifications`). Runbook §13 ejecutado con aprobación del propietario: 16 verticales agregadas a 14 negocios, 0 rechazos, 0 diferencias de copia de visualización. Pendiente menor: en la lista, con dos verticales, no se ve qué subtipo corresponde a cada vertical (ficha y vista rápida sí lo muestran).
 
@@ -353,7 +353,7 @@ La definición funcional quedó aprobada y está en la [spec 53](crm-roadmap/53-
 
 ## Pospuesto por el propietario: datos y multivertical
 
-- Conexión de ChatGPT a MCP: el servidor está habilitado y los grants del lector se completaron el 07/11/2026; falta completar y confirmar el flujo OAuth desde ChatGPT. Consultar [MCP](crm-mcp.md) y el diagnóstico de Configuración. No repetir el provisionado ni rotar secretos por iniciativa propia.
+- Conexión de ChatGPT a MCP: fase 1 en producción desde el 08/11/2026 con todos los GRANTs del lector; falta que el propietario complete y confirme el flujo OAuth desde ChatGPT. Consultar [MCP](crm-mcp.md) y el diagnóstico de Configuración. No repetir el provisionado ni rotar secretos por iniciativa propia.
 - Revisar negocios existentes para posibles fusiones o verticales adicionales. Una coincidencia es señal de revisión, no prueba de duplicado.
 - Acordar clasificación, gestiones conjuntas, filtros, responsables y migración de multivertical. No ejecutar fusiones ni reasignaciones a partir del plan documental.
 
@@ -470,12 +470,3 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 
 - **Spec 106, bloque 5:** implementado: compatibilidad de plantillas y variables D9, relevancia de material por todas las verticales, `contextVerticals` en CRM y userscript, etiqueta email D10 e historial de pares bajo «Verticales». El próximo paso común de spec 106 está registrado al inicio de este documento.
 
-### Spec 108 PR B · tercera revisión
-
-- Código y pruebas de lectura MCP completados localmente en `feat/spec-108-read-tools`. Verificación: typecheck, 109 pruebas de `src/server` y `test:mcp` PASS tras seed fresco de base descartable.
-- Estado de grants: `users.email` ya está autorizado y registrado en el runbook; no agregar columnas de teléfonos u otros emails sensibles. Próximo paso: revisar e integrar PRs relacionados según su estado.
-
-### Spec 108 PR C · tercera revisión
-
-- Hallazgos 1–11 abordados en el worktree local. `users.email` ya estaba concedido; no hay cambios de GRANT ni consultas a teléfonos de usuarios.
-- Validación final: typecheck, Vitest dirigido (17 archivos/120 pruebas), seed fresco y `test:mcp` PASS. Informe: `/tmp/claude-1000/-home-qazuor-projects-WEBS/hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s108c3-report.md`. Próximo paso: revisar cambios y preparar PR a `staging`.
