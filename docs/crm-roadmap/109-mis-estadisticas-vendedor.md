@@ -1,6 +1,6 @@
 # Spec 109 — «Mis estadísticas» para el vendedor
 
-Estado: **aprobada** (09/11/2026; decisiones D1–D4 del propietario). Página nueva donde cada usuario ve solo sus propios números. La página «Estadísticas» del admin (`/analytics`) no cambia en esta spec.
+Estado: **implementada en `staging`** (aprobada el 09/11/2026 con las decisiones D1–D4 del propietario; endpoint #377, página #378 y guía el 10/11/2026). Página nueva donde cada usuario ve solo sus propios números. La página «Estadísticas» del admin (`/analytics`) no cambia en esta spec.
 
 ## Problema
 

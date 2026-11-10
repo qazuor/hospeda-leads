@@ -1101,8 +1101,12 @@ Fase 1 del MCP para ChatGPT (solo lectura) integrada en `staging` con #366 (spec
 Con aprobación del propietario: respaldo previo `~/backups/hospeda-crm/pre-spec108-20261108-181544.dump`, ensayo de GRANTs en transacción revertida y aplicación posterior de los GRANTs por columna del runbook de [MCP](crm-mcp.md). Verificado: columnas esperadas por tabla, sin acceso a `users.phone`, `users.sender_email` ni `lead_journal.actor_email`, y 0 privilegios de escritura. Sin migraciones.
 
 Pendiente: conexión real desde ChatGPT por el propietario y spec de fase 2 (escritura con confirmación).
-## Spec 109, PR 2 — «Mis estadísticas» — 10/11/2026
+## Spec 108 — conexión real desde ChatGPT · 09/11/2026
 
-Implementación local en `feat/spec-109-page`: página `/my-stats` para todos los usuarios, períodos de calendario argentino sincronizados con la URL, tarjetas por bloque, evolución, navegación/paleta, ayuda y refresco en vivo. El listado de Negocios no tiene filtros directos por responsable y estado en la URL; los grupos de estado quedan sin enlaces. Se agregó un artículo mínimo para el ancla de ayuda; la guía completa por métrica queda para PR 3.
+Hotfixes a `main` con aprobación del propietario, con back-merge a `staging`: #372 (`Referrer-Policy: same-origin` en la pantalla de consentimiento OAuth; con `no-referrer` Chrome mandaba `Origin: null` en el POST y el servidor lo rechazaba) y #374 (`form-action` de la CSP incluye los orígenes de `CRM_MCP_REDIRECT_URIS`; Chrome bloqueaba en silencio la redirección a chatgpt.com). Back-merges #373 y #375. El propietario conectó ChatGPT y una consulta real devolvió números verificados contra la base. La fase 2 (herramientas de escritura) quedó diferida por decisión del propietario.
 
-Validación local: `npm run typecheck` PASS; Vitest focalizado (períodos, navegación, live domains/live mode, vocabulario) PASS, 62 pruebas; build PASS; Playwright `my-stats`, `command-palette`, `permissions` y `visual-navigation` PASS, 12 pruebas. En el celular «Mis estadísticas» va en «Más» para que la barra inferior siga en una sola fila.
+## Spec 109 — «Mis estadísticas» · 10/11/2026
+
+En `staging`: #376 (spec), #377 (`GET /_api/my_stats`, solo los datos del usuario de la sesión; entrada estricta, `responsible` → 400), #378 (página `/my-stats`, navegación, paleta, refresco en vivo) y el PR de guía. Cada contacto real cuenta una vez: una actividad ligada a un mensaje, una entrada registrada como respuesta y la actividad que deja una respuesta al resolver tareas se cuentan por su mensaje o respuesta. Los envíos se fechan al completarse.
+
+Validación: `test:my-stats` (nuevo, en CI) con números esperados armados a mano y regresiones comprobadas en rojo; Vitest focalizado; Playwright `my-stats`, `command-palette`, `permissions` y `visual-navigation` (12) local; CI verde en #377 y #378. En el celular la entrada va en «Más» para que la barra inferior siga en una fila. Pendiente: medir el endpoint con un volumen como el de producción y la promoción a `main`.

@@ -35,23 +35,39 @@
       {
         "id": "my-stats",
         "title": "Ver Mis estadísticas",
-        "when": "Cuando quieras consultar tus números del período elegido.",
+        "when": "Cuando quieras ver cómo viene tu trabajo: tareas, negocios, gestiones y contactos reales.",
         "steps": [
-          "Abrí «Mis estadísticas» desde Trabajo. Elegí «Hoy», «Esta semana», «Este mes» o «Rango» para revisar tus tareas, negocios, gestiones y contactos."
+          "Abrí «Mis estadísticas» desde Trabajo (en el celular, desde «Más»). Elegí «Hoy», «Esta semana», «Este mes» o «Rango». El período queda en la dirección de la página, así que podés recargar o compartir el enlace.",
+          "«Mi trabajo»: las tareas tuyas que completaste en el período, y ahora mismo cuántas tenés vencidas y para hoy.",
+          "«Mis negocios»: los negocios que hoy tenés asignados, por estado, y cuántos están marcados para no contactar. No cuenta archivados, fusionados ni los de la papelera.",
+          "«Mis gestiones»: las abiertas que hoy son tuyas, las que ganaste o perdiste en el período (cada gestión cuenta una vez, por su último cierre), la tasa de cierre, los motivos de pérdida y las abiertas sin movimiento hace más de 30 días.",
+          "«Mis contactos»: los contactos reales que hiciste en el período y en cuántos negocios distintos, más el promedio de días hasta el primer contacto en las gestiones creadas en el período.",
+          "«Evolución»: contactos reales y gestiones ganadas por día, o por semana si el período supera los 62 días."
         ],
-        "result": "Consultás tus propios números y el período elegido.",
+        "result": "Ves solo tus propios números, sin comparación con otras personas.",
         "example": [],
         "notes": [
-          "La guía completa de cada métrica se agregará en una próxima actualización."
+          "Las cifras marcadas «ahora» muestran la situación actual y no cambian con el período.",
+          "Contacto real es un envío confirmado, una respuesta o un resultado registrado. No cuenta abrir WhatsApp, guardar un borrador ni una llamada sin respuesta.",
+          "Lo que hiciste queda a tu nombre aunque después el negocio pase a otra persona. Los negocios y gestiones de «ahora» siguen al responsable actual.",
+          "Con menos de 3 gestiones el promedio de primer contacto muestra «Pocos datos»."
         ],
         "url": "/my-stats",
         "linkLabel": "Abrir Mis estadísticas",
         "uiLabels": [
           "Mis estadísticas",
+          "Más",
           "Hoy",
           "Esta semana",
           "Este mes",
-          "Rango"
+          "Rango",
+          "Mi trabajo",
+          "Mis negocios",
+          "Mis gestiones",
+          "Mis contactos",
+          "Evolución",
+          "ahora",
+          "Pocos datos"
         ]
       },
       {

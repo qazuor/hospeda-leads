@@ -6,9 +6,11 @@ Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono r
 
 # Pendientes y próximo trabajo
 
-- **Spec 109, PR 2 — «Mis estadísticas» (`feat/spec-109-page`):** implementación local lista para revisión; typecheck y 62 pruebas focalizadas pasan. Navegador no ejecutado en este entorno. Próximo paso: completar PR 3 (guía por métrica y notas de `/analytics`) y validar en CI/browser.
+- **Spec 109 «Mis estadísticas» en `staging`:** endpoint #377, página #378 y guía. Falta: medir `my_stats` con datos de volumen real (no hubo `EXPLAIN` con producción) y promover a `main` cuando el propietario lo pida.
 
-- **Spec 108 en producción (08/11/2026):** fase 1 (12 herramientas de lectura) promovida con #370 y desplegada por Coolify; GRANTs por columna del lector aplicados con aprobación del propietario (log `~/backups/hospeda-crm/spec108-grants-20261108.log`, respaldo `pre-spec108-20261108-181544.dump`). Próximo paso: el propietario conecta ChatGPT y confirma el panel de diagnóstico en Configuración. Después: spec de fase 2 (escritura con confirmación, nunca envía). Menor: teléfonos del equipo dentro de texto libre no se ocultan.
+- **`/analytics` (admin), problemas conocidos para una spec aparte:** el filtro `responsible` es libre; muestra rankings del equipo; «contactados» cuenta cualquier actividad, no solo contacto real; agrupa por días UTC en vez de días de Argentina; no excluye negocios archivados. Además la métrica `business_status` del MCP agrupa por `commercial_status` y no por el estado de revisión
+
+- **Spec 108 en producción (08/11/2026):** fase 1 (12 herramientas de lectura) promovida con #370; hotfixes de consentimiento OAuth #372 y #374 (09/11). ChatGPT conectado y probado por el propietario. Fase 2 (escritura con confirmación: crear tarea, registrar resultado, nota, borrador, scope `crm.write`) diferida por el propietario
 
 - **Spec 106 en producción (06/11/2026):** promovida con #364; migración 066 aplicada (3533 negocios con su par en `crm_account_classifications`). Runbook §13 ejecutado con aprobación del propietario: 16 verticales agregadas a 14 negocios, 0 rechazos, 0 diferencias de copia de visualización. Pendiente menor: en la lista, con dos verticales, no se ve qué subtipo corresponde a cada vertical (ficha y vista rápida sí lo muestran).
 
