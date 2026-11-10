@@ -62,7 +62,7 @@ Verificado en `origin/staging` el 09/11/2026.
 ## Decisiones
 
 - **D1 (propietario, 09/11/2026):** sin comparación con el equipo. El usuario ve solo lo suyo.
-- **D2 (propuesta) — qué es «mío»:** cada dato se atribuye por la columna de dueño de su tabla (Hallazgo 3).
+- **D2 (propietario, 09/11/2026) — qué es «mío»:** cada dato se atribuye por la columna de dueño de su tabla (Hallazgo 3).
   - Lo que es un estado actual (negocios, gestiones abiertas, tareas pendientes) se cuenta por el responsable de hoy.
   - Lo que es un hecho (tarea completada, contacto, cierre) se cuenta por quien lo hizo: `actor_email` u `owner_email`.
   - Así, si un negocio se reasigna, el contacto que hizo el vendedor anterior sigue siendo suyo.
