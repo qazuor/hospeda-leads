@@ -88,7 +88,7 @@ function CommercialEditorForm({target,detail,onClose,onSaved}:EditorProps){
   const [baseline]=useState(()=>JSON.stringify({draft,primary,classifications:(target.kind==='account'?(target.item?.classifications??(target.item?.tipo?[{tipo:target.item.tipo,subtipo:target.item.subtipo??null}]:[{tipo:'',subtipo:null}])):[]).filter(item=>item.tipo.trim())}));
   const mutation=useMutation({mutationFn:saveCommercial,onSuccess:async (result,input)=>{
     await qc.cancelQueries({queryKey:["leads"]});
-    await Promise.all(["commercial","commercial-detail","leads","lead-stats","lead-journal","global-journal","analytics","trash-businesses","work","crm-search"].map(key=>qc.invalidateQueries({queryKey:[key],refetchType:"all"})));
+    await Promise.all(["commercial","commercial-detail","leads","lead-stats","lead-journal","global-journal","analytics","myStats","trash-businesses","work","crm-search"].map(key=>qc.invalidateQueries({queryKey:[key],refetchType:"all"})));
     if(input.action==='contact_save')crmSuccess('Persona guardada',{label:'Ver persona',href:'/accounts/'+input.accountId+'?section=contacts&contactId='+result.id});
     else if(input.action==='opportunity_save')crmSuccess('Gestión guardada',{label:'Abrir gestión',href:'/sales/'+result.id});
     else if(input.action==='account_save')crmSuccess('Negocio guardado',{label:'Ver negocio',href:'/accounts/'+result.id},input.ciudad&&input.ciudad!==(draft.ciudad||'').trim()?catalogCityNotice(input.ciudad):undefined);

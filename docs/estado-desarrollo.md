@@ -1093,3 +1093,20 @@ Segunda ronda: se confirma la decisión del propietario del 07/11: `users.email`
 Validación de ronda 2: typecheck, Vitest dirigido y `test:mcp` pasaron sobre DB descartable. Informe de ronda 3 reemplaza el detalle vigente; sin build, navegador ni operaciones Git.
 
 Tercera ronda: se corrigen estados de comunicación no probatorios, mensajes anulados/cancelados, fechas de métricas ART, adjuntos del formato del escritor, emails del staff en prosa, archivados/etapas en métricas, joins FK exactos, orden/fechas de agenda y tope de 60 KB. La política de privacidad usa `users.email` ya concedido; no se agregan columnas ni GRANT. Cobertura nueva incluye firmas y citas, emails cliente conservados, estado/cursor de comunicación, adjunto real, límites de métricas y fecha UTC/ART. Validación final: `npm run typecheck` PASS; Vitest dirigido PASS (17 archivos, 120 pruebas); seed fresco y `npm run test:mcp` PASS. Informe: `/tmp/claude-1000/-home-qazuor-projects-WEBS/hospeda-crm/f3af7595-e6c6-42c4-b2eb-42596eb79971/scratchpad/codex/s108c3-report.md`. Próximo paso: revisar cambios y preparar PR a `staging`; no se ejecutaron operaciones Git.
+
+### Spec 108 en producción · 08/11/2026
+
+Fase 1 del MCP para ChatGPT (solo lectura) integrada en `staging` con #366 (spec), #367 (conexión y diagnóstico), #368 (búsqueda, gestiones, historial y catálogos) y #369 (agenda, comunicación y métricas); promovida a `main` con #370 (merge `4f8fb20`) y desplegada por Coolify: contenedor nuevo sano, `/_api/health/ready` 200, `/mcp` 401 sin token, preflight de ChatGPT 204 y diagnóstico admin disponible.
+
+Con aprobación del propietario: respaldo previo `~/backups/hospeda-crm/pre-spec108-20261108-181544.dump`, ensayo de GRANTs en transacción revertida y aplicación posterior de los GRANTs por columna del runbook de [MCP](crm-mcp.md). Verificado: columnas esperadas por tabla, sin acceso a `users.phone`, `users.sender_email` ni `lead_journal.actor_email`, y 0 privilegios de escritura. Sin migraciones.
+
+Pendiente: conexión real desde ChatGPT por el propietario y spec de fase 2 (escritura con confirmación).
+## Spec 108 — conexión real desde ChatGPT · 09/11/2026
+
+Hotfixes a `main` con aprobación del propietario, con back-merge a `staging`: #372 (`Referrer-Policy: same-origin` en la pantalla de consentimiento OAuth; con `no-referrer` Chrome mandaba `Origin: null` en el POST y el servidor lo rechazaba) y #374 (`form-action` de la CSP incluye los orígenes de `CRM_MCP_REDIRECT_URIS`; Chrome bloqueaba en silencio la redirección a chatgpt.com). Back-merges #373 y #375. El propietario conectó ChatGPT y una consulta real devolvió números verificados contra la base. La fase 2 (herramientas de escritura) quedó diferida por decisión del propietario.
+
+## Spec 109 — «Mis estadísticas» · 10/11/2026
+
+En `staging`: #376 (spec), #377 (`GET /_api/my_stats`, solo los datos del usuario de la sesión; entrada estricta, `responsible` → 400), #378 (página `/my-stats`, navegación, paleta, refresco en vivo) y el PR de guía. Cada contacto real cuenta una vez: una actividad ligada a un mensaje, una entrada registrada como respuesta y la actividad que deja una respuesta al resolver tareas se cuentan por su mensaje o respuesta. Los envíos se fechan al completarse.
+
+Validación: `test:my-stats` (nuevo, en CI) con números esperados armados a mano y regresiones comprobadas en rojo; Vitest focalizado; Playwright `my-stats`, `command-palette`, `permissions` y `visual-navigation` (12) local; CI verde en #377 y #378. En el celular la entrada va en «Más» para que la barra inferior siga en una fila. Pendiente: medir el endpoint con un volumen como el de producción y la promoción a `main`.

@@ -93,6 +93,11 @@ jobs:
         run: npm run test:pipeline
         env:
           CRM_TEST_DATABASE: "1"
+      - name: Seller statistics integration tests
+        if: steps.filter.outputs.code == 'true'
+        run: npm run test:my-stats
+        env:
+          CRM_TEST_DATABASE: "1"
       - name: Password recovery integration tests
         if: steps.filter.outputs.code == 'true'
         run: npm run test:auth

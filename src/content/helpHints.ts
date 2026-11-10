@@ -15,6 +15,7 @@ export const HELP_HINTS:Record<HelpHintKey,string>={
  managements:'Una gestión es lo que querés lograr con un negocio, por ejemplo venderle un plan. Acá seguís las que ya iniciaste; cargar un negocio no crea ninguna.',
  record:'Anotar lo que pasó guarda algo que ya ocurrió y te pide cómo sigue: agendar una tarea, esperar hasta una fecha o no agendar nada con un motivo.',
  analytics:'Etapas, actividad y conversión, con acceso directo a las gestiones que explican cada número. Los estados comerciales no acreditan pagos.',
+ myStats:'Tus tareas, negocios, gestiones y contactos reales del período elegido. Las fotos marcadas «ahora» muestran la situación actual; no comparan tus resultados con los de otras personas.',
  history:'Registro de cambios sobre negocios, contactos, gestiones, tareas y documentos, con la persona que los hizo y la fecha.',
  archived:'Negocios válidos que dejaste de trabajar por ahora. Conservan personas, gestiones, tareas e historial. Solo un administrador puede desarchivarlos.',
  trash:'Registros inválidos o cargados por error. Un negocio en la Papelera no se puede usar ni contactar hasta que un administrador lo restaure. Es distinto de archivar.',

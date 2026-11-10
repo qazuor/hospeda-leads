@@ -31,6 +31,10 @@ for (const width of [1280, 390]) for (const role of ['user', 'admin']) {
     await trigger.click();
     await expect(search).toBeFocused();
     await expect(dialog.getByRole('button', { name: /^Estadísticas/ })).toHaveCount(role === 'admin' ? 1 : 0);
+    await search.fill('MIS ESTADISTICAS');
+    await expect(dialog.getByRole('button', { name: /^Mis estadísticas/ })).toBeVisible();
+    await expect(dialog.getByRole('group', { name: 'Ir a', exact: true }).locator('[data-action]')).toHaveCount(1);
+    await search.fill('');
     await expect(dialog.getByRole('button', { name: /^Importar CSV/ })).toHaveCount(role === 'admin' ? 1 : 0);
     await expect(dialog.getByRole('button', { name: /^Papelera/ })).toHaveCount(role === 'admin' ? 1 : 0);
     await page.screenshot({ path: `test-results/command-palette-${width}-${role}-light.png`, animations: 'disabled' });

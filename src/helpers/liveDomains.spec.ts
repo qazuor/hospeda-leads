@@ -13,7 +13,7 @@ describe("liveQueryKeysToInvalidate", () => {
 
   it("keeps the business list and stats out of communication-only changes", () => {
     const keys=liveQueryKeysToInvalidate({previous:snapshot("1"),next:snapshot("2",{communication:"2"})});
-    expect(keys).toEqual(["communication","resources","sales-materials","data-quality","commercial-detail","settings","lead-journal","global-journal","global-journal-filtered"]);
+    expect(keys).toEqual(["communication","resources","sales-materials","data-quality","commercial-detail","settings","analytics","myStats","lead-journal","global-journal","global-journal-filtered"]);
     expect(keys).not.toContain("leads");
     expect(keys).not.toContain("lead-stats");
     expect(keys).not.toContain("work");
@@ -21,11 +21,11 @@ describe("liveQueryKeysToInvalidate", () => {
 
   it("keeps the business list out of journal-only changes", () => {
     const keys=liveQueryKeysToInvalidate({previous:snapshot("1"),next:snapshot("2",{journal:"2"})});
-    expect(keys).toEqual(["data-quality","commercial-detail","analytics","lead-journal","global-journal","global-journal-filtered"]);
+    expect(keys).toEqual(["data-quality","commercial-detail","analytics","myStats","lead-journal","global-journal","global-journal-filtered"]);
   });
 
   it("refreshes only work queries for work configuration changes", () => {
-    expect(liveQueryKeysToInvalidate({previous:snapshot("1"),next:snapshot("2",{work:"2"})})).toEqual(["work"]);
+    expect(liveQueryKeysToInvalidate({previous:snapshot("1"),next:snapshot("2",{work:"2"})})).toEqual(["work","myStats"]);
   });
 
   it("refreshes the list, my day and communication for business changes, but not settings", () => {
@@ -45,7 +45,7 @@ describe("liveQueryKeysToInvalidate", () => {
 
   it("treats a newly reported known domain as changed", () => {
     const previous:LiveSnapshot={version:"1",domains:{business:"1"}};
-    expect(liveQueryKeysToInvalidate({previous,next:{version:"2",domains:{business:"1",work:"2"}}})).toEqual(["work"]);
+    expect(liveQueryKeysToInvalidate({previous,next:{version:"2",domains:{business:"1",work:"2"}}})).toEqual(["work","myStats"]);
   });
 
   it("falls back to every live key when the server does not report domains", () => {

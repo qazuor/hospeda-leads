@@ -36,7 +36,7 @@ export function postponeDisabledReason({task,dueDate,pickMin,saving=false,now=ne
  return 'Esa ya es la fecha de la tarea.';
 }
 
-const refreshed=['work','leads','lead-stats','commercial-detail','lead-journal','global-journal','communication','pipeline','analytics'];
+const refreshed=['work','leads','lead-stats','commercial-detail','lead-journal','global-journal','communication','pipeline','analytics','myStats'];
 
 /**
  * "Posponer ▾" of a pending task row: Mañana / En 3 días / Lunes / Elegir fecha. Saves through `task_reschedule` and offers "Deshacer" in the toast.
