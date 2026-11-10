@@ -66,7 +66,10 @@ Verificado en `origin/staging` el 09/11/2026.
   - Lo que es un estado actual (negocios, gestiones abiertas, tareas pendientes) se cuenta por el responsable de hoy.
   - Lo que es un hecho (tarea completada, contacto, cierre) se cuenta por quien lo hizo: `actor_email` u `owner_email`.
   - Así, si un negocio se reasigna, el contacto que hizo el vendedor anterior sigue siendo suyo.
-- **D3 (propuesta) — negocios que no cuentan:** borrados (`deleted_at`), fusionados (`merged_into_id`) y archivados, igual que en «Hoy» y en el embudo del vendedor. Los marcados «No contactar» cuentan, con su propio indicador.
+- **D3 (propietario, 09/11/2026) — negocios que no cuentan:**
+  - En las fotos de hoy (negocios, gestiones abiertas, tareas pendientes, sin movimiento) no cuentan los negocios borrados (`deleted_at`), fusionados (`merged_into_id`) ni archivados, igual que en «Hoy» y en el embudo del vendedor.
+  - Los hechos del período (tarea completada, contacto, cierre) siguen contando aunque el negocio se haya archivado o fusionado después, por D2. Solo se descartan si el propio registro (tarea, actividad, mensaje, evento) está borrado o si el negocio está en la papelera (`deleted_at`).
+  - Los negocios marcados «No contactar» cuentan, con su propio indicador.
 - **D4 (propuesta) — ruta y menú:** `/my-stats`, con la etiqueta «Mis estadísticas», en la sección de trabajo después de «Bandeja», visible para todos. Se suma a la paleta de comandos. El admin conserva «Estadísticas» en su menú.
 
 ## 1. Período
@@ -78,13 +81,13 @@ Verificado en `origin/staging` el 09/11/2026.
 
 ## 2. Métricas
 
-Todas se filtran por el usuario de la sesión según D2 y excluyen lo indicado en D3.
+Todas se filtran por el usuario de la sesión según D2 y aplican las exclusiones de D3: completas en las fotos de hoy y solo papelera o registro borrado en los hechos del período.
 
 ### 2.1 Mi trabajo
 
 | Métrica | Definición |
 |---|---|
-| Tareas completadas | `crm_tasks` con `assigned_user_email=yo`, `status='completed'` y `completed_at` dentro del período; tarea, gestión y negocio sin borrar |
+| Tareas completadas | `crm_tasks` con `assigned_user_email=yo`, `status='completed'` y `completed_at` dentro del período; tarea sin borrar y negocio fuera de la papelera (D3) |
 | Vencidas (ahora) | Pendientes cuyo `due_date` es anterior a hoy (día argentino), con la misma regla que «Hoy» (`taskBucket`) |
 | Para hoy (ahora) | Pendientes con vencimiento hoy |
 
@@ -145,7 +148,7 @@ No cuentan: canal abierto, borrador, mensaje en estado incierto, intento fallido
   - Cada uno recibe solo lo suyo, y los números coinciden con datos armados a mano para el test (no con una copia del mismo SQL).
   - `?responsible=otro@…` da 400.
   - Sin sesión da 401.
-  - Un negocio archivado, uno fusionado y uno borrado no cuentan.
+  - Un negocio archivado, uno fusionado y uno borrado no cuentan en las fotos de hoy. Un contacto hecho antes de archivar o fusionar el negocio sigue contando; uno en un negocio en la papelera no.
   - «No contestó», borrador y canal abierto no cuentan como contacto.
   - Una tarea completada a las 23:30 hora argentina cuenta para ese día y no para el siguiente.
   - Un contacto del vendedor A en un negocio reasignado a B sigue siendo de A.
@@ -181,7 +184,7 @@ No cuentan: canal abierto, borrador, mensaje en estado incierto, intento fallido
 
 - Un vendedor abre «Mis estadísticas» y ve solo sus datos del período elegido. No hay forma de pedir los de otro usuario: 400 por parámetro y ningún email ajeno en la salida.
 - Los contactos cuentan solo evidencia real, y las fechas siguen el día argentino.
-- Lo archivado, fusionado y borrado no cuenta.
+- Lo archivado, fusionado y borrado no cuenta en las fotos de hoy; los hechos ya realizados se conservan (D2/D3).
 - `/analytics` queda igual.
 - Typecheck, unitarios, `test-my-stats` y tests de navegador en verde en CI.
 
