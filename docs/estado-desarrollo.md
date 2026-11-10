@@ -1101,3 +1101,8 @@ Fase 1 del MCP para ChatGPT (solo lectura) integrada en `staging` con #366 (spec
 Con aprobación del propietario: respaldo previo `~/backups/hospeda-crm/pre-spec108-20261108-181544.dump`, ensayo de GRANTs en transacción revertida y aplicación posterior de los GRANTs por columna del runbook de [MCP](crm-mcp.md). Verificado: columnas esperadas por tabla, sin acceso a `users.phone`, `users.sender_email` ni `lead_journal.actor_email`, y 0 privilegios de escritura. Sin migraciones.
 
 Pendiente: conexión real desde ChatGPT por el propietario y spec de fase 2 (escritura con confirmación).
+## Spec 109, PR 2 — «Mis estadísticas» — 10/11/2026
+
+Implementación local en `feat/spec-109-page`: página `/my-stats` para todos los usuarios, períodos de calendario argentino sincronizados con la URL, tarjetas por bloque, evolución, navegación/paleta, ayuda y refresco en vivo. El listado de Negocios no tiene filtros directos por responsable y estado en la URL; los grupos de estado quedan sin enlaces. Se agregó un artículo mínimo para el ancla de ayuda; la guía completa por métrica queda para PR 3.
+
+Validación local: `npm run typecheck` PASS; Vitest focalizado (períodos, navegación, live domains/live mode, vocabulario) PASS, 62 pruebas; build PASS; Playwright `my-stats`, `command-palette`, `permissions` y `visual-navigation` PASS, 12 pruebas. En el celular «Mis estadísticas» va en «Más» para que la barra inferior siga en una sola fila.
