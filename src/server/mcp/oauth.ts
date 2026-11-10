@@ -11,7 +11,7 @@ export const hash=(s:string)=>createHash('sha256').update(s).digest('base64url')
 const random=()=>randomBytes(32).toString('base64url');
 const escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
-const html=(body:string,status=200)=>new Response('<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Acceso de lectura al CRM</title><body><main>'+body+'</main></body></html>',{status,headers:oauthPageHeaders});
+const html=(c:Config,body:string,status=200)=>new Response('<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Acceso de lectura al CRM</title><body><main>'+body+'</main></body></html>',{status,headers:oauthPageHeaders({redirects:c.redirects})});
 export function authMetadata(c:Config){return {issuer:c.origin,authorization_endpoint:c.origin+'/mcp/oauth/authorize',token_endpoint:c.origin+'/mcp/oauth/token',revocation_endpoint:c.origin+'/mcp/oauth/revoke',response_types_supported:['code'],grant_types_supported:['authorization_code','refresh_token'],token_endpoint_auth_methods_supported:['client_secret_basic','client_secret_post'],code_challenge_methods_supported:['S256'],scopes_supported:[scope,'offline_access'],authorization_response_iss_parameter_supported:true};}
 export function resourceMetadata(c:Config){return {resource:c.resource,authorization_servers:[c.origin],scopes_supported:[scope],bearer_methods_supported:['header']};}
 async function sign(c:Config,data:Record<string,unknown>,seconds:number){return new SignJWT(data).setProtectedHeader({alg:'HS256'}).setIssuer(c.origin).setAudience(c.resource).setIssuedAt().setExpirationTime(Math.floor(Date.now()/1000)+seconds).sign(new TextEncoder().encode(c.tokenSecret));}
@@ -32,12 +32,12 @@ function redirect(c:Config,p:{redirect:string;state:string},code?:string){const 
 export async function authorize(c:Config,request:Request){
  try{
   let user;
-  try{user=(await getServerUserSession(request)).user;}catch{logLine('warn',{event:'mcp_oauth_failure',code:'invalid_request',method:'GET',path:'/mcp/oauth/authorize'});return html('<h1>Conectar el CRM</h1><p>Abrí el CRM en otra pestaña e iniciá sesión. Después volvé y recargá esta página.</p><a href="/login" target="_blank" rel="noopener">Abrir CRM</a>',401);}
+  try{user=(await getServerUserSession(request)).user;}catch{logLine('warn',{event:'mcp_oauth_failure',code:'invalid_request',method:'GET',path:'/mcp/oauth/authorize'});return html(c,'<h1>Conectar el CRM</h1><p>Abrí el CRM en otra pestaña e iniciá sesión. Después volvé y recargá esta página.</p><a href="/login" target="_blank" rel="noopener">Abrir CRM</a>',401);}
   await admin(user.id);
   if(request.method==='GET'){
    const p=authorizeParams(c,new URL(request.url));
    const consent=await sign(c,{kind:'consent',userId:user.id,...p},300);
-   return html(`<h1>Autorizar lectura del CRM</h1><p>ChatGPT podrá consultar negocios, clasificaciones, datos de contacto y el historial comercial. No podrá editar, fusionar, borrar ni enviar mensajes.</p><form method="post"><input type="hidden" name="consent" value="${escape(consent)}"><button name="decision" value="allow">Autorizar lectura</button> <button name="decision" value="deny">Cancelar</button></form>`);
+   return html(c,`<h1>Autorizar lectura del CRM</h1><p>ChatGPT podrá consultar negocios, clasificaciones, datos de contacto y el historial comercial. No podrá editar, fusionar, borrar ni enviar mensajes.</p><form method="post"><input type="hidden" name="consent" value="${escape(consent)}"><button name="decision" value="allow">Autorizar lectura</button> <button name="decision" value="deny">Cancelar</button></form>`);
   }
   if(request.headers.get('origin')!==c.origin){logLine('warn',{event:'mcp_rejected',code:'origin_not_allowed',method:'POST',path:'/mcp/oauth/authorize',received:safeReceivedOrigin(request.headers.get('origin')??'')});return json({error:'invalid_request'},400);}
   const form=await request.formData(),p=await verify(c,String(form.get('consent')??''));
