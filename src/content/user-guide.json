@@ -50,7 +50,8 @@
           "Las cifras marcadas «ahora» muestran la situación actual y no cambian con el período.",
           "Contacto real es un envío confirmado, una respuesta o un resultado registrado. No cuenta abrir WhatsApp, guardar un borrador ni una llamada sin respuesta.",
           "Lo que hiciste queda a tu nombre aunque después el negocio pase a otra persona. Los negocios y gestiones de «ahora» siguen al responsable actual.",
-          "Con menos de 3 gestiones el promedio de primer contacto muestra «Pocos datos»."
+          "Con menos de 3 gestiones el promedio de primer contacto muestra «Pocos datos».",
+          "Si sos administrador, en «Ver estadísticas de» elegís una persona activa y ves sus números tal como los ve ella. «Volver a mis números» te devuelve a los tuyos."
         ],
         "url": "/my-stats",
         "linkLabel": "Abrir Mis estadísticas",
@@ -67,7 +68,9 @@
           "Mis contactos",
           "Evolución",
           "ahora",
-          "Pocos datos"
+          "Pocos datos",
+          "Ver estadísticas de",
+          "Volver a mis números"
         ]
       },
       {
