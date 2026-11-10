@@ -1,6 +1,6 @@
 # Spec 109 — «Mis estadísticas» para el vendedor
 
-Estado: **propuesta para revisión** (09/11/2026). Página nueva donde cada usuario ve solo sus propios números. La página «Estadísticas» del admin (`/analytics`) no cambia en esta spec.
+Estado: **aprobada** (09/11/2026; decisiones D1–D4 del propietario). Página nueva donde cada usuario ve solo sus propios números. La página «Estadísticas» del admin (`/analytics`) no cambia en esta spec.
 
 ## Problema
 
@@ -70,7 +70,7 @@ Verificado en `origin/staging` el 09/11/2026.
   - En las fotos de hoy (negocios, gestiones abiertas, tareas pendientes, sin movimiento) no cuentan los negocios borrados (`deleted_at`), fusionados (`merged_into_id`) ni archivados, igual que en «Hoy» y en el embudo del vendedor.
   - Los hechos del período (tarea completada, contacto, cierre) siguen contando aunque el negocio se haya archivado o fusionado después, por D2. Solo se descartan si el propio registro (tarea, actividad, mensaje, evento) está borrado o si el negocio está en la papelera (`deleted_at`).
   - Los negocios marcados «No contactar» cuentan, con su propio indicador.
-- **D4 (propuesta) — ruta y menú:** `/my-stats`, con la etiqueta «Mis estadísticas», en la sección de trabajo después de «Bandeja», visible para todos. Se suma a la paleta de comandos. El admin conserva «Estadísticas» en su menú.
+- **D4 (propietario, 09/11/2026) — ruta y menú:** `/my-stats`, con la etiqueta «Mis estadísticas», en la sección de trabajo después de «Bandeja», visible para todos. Se suma a la paleta de comandos. El admin conserva «Estadísticas» en su menú.
 
 ## 1. Período
 
