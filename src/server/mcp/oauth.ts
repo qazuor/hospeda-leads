@@ -6,11 +6,12 @@ import {getServerUserSession} from '../../helpers/getServerUserSession';
 import {type Config,scope} from './config';
 import {logLine} from '../observability';
 import {safeReceivedOrigin} from './safe';
+import {oauthPageHeaders} from './oauthPage';
 export const hash=(s:string)=>createHash('sha256').update(s).digest('base64url');
 const random=()=>randomBytes(32).toString('base64url');
 const escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
-const html=(body:string,status=200)=>new Response('<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Acceso de lectura al CRM</title><body><main>'+body+'</main></body></html>',{status,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'}});
+const html=(body:string,status=200)=>new Response('<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Acceso de lectura al CRM</title><body><main>'+body+'</main></body></html>',{status,headers:oauthPageHeaders});
 export function authMetadata(c:Config){return {issuer:c.origin,authorization_endpoint:c.origin+'/mcp/oauth/authorize',token_endpoint:c.origin+'/mcp/oauth/token',revocation_endpoint:c.origin+'/mcp/oauth/revoke',response_types_supported:['code'],grant_types_supported:['authorization_code','refresh_token'],token_endpoint_auth_methods_supported:['client_secret_basic','client_secret_post'],code_challenge_methods_supported:['S256'],scopes_supported:[scope,'offline_access'],authorization_response_iss_parameter_supported:true};}
 export function resourceMetadata(c:Config){return {resource:c.resource,authorization_servers:[c.origin],scopes_supported:[scope],bearer_methods_supported:['header']};}
 async function sign(c:Config,data:Record<string,unknown>,seconds:number){return new SignJWT(data).setProtectedHeader({alg:'HS256'}).setIssuer(c.origin).setAudience(c.resource).setIssuedAt().setExpirationTime(Math.floor(Date.now()/1000)+seconds).sign(new TextEncoder().encode(c.tokenSecret));}
