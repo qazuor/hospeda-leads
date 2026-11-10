@@ -27,6 +27,7 @@
     "test:browser": "playwright test",
     "test:work": "node --env-file-if-exists=.env.test scripts/test-work-migration.mjs && node --env-file-if-exists=.env.test --import tsx scripts/test-work.ts",
     "test:pipeline": "node --env-file-if-exists=.env.test scripts/test-pipeline-migration.mjs && node --env-file-if-exists=.env.test --import tsx scripts/test-pipeline.ts",
+    "test:my-stats": "node --env-file-if-exists=.env.test --import tsx scripts/test-my-stats.ts",
     "test:business-state-migration": "node --env-file-if-exists=.env.test scripts/test-business-state-migration.mjs",
     "test:account-classifications-migration": "node --env-file-if-exists=.env.test scripts/test-account-classifications-migration.mjs",
     "test:business-state": "node --env-file-if-exists=.env.test --import tsx scripts/test-business-state.ts",
