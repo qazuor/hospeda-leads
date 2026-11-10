@@ -37,7 +37,7 @@
         "title": "Ver Mis estadísticas",
         "when": "Cuando quieras consultar tus números del período elegido.",
         "steps": [
-          "Abrí «Mis estadísticas» desde Trabajo. Elegí Hoy, Esta semana, Este mes o un rango para revisar tus tareas, negocios, gestiones y contactos."
+          "Abrí «Mis estadísticas» desde Trabajo. Elegí «Hoy», «Esta semana», «Este mes» o «Rango» para revisar tus tareas, negocios, gestiones y contactos."
         ],
         "result": "Consultás tus propios números y el período elegido.",
         "example": [],
@@ -48,7 +48,10 @@
         "linkLabel": "Abrir Mis estadísticas",
         "uiLabels": [
           "Mis estadísticas",
-          "Esta semana"
+          "Hoy",
+          "Esta semana",
+          "Este mes",
+          "Rango"
         ]
       },
       {
@@ -280,7 +283,8 @@
           "Mensajes sin asociar",
           "User script de WhatsApp",
           "Material de venta",
-          "Herramientas"
+          "Herramientas",
+          "Mis estadísticas"
         ]
       },
       {
