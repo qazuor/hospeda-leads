@@ -10,6 +10,9 @@ import {CrmEmptyState} from '../components/ui/CrmEmptyState';
 import {QueryLoadingNotice} from '../components/QueryLoadingNotice';
 import {QueryErrorNotice} from '../components/QueryErrorNotice';
 import {getMyStats} from '../endpoints/my_stats_GET.schema';
+import {getSettings} from '../endpoints/settings_GET.schema';
+import {CrmSelect} from '../components/ui/CrmSelect';
+import {useAuth} from '../helpers/useAuth';
 import {businessStatusLabels} from '../helpers/businessStatus';
 import {localDay} from '../helpers/workDates';
 import {parseStatsPeriod,serializeStatsPeriod,validateStatsRange,type StatsPeriod,type StatsPreset} from '../helpers/myStatsPeriod';
@@ -20,29 +23,40 @@ const number=(value:number)=>value.toLocaleString('es-AR');
 const presets:{value:StatsPreset;label:string}[]=[{value:'today',label:'Hoy'},{value:'week',label:'Esta semana'},{value:'month',label:'Este mes'},{value:'range',label:'Rango'}];
 function Stat({label,value,help}:{label:string;value:string|number;help:string}){return <div className={styles.stat} title={help}><strong>{value}</strong><span>{label}</span><small>{help}</small></div>}
 function Card({title,icon:Icon,children}:{title:string;icon:typeof Target;children:ReactNode}){return <article className={styles.card}><h2><Icon size={19}/>{title}</h2>{children}</article>}
-/** Seller-only statistics for the selected Argentina calendar period. */
+/** Personal statistics for the selected Argentina calendar period. Admins can pick an active user and see that user's numbers. */
 export default function MyStatsPage(){
- const [params,setParams]=useSearchParams();
+ const [params,setParams]=useSearchParams(),{authState}=useAuth();
+ const me=authState.type==='authenticated'?authState.user:null,admin=me?.role==='admin';
  const period=useMemo(()=>parseStatsPeriod(params),[params]);
+ const settings=useQuery({queryKey:['settings'],queryFn:getSettings,enabled:admin});
+ const rawUser=params.get('user'),viewedId=admin&&rawUser&&/^[1-9]\d{0,9}$/.test(rawUser)&&Number(rawUser)!==me?.id?rawUser:null;
+ const activeUsers=(settings.data?.users??[]).filter(user=>!user.deactivatedAt&&user.id!==me?.id).sort((x,y)=>(x.displayName||x.email).localeCompare(y.displayName||y.email,'es'));
+ const viewed=viewedId?activeUsers.find(user=>String(user.id)===viewedId)??null:null,viewedName=viewed?viewed.displayName||viewed.email:null;
+ /** Keeps the viewed user when the period changes. */
+ const withUser=(query:string)=>{const next=new URLSearchParams(query);if(viewedId)next.set('user',viewedId);return next;};
+ // An unknown or inactive user in the URL falls back to the admin's own numbers instead of an error that a retry cannot fix.
+ useEffect(()=>{if(viewedId&&settings.isSuccess&&!viewed){const next=new URLSearchParams(params);next.delete('user');setParams(next,{replace:true});}},[viewedId,settings.isSuccess,viewed,params,setParams]);
+ const selectUser=(value:string|null)=>{const next=new URLSearchParams(params);if(!value||value==='self')next.delete('user');else next.set('user',value);setParams(next);};
  const rangeError=period.preset==='range'?validateStatsRange(period.from,period.to):null;
- useEffect(()=>{const raw=params.get('period');if((!params.has('period')&&!params.has('from')&&!params.has('to'))||(raw!==null&&!['today','week','month'].includes(raw))||(!period.valid&&period.preset==='month'))setParams(new URLSearchParams('period=month'),{replace:true});},[params,period,setParams]);
- const query=useQuery({queryKey:['myStats',period.from,period.to],queryFn:()=>getMyStats({from:period.from,to:period.to}),enabled:period.valid&&!rangeError});
+ useEffect(()=>{const raw=params.get('period');if((!params.has('period')&&!params.has('from')&&!params.has('to'))||(raw!==null&&!['today','week','month'].includes(raw))||(!period.valid&&period.preset==='month'))setParams(withUser('period=month'),{replace:true});},[params,period,setParams]);
+ const query=useQuery({queryKey:['myStats',period.from,period.to,viewedId??'self'],queryFn:()=>getMyStats({from:period.from,to:period.to,...(viewedId?{user:viewedId}:{})}),enabled:period.valid&&!rangeError});
  const selectPreset=(preset:StatsPreset)=>{
   if(preset==='range'){
    const today=localDay(),initial:StatsPeriod={preset:'range',from:`${today.slice(0,7)}-01`,to:today,valid:true,message:null};
-   setParams(new URLSearchParams(serializeStatsPeriod(initial)));
-  }else setParams(new URLSearchParams(serializeStatsPeriod({...period,preset,valid:true,message:null})));
+   setParams(withUser(serializeStatsPeriod(initial)));
+  }else setParams(withUser(serializeStatsPeriod({...period,preset,valid:true,message:null})));
  };
- const setRange=(key:'from'|'to',value:string)=>{const next={...period,[key]:value,valid:true,message:null};setParams(new URLSearchParams(serializeStatsPeriod(next)));};
+ const setRange=(key:'from'|'to',value:string)=>{const next={...period,[key]:value,valid:true,message:null};setParams(withUser(serializeStatsPeriod(next)));};
  const data=query.data;
  const empty=data&&data.work.completed===0&&data.managements.won===0&&data.managements.lost===0&&data.contacts.events===0&&data.series.points.every(point=>point.contacts===0&&point.won===0);
  return <main className={styles.shell}>
-  <PageHeader eyebrow="TRABAJO" title="Mis estadísticas" description="Tus números del período elegido" topic="myStats"/>
+  <PageHeader eyebrow="TRABAJO" title="Mis estadísticas" description={viewedId?`Viendo a ${viewedName??"otra persona"} · sus números del período elegido`:"Tus números del período elegido"} topic="myStats"/>
+  {admin&&<section className={styles.viewer} aria-label="Ver estadísticas de"><CrmSelect label="Ver estadísticas de" value={viewedId??"self"} onChange={selectUser} disabled={settings.isPending} data={[{value:"self",label:"Yo"},...activeUsers.map(user=>({value:String(user.id),label:user.displayName||user.email}))]}/>{viewedId&&<Button variant="outline" size="sm" onClick={()=>selectUser(null)}>Volver a mis números</Button>}{settings.error&&<p className={styles.validation} role="alert">No se pudo cargar la lista de usuarios. <Button variant="outline" size="sm" onClick={()=>settings.refetch()} disabled={settings.isFetching}>Reintentar</Button></p>}</section>}
   <section className={styles.period} aria-label="Período"><div className={styles.presets}>{presets.map(item=><Button key={item.value} variant={period.preset===item.value?'primary':'outline'} size="sm" aria-pressed={period.preset===item.value} onClick={()=>selectPreset(item.value)}>{item.label}</Button>)}</div>
    {period.preset==='range'&&<div className={styles.range}><label>Desde<CrmDateInput value={period.from} onValueChange={value=>setRange('from',value)}/></label><label>Hasta<CrmDateInput value={period.to} onValueChange={value=>setRange('to',value)}/></label></div>}
   </section>
   {rangeError&&<p className={styles.validation} role="alert">{rangeError}</p>}
-  {query.isPending&&period.valid&&!rangeError&&<QueryLoadingNotice>Cargando tus estadísticas…</QueryLoadingNotice>}
+  {query.isPending&&period.valid&&!rangeError&&<QueryLoadingNotice>{viewedId?'Cargando sus estadísticas…':'Cargando tus estadísticas…'}</QueryLoadingNotice>}
   {query.error&&<QueryErrorNotice error={query.error} onRetry={query.refetch} busy={query.isFetching} backTo="/my-day"/>}
   {data&&<>
    {empty&&<CrmEmptyState>Todavía no hay movimientos en este período</CrmEmptyState>}

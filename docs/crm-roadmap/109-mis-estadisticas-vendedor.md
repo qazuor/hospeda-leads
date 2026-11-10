@@ -71,6 +71,7 @@ Verificado en `origin/staging` el 09/11/2026.
   - Los hechos del período (tarea completada, contacto, cierre) siguen contando aunque el negocio se haya archivado o fusionado después, por D2. Solo se descartan si el propio registro (tarea, actividad, mensaje, evento) está borrado o si el negocio está en la papelera (`deleted_at`).
   - Los negocios marcados «No contactar» cuentan, con su propio indicador.
 - **D4 (propietario, 09/11/2026) — ruta y menú:** `/my-stats`, con la etiqueta «Mis estadísticas», en la sección de trabajo después de «Bandeja», visible para todos. Se suma a la paleta de comandos. El admin conserva «Estadísticas» en su menú.
+- **D5 (propietario, 10/11/2026) — vista del admin:** un admin puede elegir un usuario activo en «Ver estadísticas de» y ver exactamente los números que ve esa persona (mismas reglas D2 y D3). Es una persona por vez, no una comparación, así que D1 se mantiene. El endpoint acepta `user` (id) solo para admin: un vendedor que lo manda recibe 403, y un id inexistente o inactivo da 400. La elección queda en la URL (`?user=`).
 
 ## 1. Período
 

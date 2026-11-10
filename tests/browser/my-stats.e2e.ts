@@ -7,7 +7,7 @@ for(const role of ['user','admin'] as const)test(`${role} can view personal stat
  await page.setViewportSize({width:1280,height:900});await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
  await page.route('**/_api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
-  const data=path.endsWith('/auth/session')?{user:{id:3,email:'seller@example.com',displayName:'Vendedora',role}}:path.endsWith('/my_stats')?stats:path.endsWith('/analytics')?{pipelineOpen:0,pipelineWon:0,pipelineLost:0,lossReasons:[],total:0,pending:0,subscribed:0,overdue:0,withPhone:0,withEmail:0,withWebsite:0,noContact:0,inactive30:0,contacted:0,conversionRate:0,new7:0,avgDaysToFirstContact:null,firstContactSamples:0,byCity:[],byStatus:[],byType:[],bySubtype:[],byOrigin:[],byPriority:[],byResponsible:[],byTypeConversion:[],byResponsibleConversion:[],avgDaysByStatus:[],createdByDay:[]}:path.endsWith('/settings')?{users:[],cities:[],types:[],subtypes:[],contactChannels:[],templates:[],authorizedEmails:[],opportunityStages:[]}:{ };
+  const data=path.endsWith('/auth/session')?{user:{id:3,email:'seller@example.com',displayName:'Vendedora',role}}:path.endsWith('/my_stats')?stats:path.endsWith('/analytics')?{pipelineOpen:0,pipelineWon:0,pipelineLost:0,lossReasons:[],total:0,pending:0,subscribed:0,overdue:0,withPhone:0,withEmail:0,withWebsite:0,noContact:0,inactive30:0,contacted:0,conversionRate:0,new7:0,avgDaysToFirstContact:null,firstContactSamples:0,byCity:[],byStatus:[],byType:[],bySubtype:[],byOrigin:[],byPriority:[],byResponsible:[],byTypeConversion:[],byResponsibleConversion:[],avgDaysByStatus:[],createdByDay:[]}:path.endsWith('/settings')?{users:[{id:3,email:'seller@example.com',displayName:'Vendedora',role},{id:7,email:'maria@example.com',displayName:'María',role:'user'},{id:8,email:'old@example.com',displayName:'Inactivo',role:'user',deactivatedAt:new Date('2026-01-01')}],cities:[],types:[],subtypes:[],contactChannels:[],templates:[],authorizedEmails:[],opportunityStages:[]}:{ };
   await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
  });
  await page.goto('/my-stats');await expect(page).toHaveURL(/period=month/);await expect(page.getByRole('heading',{name:'Mis estadísticas'})).toBeVisible();
@@ -19,4 +19,23 @@ for(const role of ['user','admin'] as const)test(`${role} can view personal stat
  const bottom=page.getByRole('navigation',{name:'Navegación inferior'});await expect(bottom.getByRole('link',{name:'Mis estadísticas'})).toHaveCount(0);await bottom.getByRole('button',{name:'Más'}).click();await expect(page.getByRole('dialog').getByRole('link',{name:'Mis estadísticas'})).toBeVisible();await page.keyboard.press('Escape');
  await expect(page.getByText('Los grupos no enlazan')).toHaveCount(0);await expect(page.getByText('Pocos datos',{exact:true})).toBeVisible();
  if(role==='admin'){await page.goto('/analytics');await expect(page).toHaveURL(/\/analytics$/);await expect(page.getByRole('heading',{name:'Estadísticas'})).toBeVisible();}
+});
+
+test('admin picks a user and sees that user statistics; sellers have no picker',async({page})=>{
+ const requested:string[]=[];let role:'admin'|'user'='admin';
+ await page.setViewportSize({width:1280,height:900});await page.addInitScript(()=>localStorage.setItem('hospeda-live-mode','off'));
+ await page.route('**/_api/**',async route=>{
+  const url=new URL(route.request().url()),path=url.pathname;if(path.endsWith('/my_stats'))requested.push(url.search);
+  const data=path.endsWith('/auth/session')?{user:{id:3,email:'seller@example.com',displayName:'Vendedora',role}}:path.endsWith('/my_stats')?stats:path.endsWith('/settings')?{users:[{id:3,email:'seller@example.com',displayName:'Vendedora',role},{id:7,email:'maria@example.com',displayName:'María',role:'user'},{id:8,email:'old@example.com',displayName:'Inactivo',role:'user',deactivatedAt:new Date('2026-01-01')}],cities:[],types:[],subtypes:[],contactChannels:[],templates:[],authorizedEmails:[],opportunityStages:[]}:{};
+  await route.fulfill({contentType:'application/json',body:superjson.stringify(data)});
+ });
+ await page.goto('/my-stats');const picker=page.getByRole('combobox',{name:'Ver estadísticas de'});await expect(picker).toHaveValue('Yo');
+ await picker.click();await expect(page.getByRole('option',{name:'Inactivo'})).toHaveCount(0);await expect(page.getByRole('option',{name:'Vendedora'})).toHaveCount(0);await page.getByRole('option',{name:'María'}).click();
+ await expect(page).toHaveURL(/user=7/);await expect(page.getByText('Viendo a María')).toBeVisible();await expect.poll(()=>requested.some(q=>q.includes('user=7'))).toBe(true);
+ await page.getByRole('button',{name:'Esta semana',exact:true}).click();await expect(page).toHaveURL(/period=week/);await expect(page).toHaveURL(/user=7/);
+ await page.reload();await expect(page.getByText('Viendo a María')).toBeVisible();
+ await page.getByRole('button',{name:'Volver a mis números'}).click();await expect(page).not.toHaveURL(/user=/);await expect(picker).toHaveValue('Yo');
+ await page.goto('/my-stats?period=month&user=8');await expect(page).not.toHaveURL(/user=/);await expect(picker).toHaveValue('Yo');await expect(page.getByText('Viendo a')).toHaveCount(0);
+ role='user';requested.length=0;await page.goto('/my-stats?period=month&user=7');await expect(page.getByRole('heading',{name:'Mi trabajo'})).toBeVisible();
+ await expect(page.getByRole('combobox',{name:'Ver estadísticas de'})).toHaveCount(0);await expect(page.getByText('Viendo a')).toHaveCount(0);expect(requested.every(q=>!q.includes('user='))).toBe(true);
 });
