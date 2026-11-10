@@ -54,7 +54,7 @@ const email='mcp-test-'+Date.now()+'@staff-secret.example';
  const authorizePath='/mcp/oauth/authorize?'+params;
  assert.equal((await call(authorizePath)).status,401);
  const bad=new URLSearchParams(params);bad.set('redirect_uri','https://evil.example');assert.equal((await call('/mcp/oauth/authorize?'+bad,{headers:{cookie}})).status,400);
- const consent=await call(authorizePath,{headers:{cookie}});assert.equal(consent.status,200);assert.equal(consent.headers.get('referrer-policy'),'same-origin','no-referrer makes browsers send Origin: null on the consent POST');const consentToken=(await consent.text()).match(/name="consent" value="([^"]+)"/)![1];
+ const consent=await call(authorizePath,{headers:{cookie}});assert.equal(consent.status,200);assert.equal(consent.headers.get('referrer-policy'),'same-origin','no-referrer makes browsers send Origin: null on the consent POST');assert.match(consent.headers.get('content-security-policy')??'',/form-action 'self' https:\/\/chatgpt\.com;/,'form-action must allow the redirect back to the client');const consentToken=(await consent.text()).match(/name="consent" value="([^"]+)"/)![1];
  const form=new URLSearchParams({consent:consentToken,decision:'allow'});
  assert.equal((await call('/mcp/oauth/authorize',{method:'POST',headers:{cookie,origin:'https://chatgpt.com'},body:form})).status,400);
  const approved=await call('/mcp/oauth/authorize',{method:'POST',headers:{cookie,origin},body:form});assert.equal(approved.status,303);
