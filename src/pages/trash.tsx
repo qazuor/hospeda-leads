@@ -38,7 +38,7 @@ function ManagementTrashPanel(){
   const debounced=useDebounce(q,300);
   const trash=useQuery({queryKey:["trash-leads",debounced,page],queryFn:()=>getTrashLeads({q:debounced||undefined,page,pageSize:50}),placeholderData:previous=>previous});
   const settings=useQuery({queryKey:["settings"],queryFn:getSettings});
-  const refresh=async()=>Promise.all([qc.invalidateQueries({queryKey:["trash-leads"]}),qc.invalidateQueries({queryKey:["leads"]}),qc.invalidateQueries({queryKey:["lead-stats"]}),qc.invalidateQueries({queryKey:["analytics"]}),qc.invalidateQueries({queryKey:["global-journal"]}),qc.invalidateQueries({queryKey:["lead-journal"]})]);
+  const refresh=async()=>Promise.all([qc.invalidateQueries({queryKey:["trash-leads"]}),qc.invalidateQueries({queryKey:["leads"]}),qc.invalidateQueries({queryKey:["lead-stats"]}),qc.invalidateQueries({queryKey:["analytics"]}),qc.invalidateQueries({queryKey:["myStats"]}),qc.invalidateQueries({queryKey:["global-journal"]}),qc.invalidateQueries({queryKey:["lead-journal"]})]);
   const restore=useMutation({mutationFn:postLeadRestore,onSuccess:refresh});
   const hardDelete=useMutation({mutationFn:postLeadHardDelete,onSuccess:refresh});
   const data=trash.data,rows=data?.rows??[];

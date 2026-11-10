@@ -274,6 +274,7 @@ export default function LeadsPage({businessMode=false}:{businessMode?:boolean}){
       qc.invalidateQueries({queryKey:QUERY_KEY}),
       qc.invalidateQueries({queryKey:["lead-stats"]}),
       qc.invalidateQueries({queryKey:["analytics"]}),
+      qc.invalidateQueries({queryKey:["myStats"]}),
       qc.invalidateQueries({queryKey:["lead-duplicates"]}),
       qc.invalidateQueries({queryKey:["lead-journal"]}),
       qc.invalidateQueries({queryKey:["global-journal"]}),

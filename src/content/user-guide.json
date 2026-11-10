@@ -33,6 +33,25 @@
         ]
       },
       {
+        "id": "my-stats",
+        "title": "Ver Mis estadísticas",
+        "when": "Cuando quieras consultar tus números del período elegido.",
+        "steps": [
+          "Abrí «Mis estadísticas» desde Trabajo. Elegí Hoy, Esta semana, Este mes o un rango para revisar tus tareas, negocios, gestiones y contactos."
+        ],
+        "result": "Consultás tus propios números y el período elegido.",
+        "example": [],
+        "notes": [
+          "La guía completa de cada métrica se agregará en una próxima actualización."
+        ],
+        "url": "/my-stats",
+        "linkLabel": "Abrir Mis estadísticas",
+        "uiLabels": [
+          "Mis estadísticas",
+          "Esta semana"
+        ]
+      },
+      {
         "id": "management-list",
         "title": "Usar la lista de Gestiones",
         "when": "Cuando quieras revisar, filtrar o guardar una vista de tus gestiones.",
@@ -212,7 +231,10 @@
         "linkLabel": "",
         "uiLabels": [
           "Anotar lo que pasó",
-          "Agendar tarea", "Crear negocio", "Agregar otra vertical"]
+          "Agendar tarea",
+          "Crear negocio",
+          "Agregar otra vertical"
+        ]
       },
       {
         "id": "screens",
@@ -222,10 +244,11 @@
           "«Hoy» es tu punto de partida: tus tareas vencidas, las de hoy y las que vienen. Tiene tres solapas: «Lista», «Calendario» y «Para retomar».",
           "«Negocios»: buscá comercios, cargá uno nuevo con «Nuevo negocio» y abrilo para ver qué pasó, sus gestiones, sus personas y sus datos.",
           "«Gestiones»: mirá las propuestas concretas, ordenadas por etapa. Abrí una para ver Resumen, Seguimiento, Notas, Comunicación y Documentos.",
+          "«Mis estadísticas» resume tus tareas, negocios, gestiones y contactos reales; elegí el período que quieras consultar.",
           "«Calendario» (dentro de Hoy) muestra visitas y reuniones con fecha. No reemplaza la lista de tareas.",
           "«Para retomar» (dentro de Hoy) reúne las gestiones cerradas que tienen una fecha para volver a hablar. Reabrir una gestión cerrada requiere un administrador.",
           "«Ayuda» es esta guía. Con Ctrl+K (o el botón de accesos rápidos) buscás cualquier negocio, gestión o explicación desde cualquier pantalla.",
-          "En el menú «Administración» están «Configuración», «Estadísticas», «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Mensajes sin asociar». Si no los ves, son del administrador.",
+          "En el menú «Administración» están «Configuración», «Estadísticas» del equipo, «Historial del equipo», «Papelera», «Negocios archivados», «Importar CSV», «Buscar duplicados» y «Mensajes sin asociar». Si no los ves, son del administrador.",
           "En tu menú personal, arriba a la derecha, está «User script de WhatsApp»: ahí instalás el script para WhatsApp Web y creás tu token."
         ],
         "result": "Sabés dónde buscar según lo que querés hacer.",

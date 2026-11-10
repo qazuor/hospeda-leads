@@ -27,7 +27,7 @@ import {BusinessClassificationsField,type BusinessClassification} from './Busine
 const empty={nombre:'',ciudad:'',telefono:'',instagram:'',email:'',tipo:'',subtipo:'',personName:'',personPhone:''};
 /** Values the dialog opens with (spec 98 §17: the phone or Instagram of a chat without a business). */
 export type BusinessPrefill={telefono?:string;instagram?:string};
-const invalidated=['commercial','commercial-detail','leads','lead-stats','lead-journal','global-journal','analytics','trash-businesses','work','crm-search','business-duplicate-check'];
+const invalidated=['commercial','commercial-detail','leads','lead-stats','lead-journal','global-journal','analytics','myStats','trash-businesses','work','crm-search','business-duplicate-check'];
 
 /**
  * "Nuevo negocio": one step with name, city and phone, an optional person (saved as Principal in the same transaction)
