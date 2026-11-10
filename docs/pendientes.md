@@ -6,6 +6,8 @@ Rama `feat/sales-material-list-layout`. Tras el merge, revisar en un teléfono r
 
 # Pendientes y próximo trabajo
 
+- **Spec 109, PR 2 — «Mis estadísticas» (`feat/spec-109-page`):** implementación local lista para revisión; typecheck y 62 pruebas focalizadas pasan. Navegador no ejecutado en este entorno. Próximo paso: completar PR 3 (guía por métrica y notas de `/analytics`) y validar en CI/browser.
+
 - **Spec 108 en producción (08/11/2026):** fase 1 (12 herramientas de lectura) promovida con #370 y desplegada por Coolify; GRANTs por columna del lector aplicados con aprobación del propietario (log `~/backups/hospeda-crm/spec108-grants-20261108.log`, respaldo `pre-spec108-20261108-181544.dump`). Próximo paso: el propietario conecta ChatGPT y confirma el panel de diagnóstico en Configuración. Después: spec de fase 2 (escritura con confirmación, nunca envía). Menor: teléfonos del equipo dentro de texto libre no se ocultan.
 
 - **Spec 106 en producción (06/11/2026):** promovida con #364; migración 066 aplicada (3533 negocios con su par en `crm_account_classifications`). Runbook §13 ejecutado con aprobación del propietario: 16 verticales agregadas a 14 negocios, 0 rechazos, 0 diferencias de copia de visualización. Pendiente menor: en la lista, con dos verticales, no se ve qué subtipo corresponde a cada vertical (ficha y vista rápida sí lo muestran).
@@ -469,4 +471,3 @@ Pendiente completar la cobertura de guardas de responsable activo en todas las r
 - Bloques 4 (UI) y 5 (mensajes/material/email/historial) implementados localmente; ver el registro actualizado de bloque 6 al inicio de este documento.
 
 - **Spec 106, bloque 5:** implementado: compatibilidad de plantillas y variables D9, relevancia de material por todas las verticales, `contextVerticals` en CRM y userscript, etiqueta email D10 e historial de pares bajo «Verticales». El próximo paso común de spec 106 está registrado al inicio de este documento.
-

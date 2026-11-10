@@ -20,6 +20,7 @@ const AccountsPage=React.lazy(()=>import("./pages/accounts"));
 const BusinessListPage=React.lazy(()=>import("./pages/business-list"));
 const LeadsPage=React.lazy(()=>import("./pages/_index"));
 const AnalyticsPage=React.lazy(()=>import("./pages/analytics"));
+const MyStatsPage=React.lazy(()=>import('./pages/my-stats'));
 const HistoryPage=React.lazy(()=>import("./pages/history"));
 const LoginPage=React.lazy(()=>import("./pages/login"));
 const RegisterPage=React.lazy(()=>import("./pages/register"));
@@ -73,6 +74,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/accounts" element={<UserRoute><BusinessListPage /></UserRoute>} />
             <Route path="/accounts/:accountId" element={<UserRoute><AccountsPage /></UserRoute>} />
             <Route path="/my-day" element={<UserRoute><MyDayPage/></UserRoute>} />
+            <Route path="/my-stats" element={<UserRoute><MyStatsPage/></UserRoute>} />
             <Route path="/inbox" element={<UserRoute><InboxPage/></UserRoute>} />
             {/* Agenda and Reactivación live inside Hoy (owner decision 5A); old bookmarks keep working. */}
             <Route path="/reactivation" element={<Navigate to="/my-day?view=retomar" replace />} />
